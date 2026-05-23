@@ -17,10 +17,9 @@ export default function Home() {
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-    fetch(\/)
+    fetch(`${apiUrl}/`)
       .then((res) => {
-        if (!res.ok) throw new Error(HTTP \);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then((json: HealthResponse) => {
@@ -32,7 +31,8 @@ export default function Home() {
       });
   }, []);
 
-  const now = new Date().toISOString();
+  const [now, setNow] = useState('');
+  useEffect(() => { setNow(new Date().toISOString()); }, []);
 
   return (
     <main
