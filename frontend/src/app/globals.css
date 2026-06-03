@@ -2,21 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
-
-:root {
-  --font-mono: 'IBM Plex Mono', monospace;
-  --font-sans: 'IBM Plex Sans', sans-serif;
-}
-
 * {
+  -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
 }
 
 body {
-  background-color: #0a0a0a;
-  color: #e5e5e5;
-  font-family: var(--font-sans);
-  margin: 0;
-  padding: 0;
+  overscroll-behavior: none;
+}
+
+/* Ensure touch targets are always at least 48px */
+button, a {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Page scroll padding for fixed header + bottom nav */
+.page-content {
+  padding-top: 56px;
+  padding-bottom: 80px;
+  min-height: 100vh;
+}
+
+/* Page content without bottom nav (auth, lang-select screens) */
+.page-content-bare {
+  padding-top: 56px;
+  min-height: 100vh;
 }

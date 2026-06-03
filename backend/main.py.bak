@@ -1,0 +1,441 @@
+# =============================================================================
+# MigrantShield — Phase 5 Background Worker
+# File: backend/worker.py
+# Description: Pure async analysis pipeline. No ARQ, no Redis.
+#              Called directly by FastAPI BackgroundTasks after upload.
+#              Groq Vision OCR, PDF rendering, schema validation,
+#              and Supabase commits all intact.
+# =============================================================================
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import os
+import re
+import traceback
+from datetime import datetime, timezone
+from typing import Any
+
+import httpx
+import fitz  # PyMuPDF — PDF page rendering
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# -----------------------------------------------------------------------------
+# Environment & Logging
+# -----------------------------------------------------------------------------
+
+load_dotenv(override=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+)
+logger = logging.getLogger("migrantshield.worker")
+
+SUPABASE_URL: str         = os.environ["SUPABASE_URL"]
+SUPABASE_SERVICE_KEY: str = os.environ["SUPABASE_SERVICE_KEY"]
+GROQ_API_KEY: str         = os.environ["GROQ_API_KEY"]
+SUPABASE_BUCKET: str      = os.getenv("SUPABASE_BUCKET", "migrantshield-contracts")
+
+# Groq — Llama 4 Scout, vision-capable, free tier
+GROQ_MODEL: str    = "meta-llama/llama-4-scout-17b-16e-instruct"
+GROQ_ENDPOINT: str = "https://api.groq.com/openai/v1/chat/completions"
+
+# Maximum PDF pages to render (token budget guard)
+MAX_PDF_PAGES: int = 10
+
+# -----------------------------------------------------------------------------
+# Supabase Service Role Client
+# -----------------------------------------------------------------------------
+
+def get_supabase_client() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+
+# -----------------------------------------------------------------------------
+# Status Mutation Helper
+# -----------------------------------------------------------------------------
+
+def set_status(
+    supabase: Client,
+    contract_id: str,
+    status: str,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    payload: dict[str, Any] = {"status": status}
+    if extra:
+        payload.update(extra)
+    supabase.table("contracts").update(payload).eq(
+        "contract_id", contract_id
+    ).execute()
+    logger.info("contract_id=%s → status=%s", contract_id, status)
+
+
+# -----------------------------------------------------------------------------
+# Feature 19: Download Raw Binary from Supabase Storage
+# -----------------------------------------------------------------------------
+
+async def download_contract_file(
+    supabase: Client,
+    file_key: str,
+) -> tuple[bytes, str]:
+    logger.info("Downloading file_key=%s from bucket=%s", file_key, SUPABASE_BUCKET)
+
+    response = supabase.storage.from_(SUPABASE_BUCKET).download(file_key)
+    file_bytes: bytes = response
+
+    lower_key = file_key.lower()
+    if lower_key.endswith(".pdf"):
+        mime_type = "application/pdf"
+    elif lower_key.endswith(".png"):
+        mime_type = "image/png"
+    elif lower_key.endswith(".jpg") or lower_key.endswith(".jpeg"):
+        mime_type = "image/jpeg"
+    elif lower_key.endswith(".webp"):
+        mime_type = "image/webp"
+    else:
+        mime_type = "application/octet-stream"
+
+    logger.info("Downloaded %d bytes, mime_type=%s", len(file_bytes), mime_type)
+    return file_bytes, mime_type
+
+
+# -----------------------------------------------------------------------------
+# Feature 23: Document Extraction Routing
+# -----------------------------------------------------------------------------
+
+def pdf_to_images_base64(pdf_bytes: bytes) -> list[dict[str, Any]]:
+    """Render PDF pages to PNG and return as Groq image_url content parts."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    total_pages = min(len(doc), MAX_PDF_PAGES)
+    parts: list[dict[str, Any]] = []
+
+    logger.info("Rendering %d/%d PDF pages to PNG", total_pages, len(doc))
+
+    for page_index in range(total_pages):
+        page = doc.load_page(page_index)
+        matrix = fitz.Matrix(2.0, 2.0)
+        pix = page.get_pixmap(matrix=matrix)
+        png_bytes = pix.tobytes("png")
+        b64 = base64.b64encode(png_bytes).decode("utf-8")
+        parts.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/png;base64,{b64}",
+            },
+        })
+
+    doc.close()
+    return parts
+
+
+def image_bytes_to_groq_part(image_bytes: bytes, mime_type: str) -> dict[str, Any]:
+    """Convert raw image bytes to a Groq vision content part."""
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    return {
+        "type": "image_url",
+        "image_url": {
+            "url": f"data:{mime_type};base64,{b64}",
+        },
+    }
+
+
+def build_document_parts(file_bytes: bytes, mime_type: str) -> list[dict[str, Any]]:
+    if mime_type == "application/pdf":
+        return pdf_to_images_base64(file_bytes)
+    elif mime_type in ("image/png", "image/jpeg", "image/jpg", "image/webp"):
+        return [image_bytes_to_groq_part(file_bytes, mime_type)]
+    else:
+        raise ValueError(f"Unsupported mime_type: {mime_type}")
+
+
+# -----------------------------------------------------------------------------
+# AI Instruction Matrix
+# -----------------------------------------------------------------------------
+
+SYSTEM_PROMPT = """
+You are a specialized international labor law compliance engine analyzing employment
+contracts for migrant workers. Your sole function is to identify exploitative,
+illegal, or high-risk clauses and return a structured risk assessment.
+
+You MUST evaluate the contract against the following violation categories:
+1. RECRUITMENT_FEE — Clauses requiring workers to pay fees for job placement,
+   visa processing, or agency services (illegal under ILO standards).
+2. PASSPORT_RETENTION — Any clause permitting the employer to hold, confiscate,
+   or retain the worker's passport or identity documents.
+3. WAGE_DEDUCTION — Unauthorized or excessive deductions from salary (housing,
+   food, equipment, loans) not agreed to in writing by the worker.
+4. TERMINATION_THREAT — Clauses allowing arbitrary, sudden, or punitive contract
+   termination without notice, severance, or fair process.
+5. WORKING_HOURS — Hours exceeding ILO Convention No. 1 limits (8hrs/day,
+   48hrs/week) without overtime compensation.
+6. LEAVE_ENTITLEMENT — Denial or restriction of annual leave, sick leave,
+   or rest day entitlements.
+7. FREEDOM_OF_MOVEMENT — Restrictions on the worker's right to leave employer
+   premises, change employers, or return home.
+8. CONTRACT_SUBSTITUTION — Discrepancies suggesting the contract differs from
+   what was originally agreed or shown to the worker before arrival.
+
+CRITICAL OUTPUT RULES:
+- Respond ONLY with a single raw JSON object. No markdown. No backticks.
+  No explanation. No preamble. No postamble.
+- The JSON must conform EXACTLY to this schema:
+
+{
+  "risk_score": <integer 0-100, where 100 is maximum exploitation risk>,
+  "flags": [
+    {
+      "category": <string, one of the 8 categories above>,
+      "severity": <string, exactly one of: "critical", "high", "medium", "low">,
+      "title": <string, short descriptive title of the violation>,
+      "plain_language_explanation": <string, accessible explanation for a non-legal reader>,
+      "mitigation_steps": <string, concrete steps the worker should take>,
+      "contract_clause": <string, verbatim text excerpt from the contract that triggered this flag>,
+      "ai_confidence": <float between 0.000 and 1.000>
+    }
+  ]
+}
+
+- If no violations are found, return risk_score of 5 and an empty flags array: []
+- Do not fabricate clauses. Only flag what is explicitly present in the document.
+- contract_clause must be a direct verbatim quote from the contract text, not a paraphrase.
+- Severity definitions:
+    critical = illegal under international law, immediate harm risk
+    high     = exploitative, significant risk to worker rights
+    medium   = ambiguous, potentially unfair, warrants scrutiny
+    low      = minor concern, recommend clarification
+"""
+
+
+# -----------------------------------------------------------------------------
+# Groq Vision Call
+# -----------------------------------------------------------------------------
+
+async def call_groq_vision(document_parts: list[dict[str, Any]]) -> dict[str, Any]:
+    """
+    Send document image parts to Groq Llama 4 Scout vision model.
+    Returns parsed JSON dict conforming to our risk schema.
+    """
+
+    # Build messages in OpenAI chat format
+    user_content: list[dict[str, Any]] = document_parts + [
+        {
+            "type": "text",
+            "text": (
+                "Analyze this employment contract for migrant worker rights violations. "
+                "Return only the raw JSON object as specified. No additional text."
+            ),
+        }
+    ]
+
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": user_content,
+            },
+        ],
+        "temperature": 0.1,
+        "max_tokens": 8192,
+    }
+
+    logger.info(
+        "Sending %d document parts to Groq Vision model=%s",
+        len(document_parts),
+        GROQ_MODEL,
+    )
+
+    # Retry up to 3 times on 429 rate limit with backoff
+    for attempt in range(3):
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                GROQ_ENDPOINT,
+                headers={
+                    "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+
+        if response.status_code == 429:
+            wait = (attempt + 1) * 20  # 20s, 40s, 60s
+            logger.warning(
+                "Groq 429 rate limit — waiting %ds before retry %d/3",
+                wait,
+                attempt + 1,
+            )
+            await asyncio.sleep(wait)
+            continue
+
+        if response.status_code != 200:
+            logger.error("Groq error body: %s", response.text)
+            response.raise_for_status()
+
+        break
+    else:
+        raise ValueError("Groq rate limit exceeded after 3 retries.")
+
+    data = response.json()
+
+    try:
+        raw_text: str = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"Unexpected Groq response structure: {data}") from exc
+
+    logger.info("Groq raw response length: %d chars", len(raw_text))
+
+    # Strip markdown code fences if model adds them
+    cleaned = raw_text.strip()
+    cleaned = re.sub(r"^```(?:json)?", "", cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"```$", "", cleaned).strip()
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Groq did not return valid JSON. Raw: {raw_text[:500]}"
+        ) from exc
+
+    return parsed
+
+
+# -----------------------------------------------------------------------------
+# Schema Validation
+# -----------------------------------------------------------------------------
+
+def validate_ai_output(data: dict[str, Any]) -> None:
+    risk_score = data.get("risk_score")
+    if not isinstance(risk_score, int) or not (0 <= risk_score <= 100):
+        raise ValueError(f"Invalid risk_score: {risk_score!r}")
+
+    flags = data.get("flags")
+    if not isinstance(flags, list):
+        raise ValueError(f"flags must be a list, got: {type(flags)}")
+
+    valid_severities = {"critical", "high", "medium", "low"}
+    valid_categories = {
+        "RECRUITMENT_FEE", "PASSPORT_RETENTION", "WAGE_DEDUCTION",
+        "TERMINATION_THREAT", "WORKING_HOURS", "LEAVE_ENTITLEMENT",
+        "FREEDOM_OF_MOVEMENT", "CONTRACT_SUBSTITUTION",
+    }
+
+    for i, flag in enumerate(flags):
+        if flag.get("severity") not in valid_severities:
+            raise ValueError(f"Flag[{i}] invalid severity: {flag.get('severity')!r}")
+        if flag.get("category") not in valid_categories:
+            raise ValueError(f"Flag[{i}] invalid category: {flag.get('category')!r}")
+        confidence = flag.get("ai_confidence")
+        if not isinstance(confidence, (int, float)) or not (0.0 <= confidence <= 1.0):
+            raise ValueError(f"Flag[{i}] invalid ai_confidence: {confidence!r}")
+        for field in ("title", "plain_language_explanation", "mitigation_steps", "contract_clause"):
+            if not isinstance(flag.get(field), str) or not flag[field].strip():
+                raise ValueError(f"Flag[{i}] missing required field: {field}")
+
+
+# -----------------------------------------------------------------------------
+# Database Commit
+# -----------------------------------------------------------------------------
+
+def commit_results(
+    supabase: Client,
+    contract_id: str,
+    risk_score: int,
+    flags: list[dict[str, Any]],
+) -> None:
+    now_utc = datetime.now(timezone.utc).isoformat()
+
+    supabase.table("contracts").update({
+        "status": "Completed",
+        "risk_score": risk_score,
+        "analyzed_at": now_utc,
+        "error_reason": None,
+    }).eq("contract_id", contract_id).execute()
+
+    logger.info(
+        "contracts updated — contract_id=%s risk_score=%d",
+        contract_id,
+        risk_score,
+    )
+
+    if flags:
+        flag_rows = [
+            {
+                "contract_id": contract_id,
+                "category": flag["category"],
+                "severity": flag["severity"],
+                "title": flag["title"],
+                "plain_language_explanation": flag["plain_language_explanation"],
+                "mitigation_steps": flag["mitigation_steps"],
+                "contract_clause": flag["contract_clause"],
+                "ai_confidence": float(flag["ai_confidence"]),
+            }
+            for flag in flags
+        ]
+        supabase.table("contract_flags").insert(flag_rows).execute()
+        logger.info(
+            "Inserted %d flags for contract_id=%s",
+            len(flag_rows),
+            contract_id,
+        )
+
+
+# -----------------------------------------------------------------------------
+# Main Entry Point — called by FastAPI BackgroundTasks
+# -----------------------------------------------------------------------------
+
+async def analyze_contract(ctx: dict, contract_id: str, file_key: str) -> None:
+    """
+    Full analysis pipeline. Called as a FastAPI background task.
+    ctx is kept for signature compatibility.
+    """
+    logger.info(
+        "Job started — contract_id=%s file_key=%s",
+        contract_id,
+        file_key,
+    )
+    supabase = get_supabase_client()
+
+    try:
+        set_status(supabase, contract_id, "Processing")
+
+        file_bytes, mime_type = await download_contract_file(supabase, file_key)
+        document_parts = build_document_parts(file_bytes, mime_type)
+        ai_output = await call_groq_vision(document_parts)
+        validate_ai_output(ai_output)
+        commit_results(
+            supabase,
+            contract_id,
+            risk_score=ai_output["risk_score"],
+            flags=ai_output["flags"],
+        )
+
+        logger.info("Job completed — contract_id=%s", contract_id)
+
+    except Exception as exc:
+        error_log = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+        logger.error(
+            "Job failed — contract_id=%s\n%s",
+            contract_id,
+            error_log,
+        )
+
+        try:
+            set_status(supabase, contract_id, "Failed", extra={
+                "error_reason": error_log[:2000],
+                "analyzed_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as db_exc:
+            logger.critical(
+                "Failed to write error status for contract_id=%s: %s",
+                contract_id,
+                db_exc,
+            )
