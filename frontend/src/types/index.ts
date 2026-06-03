@@ -1,6 +1,12 @@
-export type Severity = 'CRITICAL' | 'WARNING' | 'SAFE';
-export type Status = 'queued' | 'processing' | 'completed' | 'failed';
-export type Category = 'Fees' | 'Passport' | 'Hours' | 'Wages' | 'Termination' | 'Leave';
+export type Severity = "CRITICAL" | "WARNING" | "SAFE";
+export type Status = "queued" | "processing" | "completed" | "failed";
+export type Category =
+  | "Fees"
+  | "Passport"
+  | "Hours"
+  | "Wages"
+  | "Termination"
+  | "Leave";
 
 export interface Flag {
   issue_id: string;
@@ -15,20 +21,25 @@ export interface Flag {
 }
 
 export interface Contract {
-  id: string;
-  user_id: string;
+  id?: string;
+  contract_id: string;
+  user_id?: string;
   worker_name: string;
   employer_name: string;
-  country: string;
+  country?: string;
+  country_of_work?: string;
   upload_date: string;
   status: Status;
   risk_score: number;
-  critical_flags_count: number;
+  document_ai_confidence: number;
+  contract_duration_months: number;
+  critical_flags_count?: number;
+  flags: Flag[];
 }
 
-export type Lang = 'en' | 'ne';
+export type Lang = "en" | "ne";
 
-export type Language = 'en' | 'my' | 'ne' | 'bn' | 'si';
+export type Language = "en" | "my" | "ne" | "bn" | "si";
 
 export interface LanguageOption {
   code: Language;
