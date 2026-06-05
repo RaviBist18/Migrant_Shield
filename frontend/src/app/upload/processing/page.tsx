@@ -21,7 +21,7 @@ interface StatusResponse {
   contract_id: string;
   status: string;
   risk_score: number | null;
-  error_reason: string | null;
+  error: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +105,7 @@ function ProcessingContent() {
         if (data.status === "failed") {
           clearAllTimers();
           setErrorMessage(
-            data.error_reason ?? "Analysis pipeline encountered an error.",
+            data.error ?? "Analysis pipeline encountered an error.",
           );
           setPollingStatus("failed");
           return;

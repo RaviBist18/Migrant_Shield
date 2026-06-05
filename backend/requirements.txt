@@ -8,3 +8,5 @@ postgrest==0.16.6
 httpx==0.27.0
 PyJWT[crypto]==2.8.0
 python-dotenv==1.0.1
+arq==0.25.0
+redis==5.0.4

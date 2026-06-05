@@ -231,9 +231,9 @@ async def upload_contract(
         logger.error(f"DB insert failed: {e}")
         raise HTTPException(status_code=500, detail="Database record creation failed.")
 
-    # Enqueue background processing
-    from worker import process_contract
-    background_tasks.add_task(process_contract, contract_id)
+    # Enqueue via ARQ
+    from worker import enqueue_contract_sync
+    background_tasks.add_task(enqueue_contract_sync, contract_id)
 
     logger.info(f"Contract queued: {contract_id} user={user_id} language={language}")
     return {"contract_id": contract_id, "status": "queued", "language": language}
@@ -287,6 +287,64 @@ async def get_status(contract_id: str, request: Request):
         "report_ready": report_url is not None,
     }
 
+# --------------------------------------------------------------
+# GET /report/{contract_id}
+# Returns full analysis: contract metadata + all flags + risk score.
+# JWT-gated + ownership verified.
+# --------------------------------------------------------------
+@app.get("/report/{contract_id}")
+async def get_report(contract_id: str, request: Request):
+    user = _get_current_user(request)
+    user_id = user.get("sub")
+
+    supabase = _get_supabase()
+
+    # Verify ownership + fetch contract
+    try:
+        result = supabase.table("contracts").select(
+            "contract_id, status, risk_score, worker_name, employer_name, "
+            "country, original_filename, upload_date, analyzed_at, language, error_reason"
+        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+
+    if not result.data:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    contract = result.data
+
+    if contract["status"] != "completed":
+        raise HTTPException(
+            status_code=425,
+            detail=f"Analysis not complete. Current status: {contract['status']}"
+        )
+
+    # Fetch flags
+    try:
+        flags_result = supabase.table("contract_flags").select(
+            "flag_id, flag_type, severity, title, description, clause_text, recommendation, mitigation_steps, legal_references, created_at"
+        ).eq("contract_id", contract_id).order("severity").execute()
+        flags = flags_result.data or []
+    except Exception as e:
+        logger.error(f"Flags fetch failed: {e}")
+        flags = []
+
+    return {
+        "contract_id":     contract["contract_id"],
+        "worker_name":     contract.get("worker_name"),
+        "employer_name":   contract.get("employer_name"),
+        "country":         contract.get("country"),
+        "original_filename": contract.get("original_filename"),
+        "upload_date":     contract.get("upload_date"),
+        "analyzed_at":     contract.get("analyzed_at"),
+        "language":        contract.get("language", "en"),
+        "risk_score":      contract.get("risk_score"),
+        "flags":           flags,
+        "flags_count":     len(flags),
+        "critical_count":  sum(1 for f in flags if f["severity"] == "critical"),
+        "warning_count":   sum(1 for f in flags if f["severity"] == "warning"),
+        "info_count":      sum(1 for f in flags if f["severity"] == "info"),
+    }
 
 # --------------------------------------------------------------
 # GET /report/{report_id}/download
@@ -522,8 +580,8 @@ async def reanalyze_contract(
         raise HTTPException(status_code=500, detail="Failed to reset contract.")
 
     # Re-enqueue
-    from worker import process_contract
-    background_tasks.add_task(process_contract, contract_id)
+    from worker import enqueue_contract_sync
+    background_tasks.add_task(enqueue_contract_sync, contract_id)
 
     logger.info(f"Reanalysis queued: contract_id={contract_id} user={user_id}")
     return {

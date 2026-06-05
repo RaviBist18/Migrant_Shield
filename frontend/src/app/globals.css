@@ -12,7 +12,8 @@ body {
 }
 
 /* Ensure touch targets are always at least 48px */
-button, a {
+button,
+a {
   min-height: 48px;
   display: inline-flex;
   align-items: center;
@@ -30,4 +31,13 @@ button, a {
 .page-content-bare {
   padding-top: 56px;
   min-height: 100vh;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
 }

@@ -3,53 +3,52 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
-
 import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Download,
   Share2,
-  ChevronRight,
   RefreshCw,
-  UserCheck,
   Shield,
-  Clock,
+  ArrowLeft,
+  Download,
+  FileText,
+  BookOpen,
+  ShieldCheck,
+  Scale,
 } from "lucide-react";
-import { translations } from '@/lib/i18n/landing';
-import { useToast } from '@/context/ToastContext';
-import type { Lang } from '@/lib/i18n/landing';
 
 // =============================================================
 // TYPES
 // =============================================================
 interface ContractFlag {
   flag_id: string;
-  severity: "CRITICAL" | "WARNING" | "INFO";
-  category: string;
+  flag_type: string;
+  severity: "critical" | "warning" | "info";
   title: string;
-  contract_clause: string;
-  plain_language_explanation: string;
+  description: string;
+  clause_text: string | null;
+  recommendation: string;
   mitigation_steps: string[];
   legal_references: string[];
-  ai_confidence: number;
+  created_at: string;
 }
 
-interface ContractReport {
+interface ReportData {
   contract_id: string;
-  status: string;
+  worker_name: string | null;
+  employer_name: string | null;
+  country: string | null;
+  original_filename: string | null;
+  upload_date: string | null;
+  analyzed_at: string | null;
+  language: string;
   risk_score: number;
-  analyzed_at: string;
-  uploaded_at: string;
-  report_ready: boolean;
-  error: string | null;
-}
-
-interface ReportMeta {
-  report_id: string;
-  pdf_url: string;
-  generated_at: string;
-  downloaded_count: number;
+  flags: ContractFlag[];
+  flags_count: number;
+  critical_count: number;
+  warning_count: number;
+  info_count: number;
 }
 
 type Verdict = "SAFE" | "CAUTION" | "CRITICAL";
@@ -59,7 +58,7 @@ type Verdict = "SAFE" | "CAUTION" | "CRITICAL";
 // =============================================================
 function resolveVerdict(score: number): Verdict {
   if (score >= 70) return "CRITICAL";
-  if (score >= 31) return "CAUTION";
+  if (score >= 40) return "CAUTION";
   return "SAFE";
 }
 
@@ -71,7 +70,9 @@ function verdictStyles(verdict: Verdict) {
         border: "border-red-200",
         text: "text-red-700",
         badge: "bg-red-100 text-red-700 border-red-200",
+        bar: "bg-red-500",
         icon: <XCircle className="w-6 h-6 text-red-600" />,
+        label: "High Risk",
       };
     case "CAUTION":
       return {
@@ -79,7 +80,9 @@ function verdictStyles(verdict: Verdict) {
         border: "border-amber-200",
         text: "text-amber-700",
         badge: "bg-amber-100 text-amber-700 border-amber-200",
+        bar: "bg-amber-400",
         icon: <AlertTriangle className="w-6 h-6 text-amber-600" />,
+        label: "Review Required",
       };
     case "SAFE":
       return {
@@ -87,42 +90,338 @@ function verdictStyles(verdict: Verdict) {
         border: "border-emerald-200",
         text: "text-emerald-700",
         badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        bar: "bg-emerald-400",
         icon: <CheckCircle className="w-6 h-6 text-emerald-600" />,
+        label: "Looks Safe",
       };
   }
 }
 
+const UI_STRINGS: Record<
+  string,
+  {
+    extractedClause: string;
+    plainExplanation: string;
+    whatYouCanDo: string;
+    legalReferences: string;
+    noReferences: string;
+    aiWarning: string;
+    disclaimerLabel: string;
+    disclaimer: string;
+    referencesNote: string;
+    critical: string;
+    warning: string;
+    info: string;
+  }
+> = {
+  en: {
+    extractedClause: "Extracted Contract Clause",
+    plainExplanation: "Plain Language Explanation",
+    whatYouCanDo: "What You Can Do",
+    legalReferences: "Statutory Legal References",
+    noReferences: "No specific legal references available for this flag.",
+    aiWarning:
+      "References are AI-generated and may not be complete or jurisdiction-specific. Verify all citations with a qualified legal professional.",
+    disclaimerLabel: "Disclaimer:",
+    disclaimer:
+      "This report is AI-generated for informational purposes only. MigrantShield does not provide legal advice. Always consult a qualified legal professional before making decisions about your employment contract.",
+    referencesNote:
+      "References are AI-generated and may not be complete or jurisdiction-specific. Verify all citations with a qualified legal professional.",
+    critical: "Critical",
+    warning: "Warning",
+    info: "Info",
+  },
+  ne: {
+    extractedClause: "करारको अनुच्छेद",
+    plainExplanation: "सरल भाषामा व्याख्या",
+    whatYouCanDo: "तपाईंले के गर्न सक्नुहुन्छ",
+    legalReferences: "कानूनी सन्दर्भहरू",
+    noReferences: "यस समस्याको लागि कुनै कानूनी सन्दर्भ उपलब्ध छैन।",
+    aiWarning:
+      "सन्दर्भहरू AI-जनित हुन् र पूर्ण नहुन सक्छन्। कुनै पनि निर्णय गर्नु अघि योग्य कानूनी पेशेवरसँग परामर्श गर्नुहोस्।",
+    disclaimerLabel: "अस्वीकरण:",
+    disclaimer:
+      "यो रिपोर्ट केवल जानकारीको लागि AI-जनित हो। MigrantShield कानूनी सल्लाह प्रदान गर्दैन। आफ्नो रोजगार करारबारे निर्णय गर्नु अघि योग्य कानूनी पेशेवरसँग परामर्श गर्नुहोस्।",
+    referencesNote:
+      "सन्दर्भहरू AI-जनित हुन् र न्यायक्षेत्र-विशिष्ट नहुन सक्छन्। सबै उद्धरणहरू योग्य कानूनी पेशेवरसँग प्रमाणित गर्नुहोस्।",
+    critical: "गम्भीर",
+    warning: "चेतावनी",
+    info: "जानकारी",
+  },
+  hi: {
+    extractedClause: "अनुबंध का अनुच्छेद",
+    plainExplanation: "सरल भाषा में स्पष्टीकरण",
+    whatYouCanDo: "आप क्या कर सकते हैं",
+    legalReferences: "कानूनी संदर्भ",
+    noReferences: "इस समस्या के लिए कोई कानूनी संदर्भ उपलब्ध नहीं है।",
+    aiWarning:
+      "संदर्भ AI-जनित हैं और पूर्ण नहीं हो सकते। कोई भी निर्णय लेने से पहले किसी योग्य कानूनी पेशेवर से परामर्श करें।",
+    disclaimerLabel: "अस्वीकरण:",
+    disclaimer:
+      "यह रिपोर्ट केवल जानकारी के लिए AI-जनित है। MigrantShield कानूनी सलाह नहीं देता। अपने रोजगार अनुबंध के बारे में निर्णय लेने से पहले किसी योग्य कानूनी पेशेवर से परामर्श करें।",
+    referencesNote:
+      "संदर्भ AI-जनित हैं और क्षेत्राधिकार-विशिष्ट नहीं हो सकते। सभी उद्धरण किसी योग्य कानूनी पेशेवर से सत्यापित करें।",
+    critical: "गंभीर",
+    warning: "चेतावनी",
+    info: "जानकारी",
+  },
+  ar: {
+    extractedClause: "بند العقد المستخرج",
+    plainExplanation: "شرح بلغة بسيطة",
+    whatYouCanDo: "ما يمكنك فعله",
+    legalReferences: "المراجع القانونية",
+    noReferences: "لا توجد مراجع قانونية محددة لهذه المشكلة.",
+    aiWarning:
+      "المراجع مولدة بالذكاء الاصطناعي وقد لا تكون كاملة. استشر متخصصاً قانونياً مؤهلاً قبل اتخاذ أي قرار.",
+    disclaimerLabel: "إخلاء المسؤولية:",
+    disclaimer:
+      "هذا التقرير مولد بالذكاء الاصطناعي لأغراض إعلامية فقط. لا تقدم MigrantShield مشورة قانونية. استشر متخصصاً قانونياً مؤهلاً قبل اتخاذ قرارات بشأن عقد عملك.",
+    referencesNote:
+      "المراجع مولدة بالذكاء الاصطناعي وقد لا تكون خاصة بالولاية القضائية. تحقق من جميع الاستشهادات مع متخصص قانوني مؤهل.",
+    critical: "حرج",
+    warning: "تحذير",
+    info: "معلومات",
+  },
+  tl: {
+    extractedClause: "Nakuhang Sugnay ng Kontrata",
+    plainExplanation: "Paliwanag sa Simpleng Wika",
+    whatYouCanDo: "Ano ang Magagawa Mo",
+    legalReferences: "Mga Legal na Sanggunian",
+    noReferences: "Walang tiyak na legal na sanggunian para sa problemang ito.",
+    aiWarning:
+      "Ang mga sanggunian ay AI-generated at maaaring hindi kumpleto. Kumonsulta sa isang kwalipikadong legal na propesyonal bago gumawa ng desisyon.",
+    disclaimerLabel: "Disclaimer:",
+    disclaimer:
+      "Ang ulat na ito ay AI-generated para sa impormasyon lamang. Hindi nagbibigay ng legal na payo ang MigrantShield. Kumonsulta sa isang kwalipikadong legal na propesyonal bago gumawa ng desisyon tungkol sa iyong kontrata.",
+    referencesNote:
+      "Ang mga sanggunian ay AI-generated at maaaring hindi jurisdiction-specific. I-verify ang lahat ng citations sa isang kwalipikadong legal na propesyonal.",
+    critical: "Kritikal",
+    warning: "Babala",
+    info: "Impormasyon",
+  },
+  bn: {
+    extractedClause: "চুক্তির ধারা",
+    plainExplanation: "সহজ ভাষায় ব্যাখ্যা",
+    whatYouCanDo: "আপনি কী করতে পারেন",
+    legalReferences: "আইনি তথ্যসূত্র",
+    noReferences: "এই সমস্যার জন্য কোনো নির্দিষ্ট আইনি তথ্যসূত্র নেই।",
+    aiWarning:
+      "তথ্যসূত্রগুলি AI-জেনারেটেড এবং সম্পূর্ণ নাও হতে পারে। কোনো সিদ্ধান্ত নেওয়ার আগে একজন যোগ্য আইন বিশেষজ্ঞের পরামর্শ নিন।",
+    disclaimerLabel: "দায়মুক্তি:",
+    disclaimer:
+      "এই রিপোর্টটি শুধুমাত্র তথ্যের জন্য AI-জেনারেটেড। MigrantShield আইনি পরামর্শ প্রদান করে না। আপনার কর্মসংস্থান চুক্তি সম্পর্কে সিদ্ধান্ত নেওয়ার আগে একজন যোগ্য আইন বিশেষজ্ঞের পরামর্শ নিন।",
+    referencesNote:
+      "তথ্যসূত্রগুলি AI-জেনারেটেড এবং এখতিয়ার-নির্দিষ্ট নাও হতে পারে। সকল উদ্ধৃতি একজন যোগ্য আইন বিশেষজ্ঞের সাথে যাচাই করুন.",
+    critical: "গুরুতর",
+    warning: "সতর্কতা",
+    info: "তথ্য",
+  },
+};
+
+const FLAG_TYPE_LABELS: Record<string, Record<string, string>> = {
+  passport_confiscation: {
+    en: "Passport Confiscation",
+    ne: "राहदानी जफत",
+    hi: "पासपोर्ट जब्ती",
+    ar: "مصادرة جواز السفر",
+    tl: "Pagkumpiska ng Pasaporte",
+    bn: "পাসপোর্ট বাজেয়াপ্ত",
+  },
+  recruitment_fee: {
+    en: "Recruitment Fee",
+    ne: "भर्ती शुल्क",
+    hi: "भर्ती शुल्क",
+    ar: "رسوم التوظيف",
+    tl: "Bayad sa Recruitment",
+    bn: "নিয়োগ ফি",
+  },
+  wage_deduction: {
+    en: "Wage Deduction",
+    ne: "ज्याला कटौती",
+    hi: "वेतन कटौती",
+    ar: "خصم الأجر",
+    tl: "Pagbabawas ng Sahod",
+    bn: "মজুরি কর্তন",
+  },
+  movement_restriction: {
+    en: "Movement Restriction",
+    ne: "आवागमन प्रतिबन्ध",
+    hi: "आवाजाही प्रतिबंध",
+    ar: "تقييد حرية التنقل",
+    tl: "Paghihigpit sa Kilusan",
+    bn: "চলাচলে বিধিনিষেধ",
+  },
+  no_termination_right: {
+    en: "No Termination Right",
+    ne: "अन्त्य गर्ने अधिकार छैन",
+    hi: "समाप्ति का अधिकार नहीं",
+    ar: "لا حق في إنهاء العقد",
+    tl: "Walang Karapatang Wakasan",
+    bn: "চুক্তি বাতিলের অধিকার নেই",
+  },
+  debt_bondage: {
+    en: "Debt Bondage",
+    ne: "ऋण बन्धन",
+    hi: "ऋण बंधन",
+    ar: "عبودية الديون",
+    tl: "Pagkaalipin sa Utang",
+    bn: "ঋণ দাসত্ব",
+  },
+  deportation_threat: {
+    en: "Deportation Threat",
+    ne: "निष्कासनको धम्की",
+    hi: "निर्वासन की धमकी",
+    ar: "التهديد بالترحيل",
+    tl: "Banta ng Deportasyon",
+    bn: "বহিষ্কারের হুমকি",
+  },
+  excessive_working_hours: {
+    en: "Excessive Working Hours",
+    ne: "अत्यधिक काम घण्टा",
+    hi: "अत्यधिक कार्य घंटे",
+    ar: "ساعات عمل مفرطة",
+    tl: "Labis na Oras ng Trabaho",
+    bn: "অতিরিক্ত কাজের সময়",
+  },
+  below_minimum_wage: {
+    en: "Below Minimum Wage",
+    ne: "न्यूनतम ज्यालाभन्दा कम",
+    hi: "न्यूनतम वेतन से कम",
+    ar: "أقل من الحد الأدنى للأجر",
+    tl: "Mababa sa Minimum Wage",
+    bn: "ন্যূনতম মজুরির নিচে",
+  },
+  excessive_probation: {
+    en: "Excessive Probation",
+    ne: "अत्यधिक परिवीक्षा अवधि",
+    hi: "अत्यधिक परिवीक्षा अवधि",
+    ar: "فترة تجربة مفرطة",
+    tl: "Labis na Probation",
+    bn: "অতিরিক্ত পরীক্ষামূলক সময়",
+  },
+  excessive_notice_period: {
+    en: "Excessive Notice Period",
+    ne: "अत्यधिक सूचना अवधि",
+    hi: "अत्यधिक नोटिस अवधि",
+    ar: "فترة إشعار مفرطة",
+    tl: "Labis na Notice Period",
+    bn: "অতিরিক্ত নোটিশ সময়",
+  },
+  one_sided_termination: {
+    en: "One-Sided Termination",
+    ne: "एकतर्फी समाप्ति",
+    hi: "एकतरफा समाप्ति",
+    ar: "إنهاء عقد أحادي الجانب",
+    tl: "Isang Panig na Pagwawakas",
+    bn: "একতরফা চুক্তি বাতিল",
+  },
+  no_rest_days: {
+    en: "No Rest Days",
+    ne: "बिदाको उल्लेख छैन",
+    hi: "आराम के दिन नहीं",
+    ar: "لا أيام راحة",
+    tl: "Walang Rest Days",
+    bn: "বিশ্রামের দিন নেই",
+  },
+  vague_salary: {
+    en: "Vague Salary Terms",
+    ne: "अस्पष्ट तलब शर्तहरू",
+    hi: "अस्पष्ट वेतन शर्तें",
+    ar: "شروط راتب غامضة",
+    tl: "Malabong Kondisyon ng Sahod",
+    bn: "অস্পষ্ট বেতনের শর্ত",
+  },
+  auto_renewal: {
+    en: "Automatic Renewal",
+    ne: "स्वचालित नवीकरण",
+    hi: "स्वचालित नवीनीकरण",
+    ar: "تجديد تلقائي",
+    tl: "Awtomatikong Renewal",
+    bn: "স্বয়ংক্রিয় নবায়ন",
+  },
+  resignation_penalty: {
+    en: "Resignation Penalty",
+    ne: "राजीनामा जरिवाना",
+    hi: "इस्तीफा दंड",
+    ar: "غرامة الاستقالة",
+    tl: "Parusa sa Pagbibitiw",
+    bn: "পদত্যাগের জরিমানা",
+  },
+  language_barrier: {
+    en: "Language Barrier",
+    ne: "भाषा बाधा",
+    hi: "भाषा बाधा",
+    ar: "حاجز اللغة",
+    tl: "Hadlang sa Wika",
+    bn: "ভাষার বাধা",
+  },
+  no_dispute_resolution: {
+    en: "No Dispute Resolution",
+    ne: "विवाद समाधान छैन",
+    hi: "विवाद समाधान नहीं",
+    ar: "لا آلية لحل النزاعات",
+    tl: "Walang Dispute Resolution",
+    bn: "বিরোধ নিষ্পত্তির ব্যবস্থা নেই",
+  },
+  missing_employer_details: {
+    en: "Missing Employer Details",
+    ne: "नियोक्ताको विवरण छैन",
+    hi: "नियोक्ता विवरण अनुपस्थित",
+    ar: "بيانات صاحب العمل مفقودة",
+    tl: "Kulang na Detalye ng Employer",
+    bn: "নিয়োগকর্তার তথ্য অনুপস্থিত",
+  },
+  no_health_insurance: {
+    en: "No Health Insurance",
+    ne: "स्वास्थ्य बीमा छैन",
+    hi: "स्वास्थ्य बीमा नहीं",
+    ar: "لا تأمين صحي",
+    tl: "Walang Health Insurance",
+    bn: "স্বাস্থ্য বীমা নেই",
+  },
+  no_jurisdiction: {
+    en: "No Jurisdiction Specified",
+    ne: "न्यायक्षेत्र उल्लेख छैन",
+    hi: "क्षेत्राधिकार निर्दिष्ट नहीं",
+    ar: "لا ولاية قضائية محددة",
+    tl: "Walang Tinukoy na Jurisdiction",
+    bn: "কোনো এখতিয়ার নির্দিষ্ট নেই",
+  },
+};
+
 function severityStyles(severity: string) {
-  switch (severity.toUpperCase()) {
-    case "CRITICAL":
+  switch (severity.toLowerCase()) {
+    case "critical":
       return {
-        bg: "bg-red-50",
-        border: "border-red-200",
         text: "text-red-700",
         badge: "bg-red-100 text-red-700 border border-red-200",
-        bar: "bg-red-400",
+        accent: "border-l-4 border-l-red-500",
+        clauseBorder: "border-l-red-400",
+        headerText: "text-red-800",
+        cardBg: "bg-red-50",
       };
-    case "WARNING":
+    case "warning":
       return {
-        bg: "bg-amber-50",
-        border: "border-amber-200",
         text: "text-amber-700",
         badge: "bg-amber-100 text-amber-700 border border-amber-200",
-        bar: "bg-amber-400",
+        accent: "border-l-4 border-l-amber-500",
+        clauseBorder: "border-l-amber-400",
+        headerText: "text-amber-800",
+        cardBg: "bg-amber-50",
       };
     default:
       return {
-        bg: "bg-emerald-50",
-        border: "border-emerald-200",
-        text: "text-emerald-700",
-        badge: "bg-emerald-100 text-emerald-700 border border-emerald-200",
-        bar: "bg-emerald-400",
+        text: "text-slate-700",
+        badge: "bg-slate-100 text-slate-700 border border-slate-200",
+        accent: "border-l-4 border-l-slate-400",
+        clauseBorder: "border-l-slate-300",
+        headerText: "text-slate-800",
+        cardBg: "bg-blue-50",
       };
   }
 }
 
-const CONFIDENCE_THRESHOLD = 0.85;
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // =============================================================
 // COMPONENT
@@ -132,231 +431,64 @@ export default function ReportPage() {
   const router = useRouter();
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
-  const [session, setSession] = useState<any>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
 
   const contractId = params?.id as string;
 
-  const [report, setReport] = useState<ContractReport | null>(null);
-  const [reportMeta, setReportMeta] = useState<ReportMeta | null>(null);
-  const [flags, setFlags] = useState<ContractFlag[]>([]);
-  const [confidenceScore, setConfidenceScore] = useState<number>(1.0);
-
+  const [session, setSession] = useState<any>(null);
+  const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [downloadLoading, setDownloadLoading] = useState(false);
-  
-  const [reviewLoading, setReviewLoading] = useState(false);
-  const [reviewSubmitted, setReviewSubmitted] = useState(false);
-  
-  
-
-  const [lang, setLang] = useState<Lang>('en');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    const sync = () => {
-      const stored = localStorage.getItem('lang');
-      setLang(stored === 'ne' ? 'ne' : 'en');
-    };
-    sync();
-    window.addEventListener('langchange', sync);
-    return () => window.removeEventListener('langchange', sync);
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => subscription.unsubscribe();
   }, []);
 
-  const t = translations[lang].report;
-  const { showToast } = useToast();
-
-  // ------------------------------------------------------------
-  // FETCH REPORT DATA
-  // ------------------------------------------------------------
   const fetchReport = useCallback(async () => {
     if (!session?.access_token || !contractId) return;
-
+    setLoading(true);
+    setError(null);
     try {
-      setError(null);
-
-      const statusRes = await fetch(`${API_BASE}/status/${contractId}`, {
+      const res = await fetch(`${API_BASE}/report/${contractId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (!statusRes.ok) throw new Error("Failed to load report status.");
-      const statusData: ContractReport = await statusRes.json();
-      setReport(statusData);
-
-      if (statusData.status !== "completed") {
-        setLoading(false);
-        return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `Error ${res.status}`);
       }
-
-      const metaRes = await fetch(
-        `${API_BASE}/report/by-contract/${contractId}`,
-        { headers: { Authorization: `Bearer ${session.access_token}` } }
-      );
-      const metaBody = await metaRes.json();
-      if (metaRes.ok) setReportMeta(metaBody);
-
-      const { data: flagData, error: flagError } = await supabase
-        .from("contract_flags")
-        .select("*")
-        .eq("contract_id", contractId)
-        .order("ai_confidence", { ascending: true });
-
-      if (flagError) throw new Error("Failed to load risk flags.");
-      setFlags(flagData || []);
-
-      if (flagData && flagData.length > 0) {
-        const avg =
-          flagData.reduce((sum: number, f: ContractFlag) => sum + (f.ai_confidence || 0), 0) /
-          flagData.length;
-        setConfidenceScore(avg);
-      }
+      const data: ReportData = await res.json();
+      setReport(data);
     } catch (err: any) {
       setError(err.message || "Failed to load report.");
     } finally {
       setLoading(false);
     }
-  }, [session?.access_token, contractId, supabase]);
+  }, [session?.access_token, contractId]);
 
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
 
-  // ------------------------------------------------------------
-  // DOWNLOAD PDF
-  // ------------------------------------------------------------
-  const handleDownload = async () => {
-    if (!reportMeta?.report_id || !session?.access_token) return;
-    setDownloadLoading(true);
-    
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/report/${reportMeta.report_id}/download`,
-        { headers: { Authorization: `Bearer ${session.access_token}` } }
-      );
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || "Download link generation failed.");
-      }
-
-      const { signed_url } = await res.json();
-      window.open(signed_url, "_blank");
-    } catch (err: any) {
-      showToast(err.message || "Could not generate download link.", 'error');
-    } finally {
-      setDownloadLoading(false);
-    }
-  };
-
-  // ------------------------------------------------------------
-  // SHARE REPORT
-  // ------------------------------------------------------------
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/report/${contractId}`;
-    const shareData = {
-      title: "MigrantShield Contract Report",
-      text: `View my employment contract risk report — Score: ${report?.risk_score ?? "N/A"}/100`,
-      url: shareUrl,
-    };
-
+    const url = `${window.location.origin}/report/${contractId}`;
     try {
       if (navigator.share) {
-        await navigator.share(shareData);
+        await navigator.share({ title: "MigrantShield Report", url });
       } else {
-        await navigator.clipboard.writeText(shareUrl);
-        showToast(t.linkCopied);
+        await navigator.clipboard.writeText(url);
       }
     } catch (_) {}
-  };
-
-  // ------------------------------------------------------------
-  // REQUEST HUMAN REVIEW
-  // ------------------------------------------------------------
-  const handleRequestReview = async () => {
-    if (!session?.access_token || !contractId) return;
-    setReviewLoading(true);
-    
-
-    try {
-      const res = await fetch(`${API_BASE}/review/request`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contract_id: contractId,
-          reason: "Worker requested human legal review from report page.",
-        }),
-      });
-
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.detail || "Review request failed.");
-      setReviewSubmitted(true);
-      showToast(t.reviewSubmitted);
-    } catch (err: any) {
-      showToast(err.message || "Could not submit review request.", 'error');
-    } finally {
-      setReviewLoading(false);
-    }
-  };
-
-  // ------------------------------------------------------------
-  // NAVIGATE TO FLAG DETAIL
-  // ------------------------------------------------------------
-  const handleFlagClick = (flagId: string) => {
-    router.push(`/report/${contractId}/detail/${flagId}`);
   };
 
   // =============================================================
   // RENDER STATES
   // =============================================================
-
-  if (!loading && report && report.status !== "completed") {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-8 max-w-md w-full text-center">
-          <Clock className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-slate-900 mb-2">{t.notReady}</h2>
-          <p className="text-slate-600 text-sm mb-6">
-            Status: <span className="font-semibold capitalize">{report.status}</span>.{" "}
-            {report.status === "failed"
-              ? report.error || "Processing failed."
-              : t.notReadySub}
-          </p>
-          <div className="flex gap-3 justify-center">
-            {report.status === "failed" ? (
-              <button
-                onClick={() => router.push("/upload")}
-                className="bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
-              >
-                {t.uploadAgain}
-              </button>
-            ) : (
-              <button
-                onClick={() => router.push(`/upload/processing?id=${contractId}`)}
-                className="bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
-              >
-                {t.viewProgress}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -373,13 +505,15 @@ export default function ReportPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white border border-slate-200 rounded-xl p-8 max-w-md w-full text-center">
           <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-slate-900 mb-2">{t.failedLoad}</h2>
+          <h2 className="text-lg font-bold text-slate-900 mb-2">
+            Failed to Load Report
+          </h2>
           <p className="text-slate-600 text-sm mb-6">{error}</p>
           <button
-            onClick={() => { setLoading(true); fetchReport(); }}
+            onClick={() => fetchReport()}
             className="bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors inline-flex items-center gap-2"
           >
-            <RefreshCw className="w-4 h-4" /> {t.retry}
+            <RefreshCw className="w-4 h-4" /> Retry
           </button>
         </div>
       </div>
@@ -390,87 +524,140 @@ export default function ReportPage() {
 
   const verdict = resolveVerdict(report.risk_score);
   const vs = verdictStyles(verdict);
-  const lowConfidence = confidenceScore < CONFIDENCE_THRESHOLD;
-
-  const criticalCount = flags.filter((f) => f.severity === "CRITICAL").length;
-  const warningCount  = flags.filter((f) => f.severity === "WARNING").length;
-  const infoCount     = flags.filter((f) => f.severity === "INFO").length;
+  const ui = UI_STRINGS[report.language] ?? UI_STRINGS["en"];
 
   // =============================================================
   // MAIN RENDER
   // =============================================================
   return (
     <div className="min-h-screen bg-slate-50">
-
-      {/* LEGAL DISCLAIMER BANNER */}
+      {/* DISCLAIMER BANNER */}
       <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 sticky top-0 z-50">
         <div className="max-w-2xl mx-auto flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-amber-800 text-xs leading-relaxed">
-            <span className="font-bold">{t.disclaimer}</span>{" "}
-            This report is generated by AI and may contain errors. Do not make legal decisions
-            based solely on this report. Consult a qualified legal professional.
+          <p className="text-slate-400 mt-1.5" style={{ fontSize: "11px" }}>
+            {ui.aiWarning}
           </p>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+        {/* BACK */}
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm font-medium"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
 
         {/* HEADER */}
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Shield className="w-5 h-5 text-slate-700" />
-            <h1 className="text-xl font-bold text-slate-900">{t.title}</h1>
+            <h1 className="text-xl font-bold text-slate-900">
+              Contract Risk Report
+            </h1>
           </div>
           <p className="text-xs text-slate-500 font-mono break-all">
             ID: {contractId}
           </p>
           {report.analyzed_at && (
             <p className="text-xs text-slate-400 mt-0.5">
-              {t.analysedAt}: {new Date(report.analyzed_at).toLocaleString()}
+              Analysed: {new Date(report.analyzed_at).toLocaleString()}
             </p>
           )}
         </div>
 
-        {/* VERDICT + SCORE BLOCK */}
+        {/* CONTRACT METADATA */}
+        {(report.worker_name || report.employer_name || report.country) && (
+          <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
+            {report.worker_name && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Worker</span>
+                <span className="text-slate-800 font-medium">
+                  {report.worker_name}
+                </span>
+              </div>
+            )}
+            {report.employer_name && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Employer</span>
+                <span className="text-slate-800 font-medium">
+                  {report.employer_name}
+                </span>
+              </div>
+            )}
+            {report.country && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Country</span>
+                <span className="text-slate-800 font-medium">
+                  {report.country}
+                </span>
+              </div>
+            )}
+            {report.original_filename && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">File</span>
+                <span className="text-slate-600 font-mono text-xs truncate max-w-[60%]">
+                  {report.original_filename}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VERDICT + SCORE */}
         <div className={`rounded-xl border ${vs.bg} ${vs.border} p-5`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {vs.icon}
-              <span className={`text-sm font-bold uppercase tracking-wide ${vs.text}`}>
-                {verdict === "CRITICAL" ? t.verdict_critical : verdict === "CAUTION" ? t.verdict_caution : t.verdict_safe}
+              <span
+                className={`text-sm font-bold uppercase tracking-wide ${vs.text}`}
+              >
+                {vs.label}
               </span>
             </div>
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${vs.badge}`}>
-              {verdict === "CRITICAL" ? t.badge_high : verdict === "CAUTION" ? t.badge_review : t.badge_safe}
+            <span
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${vs.badge}`}
+            >
+              {verdict}
             </span>
           </div>
-
           <div className="flex items-end gap-2 mb-3">
             <span className={`text-5xl font-black ${vs.text}`}>
               {report.risk_score}
             </span>
             <span className="text-slate-400 text-sm mb-2">/ 100</span>
           </div>
-
-          {/* Risk bar */}
           <div className="w-full bg-white rounded-full h-2.5 border border-slate-200 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                verdict === "CRITICAL" ? "bg-red-500" : verdict === "CAUTION" ? "bg-amber-400" : "bg-emerald-400"
-              }`}
+              className={`h-full rounded-full transition-all duration-700 ${vs.bar}`}
               style={{ width: `${report.risk_score}%` }}
             />
           </div>
-
-          {/* Severity counts */}
           <div className="grid grid-cols-3 gap-2 mt-4">
             {[
-              { label: "Critical", count: criticalCount, style: "bg-red-100 text-red-700 border-red-200" },
-              { label: "Warning",  count: warningCount,  style: "bg-amber-100 text-amber-700 border-amber-200" },
-              { label: "Info",     count: infoCount,     style: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+              {
+                label: ui.critical,
+                count: report.critical_count,
+                style: "bg-red-100 text-red-700 border-red-200",
+              },
+              {
+                label: ui.warning,
+                count: report.warning_count,
+                style: "bg-amber-100 text-amber-700 border-amber-200",
+              },
+              {
+                label: ui.info,
+                count: report.info_count,
+                style: "bg-slate-100 text-slate-700 border-slate-200",
+              },
             ].map((s) => (
-              <div key={s.label} className={`rounded-lg border text-center py-2 px-1 ${s.style}`}>
+              <div
+                key={s.label}
+                className={`rounded-lg border text-center py-2 px-1 ${s.style}`}
+              >
                 <div className="text-xl font-black">{s.count}</div>
                 <div className="text-xs font-medium">{s.label}</div>
               </div>
@@ -478,133 +665,232 @@ export default function ReportPage() {
           </div>
         </div>
 
-        {/* CONFIDENCE SCORE BLOCK */}
-        <div className={`rounded-xl border p-4 ${lowConfidence ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"}`}>
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                {t.aiConfidence}
-              </p>
-              <p className={`text-2xl font-black mt-0.5 ${lowConfidence ? "text-amber-700" : "text-slate-900"}`}>
-                {Math.round(confidenceScore * 100)}%
-              </p>
-            </div>
-            {lowConfidence && <AlertTriangle className="w-8 h-8 text-amber-500 flex-shrink-0" />}
-          </div>
-
-          {lowConfidence && (
-            <p className="text-xs text-amber-700 leading-relaxed mb-3">{t.lowConfidence}</p>
-          )}
-
-          {lowConfidence && !reviewSubmitted && (
-            <div>
-              <button
-                onClick={handleRequestReview}
-                disabled={reviewLoading}
-                className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors inline-flex items-center justify-center gap-2"
-              >
-                {reviewLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-                {t.requestReview}
-              </button>
-              
-            </div>
-          )}
-
-           {reviewSubmitted && (
-             <p className="text-emerald-600 text-xs mt-2 font-medium">{t.reviewSubmitted}</p>
-          )} 
-        </div>
-
         {/* ACTION BUTTONS */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex gap-3">
           <button
-            onClick={handleDownload}
-            disabled={downloadLoading || !reportMeta}
-            className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2"
+            onClick={() => window.open(`/report/${contractId}/print`, "_blank")}
+            className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2"
           >
-            {downloadLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {t.downloadPdf}
+            <Download className="w-4 h-4" /> Download PDF
           </button>
-
           <button
             onClick={handleShare}
-            className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2"
+            className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2"
           >
-            <Share2 className="w-4 h-4" />
-            {t.shareReport}
+            <Share2 className="w-4 h-4" /> Share Report
           </button>
         </div>
 
-        {/* No report yet */}
-        {!reportMeta && report.status === "completed" && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
-            <p className="text-slate-500 text-xs">
-              PDF report is being generated. Refresh in a moment.
-            </p>
-          </div>
-        )}
-
         {/* FLAG CARDS */}
-        {flags.length > 0 && (
+        {report.flags.length > 0 ? (
           <div>
             <h2 className="text-base font-bold text-slate-900 mb-3">
-              {t.riskFlags} ({flags.length})
+              Risk Flags ({report.flags_count})
             </h2>
             <div className="space-y-3">
-              {flags.map((flag) => {
+              {report.flags.map((flag) => {
                 const ss = severityStyles(flag.severity);
+                const isExpanded = expanded === flag.flag_id;
+
+                // Normalize mitigation_steps — handle missing/null from old records
+                const steps: string[] = Array.isArray(flag.mitigation_steps)
+                  ? flag.mitigation_steps
+                  : flag.recommendation
+                    ? [flag.recommendation]
+                    : [];
+
+                const refs: string[] = Array.isArray(flag.legal_references)
+                  ? flag.legal_references
+                  : [];
+
                 return (
-                  <button
+                  <div
                     key={flag.flag_id}
-                    onClick={() => handleFlagClick(flag.flag_id)}
-                    className={`w-full text-left rounded-xl border ${ss.bg} ${ss.border} p-4 transition-opacity hover:opacity-90 active:opacity-75`}
+                    className={`rounded-xl ${ss.cardBg} ${ss.accent} shadow-sm overflow-hidden`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ss.badge}`}>
-                            {flag.severity}
-                          </span>
-                          <span className="text-xs text-slate-500 truncate">{flag.category}</span>
-                        </div>
-                        <p className={`text-sm font-bold leading-snug ${ss.text}`}>{flag.title}</p>
-                        <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">
-                          {flag.plain_language_explanation}
-                        </p>
-                        <div className="mt-2.5 flex items-center gap-2">
-                          <div className="flex-1 bg-white rounded-full h-1.5 border border-slate-200 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${ss.bar}`}
-                              style={{ width: `${Math.round(flag.ai_confidence * 100)}%` }}
+                    {/* COLLAPSED HEADER — always visible */}
+                    <button
+                      onClick={() =>
+                        setExpanded(isExpanded ? null : flag.flag_id)
+                      }
+                      className="w-full text-left p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <AlertTriangle
+                              className={`w-3.5 h-3.5 ${ss.text}`}
                             />
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded-full ${ss.badge}`}
+                            >
+                              {flag.severity === "critical"
+                                ? ui.critical.toUpperCase()
+                                : flag.severity === "warning"
+                                  ? ui.warning.toUpperCase()
+                                  : ui.info.toUpperCase()}
+                            </span>
+                            {flag.flag_type &&
+                              flag.flag_type.toLowerCase() !==
+                                flag.severity.toLowerCase() && (
+                                <span className="text-xs text-slate-500 font-medium">
+                                  {
+                                    console.log(
+                                      "flag_type raw:",
+                                      flag.flag_type,
+                                    ) as any
+                                  }
+                                  {FLAG_TYPE_LABELS[
+                                    flag.flag_type
+                                      .toLowerCase()
+                                      .replace(/\s+/g, "_")
+                                      .replace(/-/g, "_")
+                                  ]?.[report.language] ??
+                                    FLAG_TYPE_LABELS[
+                                      flag.flag_type
+                                        .toLowerCase()
+                                        .replace(/\s+/g, "_")
+                                        .replace(/-/g, "_")
+                                    ]?.["en"] ??
+                                    flag.flag_type.replace(/_/g, " ")}
+                                </span>
+                              )}
                           </div>
-                          <span className="text-xs text-slate-400 flex-shrink-0">
-                            {Math.round(flag.ai_confidence * 100)}% {t.confidence}
-                          </span>
+                          <p
+                            className={`text-sm font-bold leading-snug ${ss.headerText}`}
+                          >
+                            {flag.title}
+                          </p>
+                          {flag.description && (
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">
+                              {flag.description}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className={`text-slate-400 flex-shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                        >
+                          ▶
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* EXPANDED DETAIL */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 space-y-4 border-t border-slate-100">
+                        {/* PANEL A — Extracted Clause */}
+                        {flag.clause_text && (
+                          <div className="pt-3">
+                            <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-slate-400" />
+                              {ui.extractedClause}
+                            </p>
+                            <div
+                              className={`bg-slate-50 border-l-4 ${ss.clauseBorder} p-3 rounded-r-lg`}
+                            >
+                              <p className="text-xs text-slate-700 italic leading-relaxed">
+                                "{flag.clause_text}"
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* PANEL B — Plain Language Explanation */}
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                            {ui.plainExplanation}
+                          </p>
+                          <div className="bg-white border border-slate-100 rounded-lg p-3 shadow-xs">
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {flag.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* PANEL C — What You Can Do */}
+                        {steps.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                              {ui.whatYouCanDo}
+                            </p>
+                            <div className="space-y-2">
+                              {steps.map((step, i) => (
+                                <div
+                                  key={i}
+                                  className="flex items-start gap-2.5"
+                                >
+                                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                                    {i + 1}
+                                  </span>
+                                  <p className="text-xs text-slate-600 leading-relaxed">
+                                    {step}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* PANEL D — Legal References */}
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                            <Scale className="w-3.5 h-3.5 text-slate-400" />
+                            {ui.legalReferences}
+                          </p>
+                          {refs.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {refs.map((ref, i) => (
+                                <div
+                                  key={i}
+                                  className="bg-slate-50 border border-slate-200 text-slate-700 py-2 px-3 rounded-lg text-xs flex items-start gap-1.5"
+                                >
+                                  <span className="text-slate-400 flex-shrink-0">
+                                    §
+                                  </span>
+                                  <span>{ref}</span>
+                                </div>
+                              ))}
+                              <p
+                                className="text-slate-400 mt-1.5"
+                                style={{ fontSize: "11px" }}
+                              >
+                                {ui.referencesNote}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">
+                              {ui.noReferences}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-400 flex-shrink-0 mt-1" />
-                    </div>
-                  </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
           </div>
-        )}
-
-        {flags.length === 0 && report.status === "completed" && (
+        ) : (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center">
             <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-            <p className="text-emerald-700 font-semibold text-sm">{t.noFlags}</p>
-            <p className="text-emerald-600 text-xs mt-1">{t.noFlagsSub}</p>
+            <p className="text-emerald-700 font-semibold text-sm">
+              No Issues Found
+            </p>
+            <p className="text-emerald-600 text-xs mt-1">
+              No problematic clauses were detected in this contract.
+            </p>
           </div>
         )}
 
         {/* BOTTOM DISCLAIMER */}
         <div className="bg-slate-100 border border-slate-200 rounded-xl p-4">
           <p className="text-slate-500 text-xs leading-relaxed">
-            <span className="font-semibold text-slate-600">{t.disclaimer}</span>{" "}
-            {t.disclaimerBody}
+            <span className="font-semibold text-slate-600">
+              {ui.disclaimerLabel}{" "}
+            </span>
+            {ui.disclaimer}
           </p>
         </div>
 
