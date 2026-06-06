@@ -6,6 +6,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import {
   AlertTriangle,
   CheckCircle,
+  Loader2,
   XCircle,
   Share2,
   RefreshCw,
@@ -771,6 +772,8 @@ function ReportPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfToast, setPdfToast] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -807,6 +810,33 @@ function ReportPageInner() {
   useEffect(() => {
     fetchReport();
   }, [fetchReport]);
+
+  const handleDownloadPdf = async () => {
+    if (!session?.access_token || !contractId || pdfLoading) return;
+    setPdfLoading(true);
+    setPdfToast(null);
+    try {
+      const res = await fetch(`${API_BASE}/report/${contractId}/pdf`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error("PDF generation failed.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `migrantshield-report-${contractId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setPdfToast(ui?.downloadReport ?? "PDF downloading...");
+    } catch {
+      setPdfToast("PDF failed. Try again.");
+    } finally {
+      setPdfLoading(false);
+      setTimeout(() => setPdfToast(null), 4000);
+    }
+  };
 
   const handleShare = async () => {
     // Always share clean URL without ?view=compact
@@ -977,15 +1007,26 @@ function ReportPageInner() {
             </div>
           </div>
 
+          {/* TOAST */}
+          {pdfToast && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg">
+              {pdfToast}
+            </div>
+          )}
+
           {/* ACTION BUTTONS */}
           <div className="flex gap-2.5">
             <button
-              onClick={() =>
-                window.open(`/report/${contractId}/print`, "_blank")
-              }
-              className="flex-1 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-2"
+              onClick={handleDownloadPdf}
+              disabled={pdfLoading}
+              className="flex-1 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              <Download className="w-4 h-4" /> {ui.downloadReport}
+              {pdfLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}{" "}
+              {ui.downloadReport}
             </button>
             <button
               onClick={handleShare}
@@ -1223,12 +1264,24 @@ function ReportPageInner() {
           </div>
         </div>
 
+        {pdfToast && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg">
+            {pdfToast}
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button
-            onClick={() => window.open(`/report/${contractId}/print`, "_blank")}
-            className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2"
+            onClick={handleDownloadPdf}
+            disabled={pdfLoading}
+            className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            <Download className="w-4 h-4" /> Download PDF
+            {pdfLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}{" "}
+            Save as PDF
           </button>
           <button
             onClick={handleShare}
