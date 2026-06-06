@@ -274,6 +274,10 @@ async def _analyse_with_groq(file_bytes: bytes, mime_type: str, country_hint: st
     raw_text = re.sub(r"^```\s*", "", raw_text)
     raw_text = re.sub(r"\s*```$", "", raw_text)
 
+    # Sanitize invalid unicode escapes before parsing
+    raw_text = raw_text.encode("utf-8", errors="replace").decode("utf-8")
+    raw_text = re.sub(r'\\u[0-9a-fA-F]{0,3}(?![0-9a-fA-F])', '', raw_text)
+
     try:
         parsed = json.loads(raw_text)
     except json.JSONDecodeError as e:

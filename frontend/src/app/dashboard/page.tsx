@@ -970,7 +970,7 @@ export default function DashboardPage() {
                                 <button
                                   onClick={() =>
                                     router.push(
-                                      `/report/${contract.contract_id}`,
+                                      `/report/${contract.contract_id}?view=compact`,
                                     )
                                   }
                                   className="text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 text-xs font-medium flex items-center gap-1 ml-auto transition-colors"
@@ -1092,7 +1092,9 @@ export default function DashboardPage() {
                           {contract.status === "completed" && (
                             <button
                               onClick={() =>
-                                router.push(`/report/${contract.contract_id}`)
+                                router.push(
+                                  `/report/${contract.contract_id}?view=compact`,
+                                )
                               }
                               className="flex items-center gap-1 text-slate-700 border border-slate-200 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                             >

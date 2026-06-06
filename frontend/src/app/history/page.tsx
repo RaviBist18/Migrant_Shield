@@ -705,7 +705,9 @@ function HistoryContent() {
                     <button
                       onClick={() => {
                         if (clickable) {
-                          router.push(`/report/${contract.contract_id}`);
+                          router.push(
+                            `/report/${contract.contract_id}?view=compact`,
+                          );
                         } else if (isFailed) {
                           router.push(`/failed/${contract.contract_id}`);
                         } else if (contract.status === "processing") {
