@@ -16,6 +16,7 @@ import {
   ChevronUp,
   ChevronDown,
   FileText,
+  ArrowLeft,
 } from "lucide-react";
 import { translations } from "@/lib/i18n/landing";
 import type { Lang } from "@/lib/i18n/landing";
@@ -511,7 +512,13 @@ function HistoryContent() {
                 filter === key
                   ? key === "failed"
                     ? "bg-red-600 border-red-600 text-white"
-                    : "bg-slate-900 dark:bg-slate-100 border-slate-900 dark:border-slate-100 text-white dark:text-slate-900"
+                    : key === "completed"
+                      ? "bg-emerald-600 border-emerald-600 text-white"
+                      : key === "processing"
+                        ? "bg-amber-500 border-amber-500 text-white"
+                        : key === "queued"
+                          ? "bg-slate-500 border-slate-500 text-white"
+                          : "bg-slate-900 dark:bg-slate-100 border-slate-900 dark:border-slate-100 text-white dark:text-slate-900"
                   : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500"
               }`}
             >
@@ -600,6 +607,14 @@ function HistoryContent() {
           </div>
         )}
 
+        {/* Back button */}
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors text-sm font-medium mb-3"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+
         {loading && (
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
             {[...Array(8)].map((_, i) => (
@@ -640,7 +655,7 @@ function HistoryContent() {
                 Contract
               </span>
               <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wide w-24 text-right hidden sm:block">
-                Employer
+                {filter === "failed" ? "Error" : "Employer"}
               </span>
               <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wide w-20 text-center">
                 Risk
@@ -688,12 +703,22 @@ function HistoryContent() {
 
                     {/* Name + filename — clickable */}
                     <button
-                      onClick={() =>
-                        clickable &&
-                        router.push(`/report/${contract.contract_id}`)
-                      }
-                      disabled={!clickable}
-                      className={`flex-1 min-w-0 text-left ${clickable ? "cursor-pointer" : "cursor-default"}`}
+                      onClick={() => {
+                        if (clickable) {
+                          router.push(`/report/${contract.contract_id}`);
+                        } else if (isFailed) {
+                          router.push(`/failed/${contract.contract_id}`);
+                        } else if (contract.status === "processing") {
+                          showToast(
+                            "Analysis in progress. This page auto-updates when complete.",
+                          );
+                        } else if (contract.status === "queued") {
+                          showToast(
+                            "Waiting in queue. Analysis will begin shortly.",
+                          );
+                        }
+                      }}
+                      className={`flex-1 min-w-0 text-left ${clickable || isFailed ? "cursor-pointer" : "cursor-default"}`}
                     >
                       <p
                         className={`text-sm font-medium truncate leading-tight ${
@@ -711,9 +736,17 @@ function HistoryContent() {
                       </p>
                     </button>
 
-                    {/* Employer — hidden on small screens */}
-                    <span className="text-xs text-slate-400 truncate w-24 text-right hidden sm:block shrink-0">
-                      {contract.employer_name ?? "—"}
+                    {/* Employer or error reason */}
+                    <span
+                      className="text-xs truncate w-24 text-right hidden sm:block shrink-0 ${
+                      filter === 'failed' && contract.error_reason
+                        ? 'text-red-400 dark:text-red-500'
+                        : 'text-slate-400'
+                    }"
+                    >
+                      {filter === "failed"
+                        ? (contract.error_reason ?? "Unknown error")
+                        : (contract.employer_name ?? "—")}
                     </span>
 
                     {/* Risk score */}

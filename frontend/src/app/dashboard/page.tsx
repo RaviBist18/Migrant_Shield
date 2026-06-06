@@ -234,6 +234,7 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [stuckDismissed, setStuckDismissed] = useState(false);
 
   // Quota warning dismissed
   const [quotaWarningDismissed, setQuotaWarningDismissed] = useState(false);
@@ -610,7 +611,7 @@ export default function DashboardPage() {
             )}
 
             {/* ── Stuck processing warning ── */}
-            {stuckContracts.length > 0 && (
+            {stuckContracts.length > 0 && !stuckDismissed && (
               <div className="mb-4 flex items-start gap-3 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
                 <Clock size={16} className="text-slate-500 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -630,6 +631,12 @@ export default function DashboardPage() {
                 >
                   <RefreshCw size={11} /> Retry all
                 </button>
+                <button
+                  onClick={() => setStuckDismissed(true)}
+                  className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors shrink-0 ml-1"
+                >
+                  <X size={14} />
+                </button>
               </div>
             )}
 
@@ -644,9 +651,15 @@ export default function DashboardPage() {
                     onClick={() => handleFilterCard(card.key)}
                     className={`bg-white dark:bg-slate-900 border rounded-xl shadow-sm p-4 flex flex-col gap-2 text-left transition-all hover:shadow-md ${
                       isActive
-                        ? isFailed
-                          ? "border-red-300 dark:border-red-700 ring-1 ring-red-300 dark:ring-red-700"
-                          : "border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100"
+                        ? card.key === "failed"
+                          ? "border-red-400 dark:border-red-600 ring-1 ring-red-400 dark:ring-red-600"
+                          : card.key === "completed"
+                            ? "border-emerald-400 dark:border-emerald-600 ring-1 ring-emerald-400 dark:ring-emerald-600"
+                            : card.key === "critical"
+                              ? "border-orange-400 dark:border-orange-600 ring-1 ring-orange-400 dark:ring-orange-600"
+                              : card.key === "processing"
+                                ? "border-amber-400 dark:border-amber-600 ring-1 ring-amber-400 dark:ring-amber-600"
+                                : "border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100"
                         : isFailed && failedCount > 0
                           ? "border-red-200 dark:border-red-900"
                           : "border-slate-200 dark:border-slate-800"
@@ -768,8 +781,14 @@ export default function DashboardPage() {
                       className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                         activeFilter === f
                           ? f === "failed"
-                            ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
-                            : "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
+                            ? "bg-red-600 text-white"
+                            : f === "completed"
+                              ? "bg-emerald-600 text-white"
+                              : f === "processing"
+                                ? "bg-amber-500 text-white"
+                                : f === "critical"
+                                  ? "bg-orange-500 text-white"
+                                  : "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
                           : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                       }`}
                     >

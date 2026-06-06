@@ -36,6 +36,7 @@ export interface Contract {
   critical_flags_count?: number;
   flags: Flag[];
   original_filename?: string | null;
+  error_reason?: string | null;
 }
 
 export type Lang = "en" | "ne";

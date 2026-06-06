@@ -59,6 +59,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str):
+    return JSONResponse(status_code=200, content={})
+
 @app.on_event("startup")
 async def recover_stuck_contracts():
     """Reset contracts stuck in 'processing' for >10 minutes on startup."""
@@ -126,7 +130,7 @@ def _validate_jwt(token: str) -> dict:
 def _extract_token(request: Request) -> str:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing Bearer token.")
+        raise HTTPException(status_code=403, detail="Missing Bearer token.")
     return auth.split(" ", 1)[1]
 
 def _get_current_user(request: Request) -> dict:
@@ -294,6 +298,8 @@ async def get_status(contract_id: str, request: Request):
 # --------------------------------------------------------------
 @app.get("/report/{contract_id}")
 async def get_report(contract_id: str, request: Request):
+    if request.method == "OPTIONS":
+        return JSONResponse(status_code=200, content={})
     user = _get_current_user(request)
     user_id = user.get("sub")
 
