@@ -9,8 +9,6 @@ import {
   AlertTriangle,
   Clock,
   Upload,
-  Settings,
-  HelpCircle,
   LogOut,
   ArrowRight,
   ChevronUp,
@@ -18,6 +16,13 @@ import {
   Home,
   History,
   LayoutDashboard,
+  XCircle,
+  Trash2,
+  RefreshCw,
+  Search,
+  X,
+  WifiOff,
+  Copy,
 } from "lucide-react";
 import { translations } from "@/lib/i18n/landing";
 import type { Contract, Status } from "@/types";
@@ -31,10 +36,11 @@ const supabase = createBrowserClient(
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10;
+const STUCK_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
 type SortField = "upload_date" | "employer_name" | "risk_score";
 type SortDir = "asc" | "desc";
-type FilterType = "all" | "completed" | "critical" | "processing";
+type FilterType = "all" | "completed" | "critical" | "processing" | "failed";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function getRiskMeta(
@@ -90,17 +96,27 @@ function getStatusMeta(
       return {
         label: t.statusFailed,
         classes: "text-red-600",
-        icon: <AlertTriangle size={13} />,
+        icon: <XCircle size={13} />,
       };
   }
+}
+
+function isStuck(contract: Contract): boolean {
+  if (contract.status !== "processing" && contract.status !== "queued")
+    return false;
+  const uploadTime = contract.upload_date
+    ? new Date(contract.upload_date).getTime()
+    : null;
+  if (!uploadTime) return false;
+  return Date.now() - uploadTime > STUCK_THRESHOLD_MS;
 }
 
 // ─── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
           <div
             key={i}
             className="bg-slate-200 dark:bg-slate-800 rounded-xl h-24"
@@ -150,6 +166,54 @@ function EmptyState({
   );
 }
 
+// ─── Delete Confirmation Modal ─────────────────────────────────────────────────
+function DeleteModal({
+  count,
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  count: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-w-sm w-full p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center">
+            <Trash2 size={18} className="text-red-600" />
+          </div>
+          <div>
+            <h3 className="text-slate-900 font-semibold text-sm">
+              Delete {count} contract{count !== 1 ? "s" : ""}?
+            </h3>
+            <p className="text-slate-500 text-xs mt-0.5">
+              This cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button
+            onClick={onCancel}
+            className="flex-1 border border-slate-200 text-slate-600 text-sm font-medium py-2 rounded-lg hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loading ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter();
@@ -164,9 +228,17 @@ export default function DashboardPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Bulk select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Quota warning dismissed
+  const [quotaWarningDismissed, setQuotaWarningDismissed] = useState(false);
 
   // ── Lang detect ──────────────────────────────────────────────────────────────
-  // REPLACE with
   const [lang, setLang] = useState<Lang>(() => {
     if (typeof window === "undefined") return "en";
     const stored = localStorage.getItem("lang");
@@ -222,8 +294,6 @@ export default function DashboardPage() {
   }, [router]);
 
   // ── Realtime subscription ────────────────────────────────────────────────────
-  // NOTE: Ensure Row Level Security (RLS) is enabled on contracts table in Supabase dashboard
-  // for filter:`user_id=eq.${userId}` to work correctly — otherwise filter is silently ignored
   useEffect(() => {
     if (!userId) return;
 
@@ -243,14 +313,16 @@ export default function DashboardPage() {
           } else if (payload.eventType === "UPDATE") {
             setContracts((prev) =>
               prev.map((c) =>
-                c.id === (payload.new as Contract).id
+                c.contract_id === (payload.new as Contract).contract_id
                   ? (payload.new as Contract)
                   : c,
               ),
             );
           } else if (payload.eventType === "DELETE") {
             setContracts((prev) =>
-              prev.filter((c) => c.id !== (payload.old as Contract).id),
+              prev.filter(
+                (c) => c.contract_id !== (payload.old as Contract).contract_id,
+              ),
             );
           }
         },
@@ -268,9 +340,7 @@ export default function DashboardPage() {
     window.location.replace("/");
   };
 
-  // ── Retry — reset to queued via Supabase direct mutation ─────────────────────
-  // Backend FastAPI watch loop polls for 'queued' status to restart pipeline
-  // If retry feels slow, verify FastAPI polling interval is ≤10s
+  // ── Retry ────────────────────────────────────────────────────────────────────
   const handleRetry = useCallback(async (contractId: string) => {
     setRetryingIds((prev) => new Set(prev).add(contractId));
     try {
@@ -296,6 +366,55 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // ── Bulk delete ───────────────────────────────────────────────────────────────
+  const handleBulkDelete = async () => {
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase
+        .from("contracts")
+        .delete()
+        .in("contract_id", ids);
+      if (!error) {
+        setContracts((prev) =>
+          prev.filter((c) => !selectedIds.has(c.contract_id)),
+        );
+        setSelectedIds(new Set());
+      }
+    } catch (e) {
+      console.warn("[bulk-delete] failed:", e);
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const toggleSelect = (contractId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(contractId)) next.delete(contractId);
+      else next.add(contractId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (ids: string[]) => {
+    const allSelected = ids.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  };
+
   // ── Stat derivations ─────────────────────────────────────────────────────────
   const totalContracts = contracts.length;
   const analysed = contracts.filter((c) => c.status === "completed").length;
@@ -306,14 +425,58 @@ export default function DashboardPage() {
   const processingCount = contracts.filter(
     (c) => c.status === "processing" || c.status === "queued",
   ).length;
+  const failedCount = contracts.filter((c) => c.status === "failed").length;
+
+  // Stuck contracts check
+  const stuckContracts = contracts.filter(isStuck);
+
+  // Quota warning: any contract failed with 429 in error_message
+  const hasQuotaError = contracts.some(
+    (c) => c.status === "failed" && (c as any).error_message?.includes("429"),
+  );
+
+  // Weekly trend (last 7 days)
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const thisWeekContracts = contracts.filter(
+    (c) => c.upload_date && new Date(c.upload_date).getTime() > oneWeekAgo,
+  ).length;
+  const thisWeekCompleted = contracts.filter(
+    (c) =>
+      c.status === "completed" &&
+      c.upload_date &&
+      new Date(c.upload_date).getTime() > oneWeekAgo,
+  ).length;
+  const thisWeekFailed = contracts.filter(
+    (c) =>
+      c.status === "failed" &&
+      c.upload_date &&
+      new Date(c.upload_date).getTime() > oneWeekAgo,
+  ).length;
 
   // ── Filter ───────────────────────────────────────────────────────────────────
   const filtered = contracts.filter((c) => {
-    if (activeFilter === "completed") return c.status === "completed";
-    if (activeFilter === "processing")
-      return c.status === "processing" || c.status === "queued";
-    if (activeFilter === "critical") return (c.critical_flags_count ?? 0) > 0;
-    return true;
+    const matchesFilter =
+      activeFilter === "all"
+        ? true
+        : activeFilter === "completed"
+          ? c.status === "completed"
+          : activeFilter === "processing"
+            ? c.status === "processing" || c.status === "queued"
+            : activeFilter === "critical"
+              ? (c.critical_flags_count ?? 0) > 0
+              : activeFilter === "failed"
+                ? c.status === "failed"
+                : true;
+
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      (c.worker_name ?? "").toLowerCase().includes(q) ||
+      (c.employer_name ?? "").toLowerCase().includes(q) ||
+      (c.country ?? "").toLowerCase().includes(q) ||
+      (c.original_filename ?? "").toLowerCase().includes(q);
+
+    return matchesFilter && matchesSearch;
   });
 
   // ── Sort ─────────────────────────────────────────────────────────────────────
@@ -328,9 +491,11 @@ export default function DashboardPage() {
   });
 
   // ── Pagination ───────────────────────────────────────────────────────────────
-  // TODO: Migrate to server-side limit/offset when dataset exceeds 100+ records
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paginatedIds = paginated.map((c) => c.contract_id);
+  const allPageSelected =
+    paginatedIds.length > 0 && paginatedIds.every((id) => selectedIds.has(id));
 
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -344,6 +509,7 @@ export default function DashboardPage() {
   const handleFilterCard = (f: FilterType) => {
     setActiveFilter((prev) => (prev === f ? "all" : f));
     setPage(1);
+    setSelectedIds(new Set());
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -363,84 +529,169 @@ export default function DashboardPage() {
       icon: <FileText size={18} />,
       label: t.totalContracts,
       value: totalContracts,
-      sub: t.totalSub,
+      trend: thisWeekContracts > 0 ? `+${thisWeekContracts} this week` : null,
+      trendUp: true,
     },
     {
       key: "completed" as FilterType,
       icon: <CheckCircle size={18} />,
       label: t.analysed,
       value: analysed,
-      sub: t.analysedSub,
+      trend: thisWeekCompleted > 0 ? `+${thisWeekCompleted} this week` : null,
+      trendUp: true,
     },
     {
       key: "critical" as FilterType,
       icon: <AlertTriangle size={18} />,
       label: t.criticalFlags,
       value: criticalFlags,
-      sub: t.criticalSub,
+      trend: criticalFlags > 0 ? "Needs attention" : null,
+      trendUp: false,
     },
     {
       key: "processing" as FilterType,
       icon: <Clock size={18} />,
       label: t.processing,
       value: processingCount,
-      sub: t.processingSub,
+      trend:
+        stuckContracts.length > 0
+          ? `${stuckContracts.length} stuck >10min`
+          : null,
+      trendUp: false,
+    },
+    {
+      key: "failed" as FilterType,
+      icon: <XCircle size={18} />,
+      label: "Failed",
+      value: failedCount,
+      trend: thisWeekFailed > 0 ? `${thisWeekFailed} this week` : null,
+      trendUp: false,
     },
   ];
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
-      {/* ── Main ── */}
+      {/* ── Delete modal ── */}
+      {showDeleteModal && (
+        <DeleteModal
+          count={selectedIds.size}
+          onConfirm={handleBulkDelete}
+          onCancel={() => setShowDeleteModal(false)}
+          loading={deleting}
+        />
+      )}
+
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 pb-24 md:pb-10">
         {isLoading ? (
           <Skeleton />
         ) : (
           <>
+            {/* ── Quota warning banner ── */}
+            {hasQuotaError && !quotaWarningDismissed && (
+              <div className="mb-4 flex items-start gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+                <WifiOff size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-amber-800 dark:text-amber-300 text-xs font-semibold">
+                    AI quota exhausted
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-400 text-xs mt-0.5">
+                    Some contracts failed due to rate limits. Retry after quota
+                    resets or upgrade Groq plan.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setQuotaWarningDismissed(true)}
+                  className="text-amber-500 hover:text-amber-700 shrink-0"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* ── Stuck processing warning ── */}
+            {stuckContracts.length > 0 && (
+              <div className="mb-4 flex items-start gap-3 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3">
+                <Clock size={16} className="text-slate-500 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-slate-700 dark:text-slate-300 text-xs font-semibold">
+                    {stuckContracts.length} contract
+                    {stuckContracts.length > 1 ? "s" : ""} stuck in processing
+                  </p>
+                  <p className="text-slate-500 text-xs mt-0.5">
+                    Analysis hasn't completed in over 10 minutes. Try retrying.
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    stuckContracts.forEach((c) => handleRetry(c.contract_id))
+                  }
+                  className="text-xs text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0 flex items-center gap-1"
+                >
+                  <RefreshCw size={11} /> Retry all
+                </button>
+              </div>
+            )}
+
             {/* ── Stat cards ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
               {statCards.map((card) => {
                 const isActive = activeFilter === card.key;
+                const isFailed = card.key === "failed";
                 return (
                   <button
                     key={card.key}
                     onClick={() => handleFilterCard(card.key)}
-                    className={`bg-white dark:bg-slate-900 border rounded-xl shadow-sm p-5 flex flex-col gap-3 text-left transition-all hover:shadow-md ${
+                    className={`bg-white dark:bg-slate-900 border rounded-xl shadow-sm p-4 flex flex-col gap-2 text-left transition-all hover:shadow-md ${
                       isActive
-                        ? "border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100"
-                        : "border-slate-200 dark:border-slate-800"
+                        ? isFailed
+                          ? "border-red-300 dark:border-red-700 ring-1 ring-red-300 dark:ring-red-700"
+                          : "border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100"
+                        : isFailed && failedCount > 0
+                          ? "border-red-200 dark:border-red-900"
+                          : "border-slate-200 dark:border-slate-800"
                     }`}
                   >
-                    <div className="text-slate-400 bg-slate-50 border border-slate-100 p-2 rounded-lg w-fit">
+                    <div
+                      className={`p-2 rounded-lg w-fit border ${
+                        isFailed && failedCount > 0
+                          ? "bg-red-50 border-red-100 text-red-500"
+                          : "bg-slate-50 border-slate-100 text-slate-400"
+                      }`}
+                    >
                       {card.icon}
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-slate-900">
+                      <p
+                        className={`text-2xl font-bold ${
+                          isFailed && failedCount > 0
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-slate-900 dark:text-slate-100"
+                        }`}
+                      >
                         {card.value}
                       </p>
-                      <p className="text-sm text-slate-600 font-medium">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-tight">
                         {card.label}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {card.sub}
-                      </p>
+                      {card.trend && (
+                        <p
+                          className={`text-[10px] mt-1 font-medium ${
+                            card.trendUp
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : isFailed || card.key === "critical"
+                                ? "text-red-500 dark:text-red-400"
+                                : "text-amber-600 dark:text-amber-400"
+                          }`}
+                        >
+                          {card.trendUp ? "↑" : "↗"} {card.trend}
+                        </p>
+                      )}
                     </div>
                   </button>
                 );
               })}
             </div>
-
-            {/* Clear filter */}
-            {activeFilter !== "all" && (
-              <div className="mb-4 flex">
-                <button
-                  onClick={() => setActiveFilter("all")}
-                  className="text-xs text-slate-500 hover:text-slate-900 border border-slate-200 bg-white px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  {t.clearFilter} ×
-                </button>
-              </div>
-            )}
 
             {/* ── Empty or table ── */}
             {contracts.length === 0 ? (
@@ -448,33 +699,137 @@ export default function DashboardPage() {
             ) : (
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
                 {/* Table header */}
-                <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-                  <h2 className="text-slate-800 font-semibold text-base">
-                    {t.contractRecords}
-                  </h2>
-                  <button
-                    onClick={() => router.push("/history")}
-                    className="text-slate-500 hover:text-slate-900 text-xs font-medium flex items-center gap-1 transition-colors"
-                  >
-                    {t.viewAll} <ArrowRight size={12} />
-                  </button>
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-slate-800 dark:text-slate-100 font-semibold text-base">
+                      {t.contractRecords}
+                    </h2>
+                    {activeFilter !== "all" && (
+                      <button
+                        onClick={() => {
+                          setActiveFilter("all");
+                          setSelectedIds(new Set());
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-900 border border-slate-200 bg-slate-50 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        {activeFilter} <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Search */}
+                    <div className="relative">
+                      <Search
+                        size={13}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Search worker or employer…"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setPage(1);
+                        }}
+                        className="pl-7 pr-3 py-1.5 text-xs border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 w-44 sm:w-56 placeholder:text-slate-400"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => router.push("/history")}
+                      className="text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 text-xs font-medium flex items-center gap-1 transition-colors whitespace-nowrap"
+                    >
+                      {t.viewAll} <ArrowRight size={12} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Filter tabs */}
+                <div className="flex items-center gap-1 px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 overflow-x-auto">
+                  {(
+                    [
+                      "all",
+                      "completed",
+                      "processing",
+                      "failed",
+                      "critical",
+                    ] as FilterType[]
+                  ).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => handleFilterCard(f)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                        activeFilter === f
+                          ? f === "failed"
+                            ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+                            : "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
+                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {f === "all"
+                        ? "All"
+                        : f === "completed"
+                          ? "Completed"
+                          : f === "processing"
+                            ? "Processing"
+                            : f === "failed"
+                              ? `Failed${failedCount > 0 ? ` (${failedCount})` : ""}`
+                              : "Critical"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Bulk action bar */}
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-3 px-5 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      {selectedIds.size} selected
+                    </span>
+                    <button
+                      onClick={() => setShowDeleteModal(true)}
+                      className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-800 font-medium border border-red-200 dark:border-red-800 px-2.5 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <Trash2 size={12} /> Delete selected
+                    </button>
+                    <button
+                      onClick={() => setSelectedIds(new Set())}
+                      className="text-xs text-slate-500 hover:text-slate-700 ml-auto"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
 
                 {/* ── Desktop table ── */}
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-slate-100">
-                        <th className="text-left px-5 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
+                      <tr className="border-b border-slate-100 dark:border-slate-800">
+                        <th className="px-5 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={allPageSelected}
+                            onChange={() => toggleSelectAll(paginatedIds)}
+                            className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                          />
+                        </th>
+                        <th className="text-left px-3 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
                           {t.colWorker}
                         </th>
-                        <th className="text-left px-5 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
+                        <th className="text-left px-3 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
                           {t.colEmployer}
                         </th>
-                        <th className="text-left px-5 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
+                        <th className="text-left px-3 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
                           {t.colCountry}
                         </th>
-                        <th className="px-5 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold text-left">
+                        <th className="px-3 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold text-left">
                           <button
                             onClick={() => handleSort("upload_date")}
                             className="flex items-center gap-1 hover:text-slate-700 transition-colors"
@@ -482,10 +837,10 @@ export default function DashboardPage() {
                             {t.colDate} <SortIcon field="upload_date" />
                           </button>
                         </th>
-                        <th className="text-left px-5 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
+                        <th className="text-left px-3 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
                           {t.colStatus}
                         </th>
-                        <th className="px-5 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold text-left">
+                        <th className="px-3 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold text-left">
                           <button
                             onClick={() => handleSort("risk_score")}
                             className="flex items-center gap-1 hover:text-slate-700 transition-colors"
@@ -493,10 +848,10 @@ export default function DashboardPage() {
                             {t.colRisk} <SortIcon field="risk_score" />
                           </button>
                         </th>
-                        <th className="text-left px-5 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
+                        <th className="text-left px-3 py-3 text-slate-400 text-xs uppercase tracking-widest font-semibold">
                           {t.colFlags}
                         </th>
-                        <th className="px-5 py-3" />
+                        <th className="px-3 py-3" />
                       </tr>
                     </thead>
                     <tbody>
@@ -514,37 +869,62 @@ export default function DashboardPage() {
                             ? getRiskMeta(contract.risk_score, t)
                             : null;
                         const isLast = i === paginated.length - 1;
+                        const stuck = isStuck(contract);
+                        const isSelected = selectedIds.has(
+                          contract.contract_id,
+                        );
 
                         return (
                           <tr
-                            key={contract.id}
-                            className={`hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${!isLast ? "border-b border-slate-100 dark:border-slate-800" : ""}`}
+                            key={contract.contract_id}
+                            className={`transition-colors ${!isLast ? "border-b border-slate-100 dark:border-slate-800" : ""} ${
+                              isSelected
+                                ? "bg-slate-50 dark:bg-slate-800/40"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                            }`}
                           >
-                            <td className="px-5 py-4">
-                              <p className="text-slate-800 font-medium text-sm">
-                                {contract.worker_name || t.notSpecified}
+                            <td className="px-5 py-4 w-10">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() =>
+                                  toggleSelect(contract.contract_id)
+                                }
+                                className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                              />
+                            </td>
+                            <td className="px-3 py-4">
+                              <p className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+                                {contract.worker_name ||
+                                  contract.original_filename ||
+                                  t.notSpecified}
                               </p>
                               <p className="text-slate-400 text-xs font-mono">
-                                {contract.id?.slice(0, 8) ?? "—"}…
+                                {contract.contract_id?.slice(0, 8) ?? "—"}…
                               </p>
                             </td>
-                            <td className="px-5 py-4 text-slate-600 text-sm truncate max-w-[140px]">
+                            <td className="px-3 py-4 text-slate-600 dark:text-slate-400 text-sm truncate max-w-[140px]">
                               {contract.employer_name || t.notSpecified}
                             </td>
-                            <td className="px-5 py-4 text-slate-600 text-sm">
+                            <td className="px-3 py-4 text-slate-600 dark:text-slate-400 text-sm">
                               {contract.country || t.notSpecified}
                             </td>
-                            <td className="px-5 py-4 text-slate-500 text-sm tabular-nums">
+                            <td className="px-3 py-4 text-slate-500 text-sm tabular-nums">
                               {contract.upload_date?.slice(0, 10) ?? "—"}
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="px-3 py-4">
                               <div
                                 className={`flex items-center gap-1.5 text-xs font-medium ${statusMeta.classes}`}
                               >
                                 {statusMeta.icon} {statusMeta.label}
+                                {stuck && (
+                                  <span className="ml-1 text-[10px] text-amber-500 font-medium">
+                                    (stuck)
+                                  </span>
+                                )}
                               </div>
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="px-3 py-4">
                               {contract.risk_score > 0 && riskMeta ? (
                                 <span className={riskMeta.classes}>
                                   {contract.risk_score}
@@ -553,7 +933,7 @@ export default function DashboardPage() {
                                 <span className="text-slate-300">—</span>
                               )}
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="px-3 py-4">
                               {(contract.critical_flags_count ?? 0) > 0 ? (
                                 <span className="bg-red-50 border border-red-200 text-red-700 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase">
                                   {contract.critical_flags_count} critical
@@ -566,7 +946,7 @@ export default function DashboardPage() {
                                 <span className="text-slate-300">—</span>
                               )}
                             </td>
-                            <td className="px-5 py-4 text-right">
+                            <td className="px-3 py-4 text-right">
                               {contract.status === "completed" && (
                                 <button
                                   onClick={() =>
@@ -574,18 +954,23 @@ export default function DashboardPage() {
                                       `/report/${contract.contract_id}`,
                                     )
                                   }
-                                  className="text-slate-600 hover:text-slate-900 text-xs font-medium flex items-center gap-1 ml-auto transition-colors"
+                                  className="text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 text-xs font-medium flex items-center gap-1 ml-auto transition-colors"
                                 >
                                   {t.actionView} <ArrowRight size={11} />
                                 </button>
                               )}
                               {contract.status === "failed" && (
                                 <button
-                                  onClick={() => handleRetry(contract.id)}
-                                  disabled={retryingIds.has(contract.id)}
-                                  className="text-amber-600 hover:text-amber-800 text-xs font-medium transition-colors disabled:opacity-50"
+                                  onClick={() =>
+                                    handleRetry(contract.contract_id)
+                                  }
+                                  disabled={retryingIds.has(
+                                    contract.contract_id,
+                                  )}
+                                  className="text-amber-600 hover:text-amber-800 text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1 ml-auto"
                                 >
-                                  {retryingIds.has(contract.id)
+                                  <RefreshCw size={11} />
+                                  {retryingIds.has(contract.contract_id)
                                     ? "…"
                                     : t.actionRetry}
                                 </button>
@@ -593,7 +978,18 @@ export default function DashboardPage() {
                               {(contract.status === "processing" ||
                                 contract.status === "queued") && (
                                 <span className="text-slate-400 text-xs">
-                                  {statusMeta.label}
+                                  {stuck ? (
+                                    <button
+                                      onClick={() =>
+                                        handleRetry(contract.contract_id)
+                                      }
+                                      className="text-amber-600 hover:text-amber-800 text-xs flex items-center gap-1"
+                                    >
+                                      <RefreshCw size={11} /> Retry
+                                    </button>
+                                  ) : (
+                                    statusMeta.label
+                                  )}
                                 </span>
                               )}
                             </td>
@@ -605,7 +1001,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* ── Mobile cards ── */}
-                <div className="sm:hidden flex flex-col divide-y divide-slate-100">
+                <div className="sm:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
                   {paginated.map((contract) => {
                     const statusMeta = getStatusMeta(contract.status, t) ?? {
                       label: contract.status,
@@ -616,20 +1012,34 @@ export default function DashboardPage() {
                       contract.risk_score > 0
                         ? getRiskMeta(contract.risk_score, t)
                         : null;
+                    const stuck = isStuck(contract);
+                    const isSelected = selectedIds.has(contract.contract_id);
 
                     return (
                       <div
-                        key={contract.id}
-                        className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 mx-3 my-2"
+                        key={contract.contract_id}
+                        className={`p-4 space-y-3 ${isSelected ? "bg-slate-50 dark:bg-slate-800/40" : ""}`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-slate-800 font-medium text-sm">
-                              {contract.worker_name || t.notSpecified}
-                            </p>
-                            <p className="text-slate-500 text-xs mt-0.5">
-                              {contract.employer_name || t.notSpecified}
-                            </p>
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() =>
+                                toggleSelect(contract.contract_id)
+                              }
+                              className="mt-1 rounded border-slate-300"
+                            />
+                            <div>
+                              <p className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+                                {contract.worker_name ||
+                                  contract.original_filename ||
+                                  t.notSpecified}
+                              </p>
+                              <p className="text-slate-500 text-xs mt-0.5">
+                                {contract.employer_name || t.notSpecified}
+                              </p>
+                            </div>
                           </div>
                           {contract.risk_score > 0 && riskMeta && (
                             <span
@@ -644,6 +1054,11 @@ export default function DashboardPage() {
                             className={`flex items-center gap-1.5 text-xs font-medium ${statusMeta.classes}`}
                           >
                             {statusMeta.icon} {statusMeta.label}
+                            {stuck && (
+                              <span className="text-amber-500 text-[10px]">
+                                (stuck)
+                              </span>
+                            )}
                           </div>
                           <span className="text-slate-400 text-xs">
                             {contract.upload_date?.slice(0, 10)}
@@ -658,20 +1073,21 @@ export default function DashboardPage() {
                           {contract.status === "completed" && (
                             <button
                               onClick={() =>
-                                router.push(`/report/${contract.id}`)
+                                router.push(`/report/${contract.contract_id}`)
                               }
                               className="flex items-center gap-1 text-slate-700 border border-slate-200 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                             >
                               {t.actionView} <ArrowRight size={11} />
                             </button>
                           )}
-                          {contract.status === "failed" && (
+                          {(contract.status === "failed" || stuck) && (
                             <button
-                              onClick={() => handleRetry(contract.id)}
-                              disabled={retryingIds.has(contract.id)}
-                              className="text-amber-600 border border-amber-200 hover:bg-amber-50 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                              onClick={() => handleRetry(contract.contract_id)}
+                              disabled={retryingIds.has(contract.contract_id)}
+                              className="flex items-center gap-1 text-amber-600 border border-amber-200 hover:bg-amber-50 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                             >
-                              {retryingIds.has(contract.id)
+                              <RefreshCw size={11} />
+                              {retryingIds.has(contract.contract_id)
                                 ? "…"
                                 : t.actionRetry}
                             </button>
@@ -684,7 +1100,7 @@ export default function DashboardPage() {
 
                 {/* ── Pagination ── */}
                 {sorted.length > PAGE_SIZE && (
-                  <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                  <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
                     <span>
                       {t.showing} {(page - 1) * PAGE_SIZE + 1}–
                       {Math.min(page * PAGE_SIZE, sorted.length)} {t.of}{" "}
@@ -694,14 +1110,14 @@ export default function DashboardPage() {
                       <button
                         disabled={page === 1}
                         onClick={() => setPage((p) => p - 1)}
-                        className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                        className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
                       >
                         ←
                       </button>
                       <button
                         disabled={page === totalPages}
                         onClick={() => setPage((p) => p + 1)}
-                        className="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 transition-colors"
+                        className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
                       >
                         →
                       </button>
@@ -732,7 +1148,9 @@ export default function DashboardPage() {
               key={item.href}
               onClick={() => router.push(item.href)}
               className={`flex flex-col items-center gap-0.5 text-xs font-medium transition-colors ${
-                isActive ? "text-slate-900" : "text-slate-400"
+                isActive
+                  ? "text-slate-900 dark:text-slate-100"
+                  : "text-slate-400"
               }`}
             >
               {item.icon}

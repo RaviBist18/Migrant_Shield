@@ -393,30 +393,33 @@ function severityStyles(severity: string) {
   switch (severity.toLowerCase()) {
     case "critical":
       return {
-        text: "text-red-700",
-        badge: "bg-red-100 text-red-700 border border-red-200",
-        accent: "border-l-4 border-l-red-500",
-        clauseBorder: "border-l-red-400",
-        headerText: "text-red-800",
-        cardBg: "bg-red-50",
+        text: "text-red-600 dark:text-red-400",
+        badge:
+          "px-2 py-0.5 rounded-full text-xs font-medium border border-red-200 dark:border-red-800 bg-transparent text-red-600 dark:text-red-400",
+        accent: "border-l-2 border-l-red-400 dark:border-l-red-600",
+        clauseBorder: "border-l-red-400 dark:border-l-red-600",
+        headerText: "text-slate-900 dark:text-slate-50",
+        cardBg: "bg-white dark:bg-[#0f172a]",
       };
     case "warning":
       return {
-        text: "text-amber-700",
-        badge: "bg-amber-100 text-amber-700 border border-amber-200",
-        accent: "border-l-4 border-l-amber-500",
-        clauseBorder: "border-l-amber-400",
-        headerText: "text-amber-800",
-        cardBg: "bg-amber-50",
+        text: "text-amber-600 dark:text-amber-400",
+        badge:
+          "px-2 py-0.5 rounded-full text-xs font-medium border border-amber-200 dark:border-amber-800 bg-transparent text-amber-600 dark:text-amber-400",
+        accent: "border-l-2 border-l-amber-400 dark:border-l-amber-600",
+        clauseBorder: "border-l-amber-400 dark:border-l-amber-600",
+        headerText: "text-slate-900 dark:text-slate-50",
+        cardBg: "bg-white dark:bg-[#0f172a]",
       };
     default:
       return {
-        text: "text-slate-700",
-        badge: "bg-slate-100 text-slate-700 border border-slate-200",
-        accent: "border-l-4 border-l-slate-400",
-        clauseBorder: "border-l-slate-300",
-        headerText: "text-slate-800",
-        cardBg: "bg-blue-50",
+        text: "text-slate-500 dark:text-slate-400",
+        badge:
+          "px-2 py-0.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 bg-transparent text-slate-600 dark:text-slate-300",
+        accent: "border-l-2 border-l-slate-300 dark:border-l-slate-600",
+        clauseBorder: "border-l-slate-300 dark:border-l-slate-600",
+        headerText: "text-slate-900 dark:text-slate-50",
+        cardBg: "bg-white dark:bg-[#0f172a]",
       };
   }
 }
@@ -706,7 +709,7 @@ export default function ReportPage() {
                 return (
                   <div
                     key={flag.flag_id}
-                    className={`rounded-xl ${ss.cardBg} ${ss.accent} shadow-sm overflow-hidden`}
+                    className={`rounded-xl border border-slate-200 dark:border-slate-800 ${ss.cardBg} ${ss.accent} shadow-sm overflow-hidden mb-4`}
                   >
                     {/* COLLAPSED HEADER — always visible */}
                     <button
@@ -777,54 +780,47 @@ export default function ReportPage() {
 
                     {/* EXPANDED DETAIL */}
                     {isExpanded && (
-                      <div className="px-4 pb-4 space-y-4 border-t border-slate-100">
-                        {/* PANEL A — Extracted Clause */}
+                      <div className="px-4 pb-5 space-y-5 border-t border-slate-100 dark:border-slate-800">
+                        {/* SECTION A — Extracted Clause */}
                         {flag.clause_text && (
-                          <div className="pt-3">
-                            <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                              <FileText className="w-3.5 h-3.5 text-slate-400" />
-                              {ui.extractedClause}
+                          <div className="pt-4">
+                            <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5" />
+                              📄 {ui.extractedClause}
                             </p>
                             <div
-                              className={`bg-slate-50 border-l-4 ${ss.clauseBorder} p-3 rounded-r-lg`}
+                              className={`bg-slate-50/60 dark:bg-slate-900/40 border-l-2 ${ss.clauseBorder} p-4 rounded-r-lg font-mono text-sm text-slate-700 dark:text-slate-300 antialiased`}
                             >
-                              <p className="text-xs text-slate-700 italic leading-relaxed">
-                                "{flag.clause_text}"
-                              </p>
+                              {flag.clause_text}
                             </div>
                           </div>
                         )}
 
-                        {/* PANEL B — Plain Language Explanation */}
+                        {/* SECTION B — Plain Language */}
                         <div>
-                          <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                            <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                            {ui.plainExplanation}
+                          <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
+                            <BookOpen className="w-3.5 h-3.5" />
+                            📖 {ui.plainExplanation}
                           </p>
-                          <div className="bg-white border border-slate-100 rounded-lg p-3 shadow-xs">
-                            <p className="text-xs text-slate-600 leading-relaxed">
-                              {flag.description}
-                            </p>
-                          </div>
+                          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed pl-3.5 border-l border-slate-200 dark:border-slate-800">
+                            {flag.description}
+                          </p>
                         </div>
 
-                        {/* PANEL C — What You Can Do */}
+                        {/* SECTION C — What You Can Do */}
                         {steps.length > 0 && (
                           <div>
-                            <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                              {ui.whatYouCanDo}
+                            <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-1.5">
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              🛡️ {ui.whatYouCanDo}
                             </p>
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
                               {steps.map((step, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-start gap-2.5"
-                                >
-                                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                                <div key={i} className="flex items-start gap-3">
+                                  <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                                     {i + 1}
                                   </span>
-                                  <p className="text-xs text-slate-600 leading-relaxed">
+                                  <p className="text-sm text-slate-600 dark:text-slate-300">
                                     {step}
                                   </p>
                                 </div>
@@ -833,38 +829,31 @@ export default function ReportPage() {
                           </div>
                         )}
 
-                        {/* PANEL D — Legal References */}
-                        <div>
-                          <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-                            <Scale className="w-3.5 h-3.5 text-slate-400" />
-                            {ui.legalReferences}
-                          </p>
-                          {refs.length > 0 ? (
-                            <div className="space-y-1.5">
+                        {/* SECTION D — Legal References */}
+                        {refs.length > 0 && (
+                          <div>
+                            <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
+                              <Scale className="w-3.5 h-3.5" />❯{" "}
+                              {ui.legalReferences}
+                            </p>
+                            <div>
                               {refs.map((ref, i) => (
-                                <div
+                                <span
                                   key={i}
-                                  className="bg-slate-50 border border-slate-200 text-slate-700 py-2 px-3 rounded-lg text-xs flex items-start gap-1.5"
+                                  className="bg-transparent border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 py-1.5 px-3 rounded-lg text-xs font-normal mr-2 inline-block mb-2"
                                 >
-                                  <span className="text-slate-400 flex-shrink-0">
-                                    §
-                                  </span>
-                                  <span>{ref}</span>
-                                </div>
+                                  {ref}
+                                </span>
                               ))}
                               <p
-                                className="text-slate-400 mt-1.5"
+                                className="text-slate-400 dark:text-slate-500 mt-2 block"
                                 style={{ fontSize: "11px" }}
                               >
                                 {ui.referencesNote}
                               </p>
                             </div>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic">
-                              {ui.noReferences}
-                            </p>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
