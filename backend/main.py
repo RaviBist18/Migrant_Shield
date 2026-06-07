@@ -788,8 +788,7 @@ async def get_review_detail(review_id: str, request: Request):
 
 @app.patch("/admin/review/{review_id}")
 async def update_review_status(review_id: str, request: Request):
-    _require_admin(request)
-
+    user = _require_admin(request)
     try:
         body = await request.json()
     except Exception:
@@ -811,10 +810,13 @@ async def update_review_status(review_id: str, request: Request):
         update_payload["reviewed_by"] = user.get("sub")
 
     try:
+        logger.info(f"[admin] update_payload={update_payload} review_id={review_id}")
         result = supabase.table("human_review_queue").update(
             update_payload
         ).eq("review_id", review_id).execute()
+        logger.info(f"[admin] update result={result.data}")
     except Exception as e:
+        logger.error(f"[admin] update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update review: {e}")
 
     if not result.data:
