@@ -1,6 +1,7 @@
 # =============================================================
 # FILE: backend/pdf_generator.py
-# MigrantShield Phase 6 + Gap 4 — Multilingual PDF Generation
+# MigrantShield — Production PDF Generation Service
+# Design: Institutional trust aesthetic, high contrast
 # =============================================================
 
 import io
@@ -13,7 +14,7 @@ from typing import Optional
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -26,9 +27,59 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     KeepTogether,
+    HRFlowable,
 )
-from reportlab.platypus.flowables import HRFlowable
-from supabase import Client
+
+# =============================================================
+# COLOUR PALETTE — matches frontend design system exactly
+# =============================================================
+SLATE_900  = colors.HexColor("#0f172a")
+SLATE_700  = colors.HexColor("#334155")
+SLATE_500  = colors.HexColor("#64748b")
+SLATE_400  = colors.HexColor("#94a3b8")
+SLATE_200  = colors.HexColor("#e2e8f0")
+SLATE_50   = colors.HexColor("#f8fafc")
+WHITE      = colors.HexColor("#ffffff")
+
+AMBER_600  = colors.HexColor("#d97706")
+AMBER_50   = colors.HexColor("#fffbeb")
+AMBER_200  = colors.HexColor("#fcd34d")
+
+RED_600    = colors.HexColor("#dc2626")
+RED_50     = colors.HexColor("#fef2f2")
+RED_200    = colors.HexColor("#fecaca")
+
+YELLOW_600 = colors.HexColor("#ca8a04")
+YELLOW_50  = colors.HexColor("#fefce8")
+YELLOW_200 = colors.HexColor("#fde68a")
+
+EMERALD_600 = colors.HexColor("#16a34a")
+EMERALD_50  = colors.HexColor("#f0fdf4")
+EMERALD_200 = colors.HexColor("#86efac")
+
+# =============================================================
+# SEVERITY CONFIG
+# =============================================================
+SEVERITY_CONFIG = {
+    "critical": {
+        "bg": RED_50, "border": RED_200, "badge_bg": RED_600,
+        "text": RED_600, "label": "CRITICAL"
+    },
+    "warning": {
+        "bg": YELLOW_50, "border": YELLOW_200, "badge_bg": YELLOW_600,
+        "text": YELLOW_600, "label": "WARNING"
+    },
+    "info": {
+        "bg": SLATE_50, "border": SLATE_200, "badge_bg": SLATE_500,
+        "text": SLATE_500, "label": "INFO"
+    },
+}
+
+VERDICT_CONFIG = {
+    "CRITICAL": {"bg": RED_50,    "border": RED_600,    "text": RED_600,    "label": "HIGH RISK"},
+    "CAUTION":  {"bg": AMBER_50,  "border": AMBER_600,  "text": AMBER_600,  "label": "CAUTION"},
+    "SAFE":     {"bg": EMERALD_50,"border": EMERALD_600,"text": EMERALD_600,"label": "LOW RISK"},
+}
 
 # =============================================================
 # FONT SETUP
@@ -36,52 +87,45 @@ from supabase import Client
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 
 FONT_URLS = {
-    "NotoSans-Regular":      "https://github.com/google/fonts/raw/main/ofl/notosans/NotoSans-Regular.ttf",
-    "NotoSans-Bold":         "https://github.com/google/fonts/raw/main/ofl/notosans/NotoSans-Bold.ttf",
+    "NotoSans-Regular": "https://github.com/google/fonts/raw/main/ofl/notosans/NotoSans-Regular.ttf",
+    "NotoSans-Bold":    "https://github.com/google/fonts/raw/main/ofl/notosans/NotoSans-Bold.ttf",
     "NotoSansDevanagari-Regular": "https://github.com/google/fonts/raw/main/ofl/notosansdevanagari/NotoSansDevanagari-Regular.ttf",
     "NotoSansDevanagari-Bold":    "https://github.com/google/fonts/raw/main/ofl/notosansdevanagari/NotoSansDevanagari-Bold.ttf",
     "NotoSansArabic-Regular": "https://github.com/google/fonts/raw/main/ofl/notosansarabic/NotoSansArabic-Regular.ttf",
     "NotoSansArabic-Bold":    "https://github.com/google/fonts/raw/main/ofl/notosansarabic/NotoSansArabic-Bold.ttf",
 }
 
-# Language → (regular_font, bold_font, is_rtl)
 LANGUAGE_FONT_MAP = {
-    "en": ("Helvetica",                  "Helvetica-Bold",             False),
-    "tl": ("Helvetica",                  "Helvetica-Bold",             False),
-    "bn": ("NotoSans-Regular",           "NotoSans-Bold",              False),
-    "ne": ("NotoSansDevanagari-Regular", "NotoSansDevanagari-Bold",    False),
-    "hi": ("NotoSansDevanagari-Regular", "NotoSansDevanagari-Bold",    False),
-    "ar": ("NotoSansArabic-Regular",     "NotoSansArabic-Bold",        True),
+    "en": ("Helvetica",                   "Helvetica-Bold",              False),
+    "tl": ("Helvetica",                   "Helvetica-Bold",              False),
+    "bn": ("NotoSans-Regular",            "NotoSans-Bold",               False),
+    "ne": ("NotoSansDevanagari-Regular",  "NotoSansDevanagari-Bold",     False),
+    "hi": ("NotoSansDevanagari-Regular",  "NotoSansDevanagari-Bold",     False),
+    "ar": ("NotoSansArabic-Regular",      "NotoSansArabic-Bold",         True),
 }
 
 _fonts_registered: set = set()
 
 
 def _ensure_font(font_name: str) -> None:
-    """Download font if missing, register with ReportLab once."""
     if font_name in _fonts_registered:
         return
     if font_name.startswith("Helvetica"):
         _fonts_registered.add(font_name)
         return
-
     os.makedirs(FONTS_DIR, exist_ok=True)
     font_path = os.path.join(FONTS_DIR, f"{font_name}.ttf")
-
     if not os.path.exists(font_path):
         url = FONT_URLS.get(font_name)
         if not url:
             raise ValueError(f"No URL configured for font: {font_name}")
         print(f"[pdf_generator] Downloading font {font_name}...")
         urllib.request.urlretrieve(url, font_path)
-        print(f"[pdf_generator] Font saved: {font_path}")
-
     pdfmetrics.registerFont(TTFont(font_name, font_path))
     _fonts_registered.add(font_name)
 
 
-def _get_fonts(language: str) -> tuple[str, str, bool]:
-    """Returns (regular, bold, is_rtl) for language. Falls back to Helvetica."""
+def _get_fonts(language: str) -> tuple:
     regular, bold, rtl = LANGUAGE_FONT_MAP.get(language, LANGUAGE_FONT_MAP["en"])
     _ensure_font(regular)
     _ensure_font(bold)
@@ -89,517 +133,534 @@ def _get_fonts(language: str) -> tuple[str, str, bool]:
 
 
 def _reshape_arabic(text: str) -> str:
-    """Apply Arabic reshaping + bidi for correct RTL rendering."""
     try:
         import arabic_reshaper
         from bidi.algorithm import get_display
-        reshaped = arabic_reshaper.reshape(text)
-        return get_display(reshaped)
+        return get_display(arabic_reshaper.reshape(text))
     except ImportError:
-        print("[pdf_generator] arabic_reshaper/bidi not installed — Arabic may render incorrectly")
         return text
 
 
-def _prep_text(text: str, is_rtl: bool) -> str:
+def _t(text: str, is_rtl: bool) -> str:
     if is_rtl and text:
         return _reshape_arabic(text)
     return text
 
 
 # =============================================================
-# COLOR PALETTE — matches frontend design system
+# PAGE DIMENSIONS
 # =============================================================
-SLATE_900  = colors.HexColor("#0f172a")
-SLATE_700  = colors.HexColor("#334155")
-SLATE_400  = colors.HexColor("#94a3b8")
-SLATE_100  = colors.HexColor("#f1f5f9")
-SLATE_50   = colors.HexColor("#f8fafc")
-WHITE      = colors.HexColor("#ffffff")
+PAGE_W, PAGE_H = A4
+LM = 15 * mm
+RM = 15 * mm
+TM = 18 * mm
+BM = 22 * mm
+CONTENT_W = PAGE_W - LM - RM
 
-CRIMSON_BG = colors.HexColor("#fef2f2")
-CRIMSON_BD = colors.HexColor("#fecaca")
-CRIMSON_TX = colors.HexColor("#b91c1c")
-
-AMBER_BG   = colors.HexColor("#fffbeb")
-AMBER_BD   = colors.HexColor("#fcd34d")
-AMBER_TX   = colors.HexColor("#b45309")
-
-EMERALD_BG = colors.HexColor("#f0fdf4")
-EMERALD_BD = colors.HexColor("#86efac")
-EMERALD_TX = colors.HexColor("#15803d")
-
-VERDICT_COLORS = {
-    "CRITICAL": (CRIMSON_TX, CRIMSON_BG),
-    "CAUTION":  (AMBER_TX,   AMBER_BG),
-    "SAFE":     (EMERALD_TX, EMERALD_BG),
-}
-
-SEVERITY_COLORS = {
-    "CRITICAL": (CRIMSON_TX, CRIMSON_BG, CRIMSON_BD),
-    "WARNING":  (AMBER_TX,   AMBER_BG,   AMBER_BD),
-    "INFO":     (EMERALD_TX, EMERALD_BG, EMERALD_BD),
-}
 
 # =============================================================
-# FOOTER RENDERER
+# FOOTER
 # =============================================================
-FOOTER_TEXT = "Automated Translation Aid Only — Not Legal Advice"
-
 def _draw_footer(canvas, doc):
     canvas.saveState()
     canvas.setFont("Helvetica", 7)
     canvas.setFillColor(SLATE_400)
     canvas.drawCentredString(
-        A4[0] / 2,
-        12 * mm,
-        f"{FOOTER_TEXT}   |   Page {doc.page}   |   Contract ID: {doc.contract_id_str}"
+        PAGE_W / 2, 10 * mm,
+        f"MigrantShield Confidential Report  |  Page {doc.page}  |  Contract: {getattr(doc, 'contract_id_str', '')}"
     )
-    canvas.setStrokeColor(SLATE_400)
+    canvas.setStrokeColor(SLATE_200)
     canvas.setLineWidth(0.3)
-    canvas.line(15 * mm, 15 * mm, A4[0] - 15 * mm, 15 * mm)
+    canvas.line(LM, 14 * mm, PAGE_W - RM, 14 * mm)
     canvas.restoreState()
 
 
 # =============================================================
-# STYLE REGISTRY
+# STYLE FACTORY
 # =============================================================
-def _build_styles(font_regular: str, font_bold: str, is_rtl: bool):
-    align_body  = TA_RIGHT if is_rtl else TA_LEFT
-    align_title = TA_RIGHT if is_rtl else TA_LEFT
-
-    styles = {
-        "title": ParagraphStyle(
-            "title",
-            fontName=font_bold,
-            fontSize=20,
-            textColor=SLATE_900,
-            spaceAfter=4,
-            leading=24,
-            alignment=align_title,
-        ),
-        "subtitle": ParagraphStyle(
-            "subtitle",
-            fontName=font_regular,
-            fontSize=10,
-            textColor=SLATE_700,
-            spaceAfter=2,
-            alignment=align_title,
-        ),
-        "section_header": ParagraphStyle(
-            "section_header",
-            fontName=font_bold,
-            fontSize=11,
-            textColor=SLATE_900,
-            spaceBefore=10,
-            spaceAfter=4,
-            alignment=align_title,
-        ),
-        "body": ParagraphStyle(
-            "body",
-            fontName=font_regular,
-            fontSize=9,
-            textColor=SLATE_700,
-            leading=14,
-            spaceAfter=4,
-            alignment=align_body,
-        ),
-        "body_bold": ParagraphStyle(
-            "body_bold",
-            fontName=font_bold,
-            fontSize=9,
-            textColor=SLATE_900,
-            leading=14,
-            alignment=align_body,
-        ),
-        "clause_quote": ParagraphStyle(
-            "clause_quote",
-            fontName="Helvetica-Oblique",  # clause always Latin original
-            fontSize=8.5,
-            textColor=SLATE_700,
-            leading=13,
-            leftIndent=6,
-            rightIndent=6,
-        ),
-        "flag_title": ParagraphStyle(
-            "flag_title",
-            fontName=font_bold,
-            fontSize=9.5,
-            leading=13,
-            alignment=align_title,
-        ),
-        "flag_body": ParagraphStyle(
-            "flag_body",
-            fontName=font_regular,
-            fontSize=8.5,
-            textColor=SLATE_700,
-            leading=13,
-            alignment=align_body,
-        ),
-        "verdict_text": ParagraphStyle(
-            "verdict_text",
-            fontName=font_bold,
-            fontSize=15,
-            alignment=TA_CENTER,
-        ),
-        "score_label": ParagraphStyle(
-            "score_label",
-            fontName=font_regular,
-            fontSize=8,
-            textColor=SLATE_400,
-            alignment=TA_CENTER,
-        ),
-        "score_value": ParagraphStyle(
-            "score_value",
-            fontName=font_bold,
-            fontSize=28,
-            textColor=SLATE_900,
-            alignment=TA_CENTER,
-            leading=32,
-        ),
-        "disclaimer": ParagraphStyle(
-            "disclaimer",
-            fontName=font_regular,
-            fontSize=7.5,
-            textColor=SLATE_400,
-            leading=11,
-            spaceAfter=2,
-            alignment=align_body,
-        ),
-        "footer_section": ParagraphStyle(
-            "footer_section",
-            fontName=font_regular,
-            fontSize=8,
-            textColor=SLATE_400,
-            leading=11,
-            alignment=align_body,
-        ),
-    }
-    return styles
-
-
-# =============================================================
-# VERDICT RESOLVER
-# =============================================================
-def _resolve_verdict(risk_score: float) -> str:
-    if risk_score >= 70:
-        return "CRITICAL"
-    elif risk_score >= 40:
-        return "CAUTION"
-    return "SAFE"
-
-
-# =============================================================
-# SEVERITY BADGE
-# =============================================================
-def _severity_badge_table(severity: str, font_bold: str):
-    tx, bg, bd = SEVERITY_COLORS.get(severity.upper(), (SLATE_700, SLATE_100, SLATE_400))
-    label = Paragraph(
-        f"<font name='{font_bold}' size='7'>{severity.upper()}</font>",
-        ParagraphStyle("badge", fontName=font_bold, fontSize=7,
-                       textColor=tx, alignment=TA_CENTER)
+def _s(name, font, size, leading, color=None, align=TA_LEFT, sb=0, sa=0):
+    return ParagraphStyle(
+        name, fontName=font, fontSize=size, leading=leading,
+        textColor=color or SLATE_700,
+        alignment=align, spaceBefore=sb, spaceAfter=sa,
     )
-    t = Table([[label]], colWidths=[18 * mm], rowHeights=[5 * mm])
+
+
+# =============================================================
+# HELPERS
+# =============================================================
+def _hr(space_before=4, space_after=6, color=SLATE_200, thickness=0.5):
+    return HRFlowable(
+        width="100%", thickness=thickness, color=color,
+        spaceBefore=space_before, spaceAfter=space_after
+    )
+
+
+def _cell_table(content_rows, col_widths, bg=None, border_color=None,
+                border_width=0.5, pad=8, inner_pad=None):
+    t = Table(content_rows, colWidths=col_widths)
+    style = [
+        ("TOPPADDING",    (0,0), (-1,-1), inner_pad or pad),
+        ("BOTTOMPADDING", (0,0), (-1,-1), inner_pad or pad),
+        ("LEFTPADDING",   (0,0), (-1,-1), inner_pad or pad),
+        ("RIGHTPADDING",  (0,0), (-1,-1), inner_pad or pad),
+        ("VALIGN",        (0,0), (-1,-1), "TOP"),
+    ]
+    if bg:
+        style.append(("BACKGROUND", (0,0), (-1,-1), bg))
+    if border_color:
+        style.append(("BOX", (0,0), (-1,-1), border_width, border_color))
+    t.setStyle(TableStyle(style))
+    return t
+
+
+def _zero_pad(t):
     t.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), bg),
-        ("BOX",           (0, 0), (-1, -1), 0.5, bd),
-        ("TOPPADDING",    (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ("VALIGN",        (0,0), (-1,-1), "TOP"),
     ]))
     return t
 
 
 # =============================================================
-# MAIN PDF BUILDER
+# SECTION BUILDERS
 # =============================================================
-def build_pdf(
-    contract_id: str,
-    worker_name: str,
-    risk_score: float,
-    confidence_score: float,
-    analyzed_at: datetime,
-    flags: list[dict],
-    language: str = "en",
-) -> bytes:
-    font_regular, font_bold, is_rtl = _get_fonts(language)
-    styles  = _build_styles(font_regular, font_bold, is_rtl)
-    buffer  = io.BytesIO()
-    verdict = _resolve_verdict(risk_score)
-    verdict_color, verdict_bg = VERDICT_COLORS[verdict]
 
-    def p(text: str, style_key: str) -> Paragraph:
-        """Prep text (RTL reshape if needed) + wrap in Paragraph."""
-        return Paragraph(_prep_text(str(text), is_rtl), styles[style_key])
+def _build_header(contract, FR, FBold, is_rtl):
+    story = []
+    # Brand + title
+    story.append(Paragraph("MigrantShield", _s("brand", FBold, 22, 26, SLATE_900)))
+    story.append(Paragraph(
+        _t("AI-Assisted Employment Contract Risk Report", is_rtl),
+        _s("brand_sub", FR, 10, 14, SLATE_500)
+    ))
+    story.append(Spacer(1, 3*mm))
+    story.append(_hr(2, 4, SLATE_200, 0.5))
 
-    # Doc template
+    # ID + date line
+    cid = contract.get("contract_id") or contract.get("id") or "—"
+    analysed_raw = contract.get("analyzed_at") or contract.get("created_at") or ""
+    try:
+        dt = datetime.fromisoformat(str(analysed_raw).replace("Z", "+00:00"))
+        analysed_str = dt.strftime("%-m/%-d/%Y, %-I:%M:%S %p")
+    except Exception:
+        analysed_str = str(analysed_raw)[:16] if analysed_raw else "—"
+
+    id_line = Table(
+        [[
+            Paragraph(f"ID: {cid}", _s("cid", FR, 8, 11, SLATE_400)),
+            Paragraph(f"Analysed: {analysed_str}", _s("adt", FR, 8, 11, SLATE_400, align=TA_RIGHT)),
+        ]],
+        colWidths=[CONTENT_W * 0.6, CONTENT_W * 0.4]
+    )
+    _zero_pad(id_line)
+    story.append(id_line)
+    story.append(Spacer(1, 4*mm))
+    return story
+
+
+def _build_meta_card(contract, FR, FBold, is_rtl):
+    rows = [
+        [Paragraph(_t("Worker", is_rtl),   _s("ml", FR,   9, 12, SLATE_500)),
+         Paragraph(_t(contract.get("worker_name") or "—", is_rtl), _s("mv", FBold, 9, 12, SLATE_900, TA_RIGHT))],
+        [Paragraph(_t("Employer", is_rtl), _s("ml", FR,   9, 12, SLATE_500)),
+         Paragraph(_t(contract.get("employer_name") or "—", is_rtl), _s("mv", FBold, 9, 12, SLATE_900, TA_RIGHT))],
+        [Paragraph(_t("Country", is_rtl),  _s("ml", FR,   9, 12, SLATE_500)),
+         Paragraph(_t(contract.get("country") or "—", is_rtl), _s("mv", FBold, 9, 12, SLATE_900, TA_RIGHT))],
+        [Paragraph(_t("File", is_rtl),     _s("ml", FR,   9, 12, SLATE_500)),
+         Paragraph(contract.get("original_filename") or "—", _s("mv", FR, 9, 12, SLATE_700, TA_RIGHT))],
+    ]
+    t = Table(rows, colWidths=[CONTENT_W * 0.35, CONTENT_W * 0.65])
+    t.setStyle(TableStyle([
+        ("BOX",           (0,0), (-1,-1), 0.5, SLATE_200),
+        ("LINEBELOW",     (0,0), (-1,-2), 0.3, SLATE_200),
+        ("ROWBACKGROUNDS",(0,0), (-1,-1), [WHITE, SLATE_50]),
+        ("TOPPADDING",    (0,0), (-1,-1), 7),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    return t
+
+
+def _build_score_card(risk_score, critical_count, warning_count, info_count, FR, FBold):
+    score_val = int(risk_score or 0)
+
+    if score_val >= 70:
+        verdict_key = "CRITICAL"
+    elif score_val >= 40:
+        verdict_key = "CAUTION"
+    else:
+        verdict_key = "SAFE"
+
+    vcfg = VERDICT_CONFIG[verdict_key]
+
+    # Score number
+    score_para = Paragraph(str(score_val), _s("sn", FBold, 32, 36, vcfg["text"], TA_CENTER))
+    denom_para = Paragraph("/ 100", _s("sd", FR, 10, 13, SLATE_400, TA_CENTER))
+    verdict_para = Paragraph(vcfg["label"], _s("vl", FBold, 11, 14, vcfg["text"], TA_CENTER))
+
+    score_col = Table(
+        [[score_para], [denom_para], [verdict_para]],
+        colWidths=[CONTENT_W * 0.3]
+    )
+    score_col.setStyle(TableStyle([
+        ("TOPPADDING",    (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+    ]))
+
+    # Badge builder
+    def _badge(label, count, bg, text_c):
+        count_p = Paragraph(str(count), _s("bc", FBold, 16, 19, text_c, TA_CENTER))
+        label_p = Paragraph(label,      _s("bl", FR,    8,  11, text_c, TA_CENTER))
+        inner = Table([[count_p], [label_p]], colWidths=[CONTENT_W * 0.2])
+        inner.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,-1), bg),
+            ("TOPPADDING",    (0,0), (-1,-1), 8),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+            ("LEFTPADDING",   (0,0), (-1,-1), 4),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 4),
+            ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        return inner
+
+    badges = Table(
+        [[
+            _badge("Critical", critical_count, RED_50,    RED_600),
+            _badge("Warning",  warning_count,  YELLOW_50, YELLOW_600),
+            _badge("Info",     info_count,     SLATE_50,  SLATE_500),
+        ]],
+        colWidths=[CONTENT_W * 0.233, CONTENT_W * 0.233, CONTENT_W * 0.233]
+    )
+    _zero_pad(badges)
+
+    outer_row = Table(
+        [[score_col, badges]],
+        colWidths=[CONTENT_W * 0.3, CONTENT_W * 0.7]
+    )
+    outer_row.setStyle(TableStyle([
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ("LINEAFTER",     (0,0), (0,-1),  0.5, SLATE_200),
+    ]))
+
+    card = Table([[outer_row]], colWidths=[CONTENT_W])
+    card.setStyle(TableStyle([
+        ("BOX",           (0,0), (-1,-1), 1.0, vcfg["border"]),
+        ("BACKGROUND",    (0,0), (-1,-1), vcfg["bg"]),
+        ("TOPPADDING",    (0,0), (-1,-1), 12),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 12),
+        ("LEFTPADDING",   (0,0), (-1,-1), 12),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 12),
+    ]))
+    return card
+
+
+def _build_flag_card(flag, idx, FR, FBold, is_rtl):
+    severity = (flag.get("severity") or "info").lower()
+    cfg = SEVERITY_CONFIG.get(severity, SEVERITY_CONFIG["info"])
+
+    # Field mapping — handles both old and new schema keys
+    flag_title     = flag.get("title") or flag.get("flag_title") or f"Risk Flag {idx}"
+    clause_text    = flag.get("clause_text") or "—"
+    description    = flag.get("description") or "—"
+    recommendation = flag.get("recommendation") or flag.get("mitigation_steps") or "—"
+    legal_refs     = flag.get("legal_references") or []
+    flag_type      = flag.get("flag_type") or ""
+
+    if isinstance(legal_refs, str):
+        legal_refs = [legal_refs]
+
+    # Recommendation → list
+    if isinstance(recommendation, list):
+        rec_items = [r.strip() for r in recommendation if str(r).strip()]
+    else:
+        rec_items = [r.strip() for r in str(recommendation).split("\n") if r.strip()]
+    if not rec_items:
+        rec_items = [str(recommendation)]
+
+    # ── Badge ──
+    badge_p = Paragraph(cfg["label"], _s("fb", FBold, 7, 9, WHITE, TA_CENTER))
+    badge_t = Table([[badge_p]], colWidths=[16*mm])
+    badge_t.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), cfg["badge_bg"]),
+        ("TOPPADDING",    (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING",   (0,0), (-1,-1), 5),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 5),
+    ]))
+
+    # ── Header row: badge + title ──
+    title_p = Paragraph(
+        _t(f"{idx}. {flag_title}", is_rtl),
+        _s("ft", FBold, 10, 14, cfg["text"])
+    )
+    header_row = Table(
+        [[badge_t, title_p]],
+        colWidths=[18*mm, CONTENT_W - 18*mm - 24]
+    )
+    header_row.setStyle(TableStyle([
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 4),
+    ]))
+
+    if flag_type:
+        type_p = Paragraph(
+            _t(f"Category: {flag_type.replace('_', ' ').title()}", is_rtl),
+            _s("ftype", FR, 8, 11, SLATE_400)
+        )
+    else:
+        type_p = Spacer(1, 1)
+
+    # ── Clause block with left accent bar ──
+    clause_inner = Table(
+        [[Paragraph(clause_text, _s("cq", "Helvetica-Oblique", 8.5, 13, SLATE_700))]],
+        colWidths=[CONTENT_W - 24 - 6]
+    )
+    clause_inner.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), SLATE_50),
+        ("TOPPADDING",    (0,0), (-1,-1), 7),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+        ("LEFTPADDING",   (0,0), (-1,-1), 8),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 8),
+    ]))
+    accent_bar = Table([[""]], colWidths=[3], rowHeights=[None])
+    accent_bar.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), cfg["badge_bg"]),
+        ("TOPPADDING",    (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ("LEFTPADDING",   (0,0), (-1,-1), 0),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+    ]))
+    clause_row = Table(
+        [[accent_bar, clause_inner]],
+        colWidths=[3, CONTENT_W - 24 - 3]
+    )
+    _zero_pad(clause_row)
+
+    # ── Recommendations ──
+    rec_rows = []
+    for i, rec in enumerate(rec_items, 1):
+        rec_rows.append([
+            Paragraph(f"[{i}]", _s("rn", FBold, 9, 13, cfg["text"], TA_CENTER)),
+            Paragraph(_t(rec, is_rtl), _s("rb", FR, 9, 13, SLATE_700))
+        ])
+    if rec_rows:
+        rec_table = Table(rec_rows, colWidths=[8*mm, CONTENT_W - 24 - 8*mm])
+        rec_table.setStyle(TableStyle([
+            ("VALIGN",        (0,0), (-1,-1), "TOP"),
+            ("TOPPADDING",    (0,0), (-1,-1), 3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+            ("LEFTPADDING",   (0,0), (-1,-1), 2),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 2),
+            ("LINEBELOW",     (0,0), (-1,-2), 0.3, SLATE_200),
+        ]))
+    else:
+        rec_table = None
+
+    # ── Legal refs ──
+    legal_block = None
+    if legal_refs:
+        refs_str = "  ·  ".join(str(r) for r in legal_refs)
+        legal_block = Paragraph(
+            _t(f"📋 {refs_str}", is_rtl),
+            _s("lr", FR, 8, 11, SLATE_400)
+        )
+
+    # ── Assemble card content ──
+    inner_rows = [
+        [header_row],
+        [type_p],
+        [Spacer(1, 5)],
+        [Paragraph("📄 Extracted Contract Clause", _s("sec_l", FBold, 8, 11, SLATE_400))],
+        [Spacer(1, 3)],
+        [clause_row],
+        [Spacer(1, 8)],
+        [Paragraph("📖 Plain Language Explanation", _s("sec_l2", FBold, 8, 11, SLATE_400))],
+        [Spacer(1, 3)],
+        [Paragraph(_t(description, is_rtl), _s("desc", FR, 9, 14, SLATE_700))],
+        [Spacer(1, 8)],
+        [Paragraph("✅ What You Can Do", _s("sec_l3", FBold, 8, 11, SLATE_400))],
+        [Spacer(1, 3)],
+    ]
+    if rec_table:
+        inner_rows.append([rec_table])
+    if legal_block:
+        inner_rows += [
+            [Spacer(1, 6)],
+            [Paragraph("📋 Regulatory Reference", _s("sec_l4", FBold, 8, 11, SLATE_400))],
+            [Spacer(1, 2)],
+            [legal_block],
+        ]
+
+    inner_t = Table(inner_rows, colWidths=[CONTENT_W - 24])
+    _zero_pad(inner_t)
+
+    card = Table([[inner_t]], colWidths=[CONTENT_W])
+    card.setStyle(TableStyle([
+        ("BOX",           (0,0), (-1,-1), 0.8, cfg["border"]),
+        ("BACKGROUND",    (0,0), (-1,-1), cfg["bg"]),
+        ("TOPPADDING",    (0,0), (-1,-1), 12),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 12),
+        ("LEFTPADDING",   (0,0), (-1,-1), 12),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 12),
+    ]))
+    return KeepTogether([card, Spacer(1, 4*mm)])
+
+
+def _build_contacts(FR, FBold):
+    header_p = Paragraph(
+        "🆘 Emergency Resource & Legal Advocacy Hub",
+        _s("ch", FBold, 10, 14, WHITE)
+    )
+    rows = [
+        [header_p, ""],
+        [Paragraph("International Labour Organization (ILO)", _s("cn", FBold, 9, 12, SLATE_900)),
+         Paragraph("www.ilo.org  |  +41 22 799 6111", _s("cv", FR, 9, 12, SLATE_500))],
+        [Paragraph("Pravasi Nepali Coordination Committee (PNCC)", _s("cn2", FBold, 9, 12, SLATE_900)),
+         Paragraph("www.pncc.org.np  |  +977-1-4004747", _s("cv2", FR, 9, 12, SLATE_500))],
+        [Paragraph("Nepal Dept. of Foreign Employment (DOFE)", _s("cn3", FBold, 9, 12, SLATE_900)),
+         Paragraph("www.dofe.gov.np  |  +977-1-4102390", _s("cv3", FR, 9, 12, SLATE_500))],
+        [Paragraph("Migrant Forum in Asia (MFA)", _s("cn4", FBold, 9, 12, SLATE_900)),
+         Paragraph("www.mfasia.org  |  info@mfasia.org", _s("cv4", FR, 9, 12, SLATE_500))],
+    ]
+    t = Table(rows, colWidths=[CONTENT_W * 0.55, CONTENT_W * 0.45])
+    t.setStyle(TableStyle([
+        ("SPAN",          (0,0), (1,0)),
+        ("BACKGROUND",    (0,0), (-1,0), SLATE_900),
+        ("ROWBACKGROUNDS",(0,1), (-1,-1), [WHITE, SLATE_50]),
+        ("BOX",           (0,0), (-1,-1), 0.5, SLATE_200),
+        ("LINEBELOW",     (0,0), (-1,-2), 0.3, SLATE_200),
+        ("TOPPADDING",    (0,0), (-1,-1), 8),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    return t
+
+
+def _build_disclaimer(FR):
+    lines = [
+        "This report was generated by an automated AI system and is provided solely as an informational aid.",
+        "It does not constitute legal advice and must not be relied upon as a substitute for professional legal consultation.",
+        "MigrantShield and its operators accept no liability for decisions made on the basis of this report.",
+        "If your contract contains issues, seek assistance from a qualified legal professional or registered migrant worker support organization.",
+        f"Generated: {datetime.now(timezone.utc).strftime('%d %B %Y %H:%M UTC')}",
+    ]
+    story = []
+    for line in lines:
+        story.append(Paragraph(line, _s("disc", FR, 7.5, 11, SLATE_400)))
+        story.append(Spacer(1, 1*mm))
+    return story
+
+
+# =============================================================
+# MAIN ENTRY POINT — called from main.py
+# =============================================================
+def generate_pdf(contract_data: dict, flags: list, language: str = "en") -> bytes:
+    """
+    Generate a PDF report for a contract.
+
+    Args:
+        contract_data: dict with keys: contract_id/id, worker_name, employer_name,
+                       country, original_filename, risk_score, analyzed_at/created_at, language
+        flags: list of flag dicts with keys: severity, title/flag_title, clause_text,
+               description, recommendation/mitigation_steps, legal_references, flag_type
+        language: ISO language code (en/ne/hi/ar/tl/bn)
+
+    Returns:
+        PDF bytes
+    """
+    lang = language or contract_data.get("language") or "en"
+    FR, FBold, is_rtl = _get_fonts(lang)
+
+    buffer = io.BytesIO()
+
     doc = BaseDocTemplate(
         buffer,
         pagesize=A4,
-        leftMargin=15 * mm,
-        rightMargin=15 * mm,
-        topMargin=18 * mm,
-        bottomMargin=22 * mm,
+        leftMargin=LM,
+        rightMargin=RM,
+        topMargin=TM,
+        bottomMargin=BM,
     )
-    doc.contract_id_str = contract_id
+    doc.contract_id_str = str(contract_data.get("contract_id") or contract_data.get("id") or "")
 
-    frame = Frame(
-        doc.leftMargin, doc.bottomMargin,
-        doc.width, doc.height,
-        id="main"
-    )
-    template = PageTemplate(
-        id="main_template",
-        frames=[frame],
-        onPage=_draw_footer
-    )
+    frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="main")
+    template = PageTemplate(id="main_t", frames=[frame], onPage=_draw_footer)
     doc.addPageTemplates([template])
 
     story = []
 
-    # ==========================================================
-    # SECTION 1: HEADER
-    # ==========================================================
-    story.append(p("MigrantShield", "title"))
-    story.append(p("AI-Assisted Employment Contract Risk Report", "subtitle"))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=SLATE_400, spaceAfter=6))
+    # ── Header ──────────────────────────────────────────────
+    story.extend(_build_header(contract_data, FR, FBold, is_rtl))
 
-    meta_data = [
-        [_prep_text("Worker Name:", is_rtl), worker_name or "Not provided"],
-        [_prep_text("Contract ID:", is_rtl), contract_id],
-        [_prep_text("Analysis Date:", is_rtl), analyzed_at.strftime("%d %B %Y, %H:%M UTC") if analyzed_at else "Unknown"],
-    ]
-    meta_table = Table(meta_data, colWidths=[38 * mm, 130 * mm])
-    meta_table.setStyle(TableStyle([
-        ("FONTNAME",     (0, 0), (0, -1), font_bold),
-        ("FONTNAME",     (1, 0), (1, -1), font_regular),
-        ("FONTSIZE",     (0, 0), (-1, -1), 8.5),
-        ("TEXTCOLOR",    (0, 0), (0, -1), SLATE_900),
-        ("TEXTCOLOR",    (1, 0), (1, -1), SLATE_700),
-        ("TOPPADDING",   (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 2),
-        ("LEFTPADDING",  (0, 0), (-1, -1), 0),
-    ]))
-    story.append(meta_table)
-    story.append(Spacer(1, 6 * mm))
+    # ── Meta card ───────────────────────────────────────────
+    story.append(_build_meta_card(contract_data, FR, FBold, is_rtl))
+    story.append(Spacer(1, 4*mm))
 
-    # ==========================================================
-    # SECTION 2: VERDICT BANNER
-    # ==========================================================
-    verdict_label = Paragraph(
-        _prep_text(f"OVERALL VERDICT: {verdict}", is_rtl),
-        ParagraphStyle(
-            "vb", fontName=font_bold, fontSize=14,
-            textColor=verdict_color, alignment=TA_CENTER
-        )
-    )
-    verdict_banner = Table([[verdict_label]], colWidths=[doc.width])
-    verdict_banner.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), verdict_bg),
-        ("BOX",           (0, 0), (-1, -1), 1.0, verdict_color),
-        ("TOPPADDING",    (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-    ]))
-    story.append(verdict_banner)
-    story.append(Spacer(1, 4 * mm))
+    # ── Score card ──────────────────────────────────────────
+    risk_score     = contract_data.get("risk_score") or 0
+    critical_count = sum(1 for f in flags if (f.get("severity") or "").lower() == "critical")
+    warning_count  = sum(1 for f in flags if (f.get("severity") or "").lower() == "warning")
+    info_count     = sum(1 for f in flags if (f.get("severity") or "").lower() == "info")
 
-    # ==========================================================
-    # SECTION 3: SCORE + CONFIDENCE METRICS
-    # ==========================================================
-    score_cell = [
-        [p("RISK SCORE", "score_label")],
-        [p(str(int(risk_score)), "score_value")],
-        [p("out of 100", "score_label")],
-    ]
-    conf_cell = [
-        [p("AI CONFIDENCE", "score_label")],
-        [p(f"{int(confidence_score * 100)}%", "score_value")],
-        [Paragraph(
-            _prep_text(
-                "⚠ Below threshold" if confidence_score < 0.85 else "Within threshold",
-                is_rtl
-            ),
-            ParagraphStyle(
-                "ct", fontName=font_regular, fontSize=7,
-                textColor=AMBER_TX if confidence_score < 0.85 else EMERALD_TX,
-                alignment=TA_CENTER
-            )
-        )],
-    ]
+    story.append(_build_score_card(risk_score, critical_count, warning_count, info_count, FR, FBold))
+    story.append(Spacer(1, 5*mm))
 
-    score_tbl = Table([score_cell[0], score_cell[1], score_cell[2]], colWidths=[doc.width / 2])
-    score_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), SLATE_50),
-        ("BOX",           (0, 0), (-1, -1), 0.5, SLATE_400),
-        ("TOPPADDING",    (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
-    ]))
-
-    conf_tbl = Table([conf_cell[0], conf_cell[1], conf_cell[2]], colWidths=[doc.width / 2])
-    conf_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), AMBER_BG if confidence_score < 0.85 else EMERALD_BG),
-        ("BOX",           (0, 0), (-1, -1), 0.5, AMBER_BD if confidence_score < 0.85 else EMERALD_BD),
-        ("TOPPADDING",    (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
-    ]))
-
-    metrics_row = Table([[score_tbl, conf_tbl]], colWidths=[doc.width / 2, doc.width / 2])
-    metrics_row.setStyle(TableStyle([
-        ("LEFTPADDING",  (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING",   (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
-        ("VALIGN",       (0, 0), (-1, -1), "TOP"),
-    ]))
-    story.append(metrics_row)
-    story.append(Spacer(1, 3 * mm))
-
-    story.append(p(
-        "This report was generated by an automated AI system. Confidence scores reflect model certainty "
-        "over extracted text. Results may be incomplete for scanned, handwritten, or non-standard documents. "
-        "This report does not constitute legal advice. Always consult a qualified legal professional before "
-        "acting on any finding.",
-        "disclaimer"
+    # ── Disclaimer ──────────────────────────────────────────
+    story.append(Paragraph(
+        "This report was generated by an AI system. It is not legal advice. "
+        "Always consult a qualified legal professional before acting on any finding.",
+        _s("adis", FR, 7.5, 11, SLATE_400)
     ))
-    story.append(HRFlowable(width="100%", thickness=0.3, color=SLATE_400, spaceBefore=4, spaceAfter=6))
+    story.append(_hr(4, 6, SLATE_200, 0.3))
 
-    # ==========================================================
-    # SECTION 4: FLAG ITEMS
-    # ==========================================================
-    story.append(p("Identified Contract Risk Flags", "section_header"))
-    story.append(Spacer(1, 2 * mm))
+    # ── Flags ───────────────────────────────────────────────
+    if flags:
+        story.append(Paragraph(
+            _t(f"Risk Flags ({len(flags)})", is_rtl),
+            _s("rf_h", FBold, 13, 17, SLATE_900, sb=4, sa=4)
+        ))
+        story.append(Spacer(1, 3*mm))
 
-    if not flags:
-        story.append(p("No risk flags were identified in this contract.", "body"))
+        order = {"critical": 0, "warning": 1, "info": 2}
+        sorted_flags = sorted(flags, key=lambda f: order.get((f.get("severity") or "info").lower(), 3))
+
+        for idx, flag in enumerate(sorted_flags, 1):
+            story.append(_build_flag_card(flag, idx, FR, FBold, is_rtl))
     else:
-        for idx, flag in enumerate(flags, start=1):
-            severity = (flag.get("severity") or "INFO").upper()
-            tx, bg, bd = SEVERITY_COLORS.get(severity, (SLATE_700, SLATE_100, SLATE_400))
+        story.append(Paragraph(
+            _t("No risk flags were identified in this contract.", is_rtl),
+            _s("nf", FR, 10, 14, SLATE_500)
+        ))
 
-            title_para = Paragraph(
-                _prep_text(f"{idx}. {flag.get('title', 'Untitled Flag')}", is_rtl),
-                ParagraphStyle("ft", fontName=font_bold, fontSize=9.5,
-                               textColor=tx, leading=13,
-                               alignment=TA_RIGHT if is_rtl else TA_LEFT)
-            )
-            category_para = Paragraph(
-                _prep_text(f"Category: {flag.get('category', 'General')}", is_rtl),
-                ParagraphStyle("fc", fontName=font_regular, fontSize=8,
-                               textColor=tx, leading=12,
-                               alignment=TA_RIGHT if is_rtl else TA_LEFT)
-            )
-            confidence_para = Paragraph(
-                f"Flag Confidence: {int((flag.get('ai_confidence') or 0) * 100)}%",
-                ParagraphStyle("fconf", fontName=font_regular, fontSize=8,
-                               textColor=tx, leading=12, alignment=TA_CENTER)
-            )
+    story.append(Spacer(1, 4*mm))
+    story.append(_hr(2, 6, SLATE_200, 0.5))
 
-            header_inner = Table(
-                [[title_para], [category_para], [confidence_para]],
-                colWidths=[doc.width - 8 * mm]
-            )
-            header_inner.setStyle(TableStyle([
-                ("LEFTPADDING",  (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING",   (0, 0), (-1, -1), 1),
-                ("BOTTOMPADDING",(0, 0), (-1, -1), 1),
-            ]))
+    # ── Contacts ────────────────────────────────────────────
+    story.append(_build_contacts(FR, FBold))
+    story.append(Spacer(1, 4*mm))
 
-            # Clause always in original language (Helvetica)
-            clause_text = flag.get("contract_clause") or "No clause extracted."
-            clause_block = Table(
-                [[Paragraph(f'"{clause_text}"', styles["clause_quote"])]],
-                colWidths=[doc.width - 8 * mm]
-            )
-            clause_block.setStyle(TableStyle([
-                ("BACKGROUND",    (0, 0), (-1, -1), SLATE_50),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
-                ("TOPPADDING",    (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                ("BOX",           (0, 0), (-1, -1), 0.5, bd),
-                ("LINEBEFORE",    (0, 0), (0, -1),  2.0, tx),
-            ]))
-
-            explanation_para = Paragraph(
-                _prep_text(
-                    f"Plain Language: {flag.get('plain_language_explanation', 'No explanation provided.')}",
-                    is_rtl
-                ),
-                styles["flag_body"]
-            )
-
-            mitigation_raw = flag.get("mitigation_steps") or []
-            if isinstance(mitigation_raw, str):
-                mitigation_raw = [mitigation_raw]
-            mitigation_items = "".join(
-                f"{i+1}. {_prep_text(step, is_rtl)}<br/>"
-                for i, step in enumerate(mitigation_raw)
-            ) if mitigation_raw else "No mitigation steps provided."
-            mitigation_para = Paragraph(
-                _prep_text("Mitigation Steps:", is_rtl) + f"<br/>{mitigation_items}",
-                styles["flag_body"]
-            )
-
-            legal_raw = flag.get("legal_references") or []
-            if isinstance(legal_raw, str):
-                legal_raw = [legal_raw]
-            legal_text = ", ".join(legal_raw) if legal_raw else "No statutory references provided."
-            legal_para = Paragraph(
-                f"Legal References: {legal_text}",
-                styles["flag_body"]
-            )
-
-            flag_content = Table(
-                [
-                    [header_inner],
-                    [Spacer(1, 2 * mm)],
-                    [clause_block],
-                    [Spacer(1, 2 * mm)],
-                    [explanation_para],
-                    [Spacer(1, 1 * mm)],
-                    [mitigation_para],
-                    [Spacer(1, 1 * mm)],
-                    [legal_para],
-                ],
-                colWidths=[doc.width - 8 * mm]
-            )
-            flag_content.setStyle(TableStyle([
-                ("LEFTPADDING",  (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("TOPPADDING",   (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
-            ]))
-
-            outer = Table([[flag_content]], colWidths=[doc.width])
-            outer.setStyle(TableStyle([
-                ("BACKGROUND",    (0, 0), (-1, -1), bg),
-                ("BOX",           (0, 0), (-1, -1), 0.8, bd),
-                ("TOPPADDING",    (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING",  (0, 0), (-1, -1), 0),
-            ]))
-
-            story.append(KeepTogether(outer))
-            story.append(Spacer(1, 3 * mm))
-
-    # ==========================================================
-    # SECTION 5: LEGAL FOOTER DISCLAIMER
-    # ==========================================================
-    story.append(HRFlowable(width="100%", thickness=0.3, color=SLATE_400, spaceBefore=6, spaceAfter=4))
-    story.append(p("Important Limitations & Legal Disclaimer", "section_header"))
-    for line in [
-        "This document was generated automatically using artificial intelligence and is provided solely as an informational aid.",
-        "It does not constitute legal advice and must not be relied upon as a substitute for professional legal consultation.",
-        "MigrantShield and its operators accept no liability for decisions made on the basis of this report.",
-        "If your contract contains issues, seek assistance from a qualified legal professional or registered migrant worker support organization.",
-        f"Report generated: {datetime.now(timezone.utc).strftime('%d %B %Y %H:%M UTC')}",
-    ]:
-        story.append(p(line, "footer_section"))
-        story.append(Spacer(1, 1 * mm))
+    # ── Legal disclaimer ────────────────────────────────────
+    story.append(_hr(2, 4, SLATE_200, 0.3))
+    story.extend(_build_disclaimer(FR))
 
     doc.build(story)
     buffer.seek(0)
@@ -607,16 +668,38 @@ def build_pdf(
 
 
 # =============================================================
-# SUPABASE UPLOAD + DB RECORD
+# LEGACY ALIAS — for any code calling build_pdf()
 # =============================================================
-def generate_and_store_pdf(
-    supabase: Client,
+def build_pdf(
     contract_id: str,
     worker_name: str,
     risk_score: float,
     confidence_score: float,
-    analyzed_at: datetime,
-    flags: list[dict],
+    analyzed_at,
+    flags: list,
+    language: str = "en",
+) -> bytes:
+    contract_data = {
+        "contract_id": contract_id,
+        "worker_name": worker_name,
+        "risk_score":  risk_score,
+        "analyzed_at": analyzed_at.isoformat() if hasattr(analyzed_at, "isoformat") else str(analyzed_at),
+        "language":    language,
+    }
+    return generate_pdf(contract_data, flags, language)
+
+
+# =============================================================
+# SUPABASE UPLOAD + DB RECORD (kept from original)
+# =============================================================
+def generate_and_store_pdf(
+    supabase,
+    contract_id: str,
+    worker_name: str,
+    risk_score: float,
+    confidence_score: float,
+    analyzed_at,
+    flags: list,
     bucket: str,
     language: str = "en",
 ) -> Optional[str]:
@@ -630,24 +713,19 @@ def generate_and_store_pdf(
             flags=flags,
             language=language,
         )
-
-        object_path = f"reports/{contract_id}/reports_{uuid.uuid4().hex[:8]}.pdf"
-
+        object_path = f"reports/{contract_id}/report_{uuid.uuid4().hex[:8]}.pdf"
         supabase.storage.from_(bucket).upload(
             path=object_path,
             file=pdf_bytes,
             file_options={"content-type": "application/pdf", "upsert": "true"},
         )
-
         supabase.table("reports").insert({
-            "contract_id":    contract_id,
-            "pdf_url":        object_path,
-            "generated_at":   datetime.now(timezone.utc).isoformat(),
+            "contract_id":      contract_id,
+            "pdf_url":          object_path,
+            "generated_at":     datetime.now(timezone.utc).isoformat(),
             "downloaded_count": 0,
         }).execute()
-
         return object_path
-
     except Exception as e:
         print(f"[pdf_generator] ERROR contract={contract_id}: {e}")
         return None

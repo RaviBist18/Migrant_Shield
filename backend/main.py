@@ -610,7 +610,6 @@ async def download_report_pdf(contract_id: str, request: Request):
 
     supabase = _get_supabase()
 
-    # Verify ownership + fetch contract
     try:
         result = supabase.table("contracts").select(
             "contract_id, status, risk_score, worker_name, employer_name, "
@@ -627,97 +626,25 @@ async def download_report_pdf(contract_id: str, request: Request):
     if contract["status"] != "completed":
         raise HTTPException(status_code=425, detail="Analysis not complete.")
 
-    # Fetch flags
     try:
         flags_result = supabase.table("contract_flags").select(
-            "flag_type, severity, title, description, clause_text, recommendation"
+            "flag_type, severity, title, description, clause_text, recommendation, legal_references"
         ).eq("contract_id", contract_id).order("severity").execute()
         flags = flags_result.data or []
     except Exception:
         flags = []
 
-    # Build PDF
     try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import mm
-
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4,
-                                rightMargin=20*mm, leftMargin=20*mm,
-                                topMargin=20*mm, bottomMargin=20*mm)
-
-        styles = getSampleStyleSheet()
-        story = []
-
-        # Header
-        story.append(Paragraph("MigrantShield — Contract Risk Report", styles["Title"]))
-        story.append(Spacer(1, 6))
-
-        # Meta
-        meta = [
-            ["Worker", contract.get("worker_name") or "—"],
-            ["Employer", contract.get("employer_name") or "—"],
-            ["Country", contract.get("country") or "—"],
-            ["Risk Score", f"{contract.get('risk_score', 0)} / 100"],
-            ["Analyzed", contract.get("analyzed_at", "—")[:10] if contract.get("analyzed_at") else "—"],
-        ]
-        t = Table(meta, colWidths=[40*mm, 120*mm])
-        t.setStyle(TableStyle([
-            ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
-            ("FONTSIZE", (0,0), (-1,-1), 10),
-            ("TEXTCOLOR", (0,0), (0,-1), colors.grey),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ]))
-        story.append(t)
-        story.append(Spacer(1, 10))
-
-        # Flags
-        story.append(Paragraph(f"Issues Found: {len(flags)}", styles["Heading2"]))
-        story.append(Spacer(1, 4))
-
-        SEV_COLOR = {"critical": colors.red, "warning": colors.orange, "info": colors.grey}
-
-        for f in flags:
-            sev = f.get("severity", "info")
-            c = SEV_COLOR.get(sev, colors.grey)
-            story.append(Paragraph(
-                f'<font color="{c.hexval() if hasattr(c,"hexval") else "grey"}">■</font> '
-                f'<b>{f.get("title","")}</b> [{sev.upper()}]',
-                styles["Heading3"]
-            ))
-            if f.get("description"):
-                story.append(Paragraph(f.get("description"), styles["Normal"]))
-            if f.get("clause_text"):
-                clause_style = ParagraphStyle("clause", parent=styles["Normal"],
-                                               leftIndent=10, textColor=colors.darkgrey,
-                                               fontSize=9)
-                story.append(Paragraph(f'Contract text: "{f["clause_text"][:300]}"', clause_style))
-            if f.get("recommendation"):
-                story.append(Paragraph(f'→ {f["recommendation"]}', styles["Normal"]))
-            story.append(Spacer(1, 8))
-
-        # Disclaimer
-        story.append(Spacer(1, 10))
-        disclaimer = ParagraphStyle("disc", parent=styles["Normal"], fontSize=8, textColor=colors.grey)
-        story.append(Paragraph(
-            "This report is for informational purposes only and does not constitute legal advice. "
-            "MigrantShield is a free educational tool. Consult a qualified lawyer for legal decisions.",
-            disclaimer
-        ))
-
-        doc.build(story)
-        buffer.seek(0)
-
+        from pdf_generator import generate_pdf
+        language = contract.get("language") or "en"
+        pdf_bytes = generate_pdf(contract, flags, language)
     except Exception as e:
         logger.error(f"PDF generation failed: {e}")
         raise HTTPException(status_code=500, detail="PDF generation failed.")
 
     filename = f"migrantshield-report-{contract_id[:8]}.pdf"
     return StreamingResponse(
-        buffer,
+        BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
