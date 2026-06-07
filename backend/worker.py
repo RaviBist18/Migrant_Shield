@@ -380,7 +380,18 @@ async def process_contract(ctx, contract_id: str):
                 })
 
             supabase.table("contract_flags").insert(flag_rows).execute()
-            logger.info(f"[worker] Inserted {len(flag_rows)} flags.")
+            # Queue for human review if high risk
+        critical_count = sum(1 for f in flags if f.get("severity") == "critical")
+        if risk_score >= 50 or critical_count >= 1:
+            try:
+                supabase.table("human_review_queue").insert({
+                    "contract_id": contract_id,
+                    "reason": f"Risk score {risk_score}, critical flags: {critical_count}",
+                    "status": "pending",
+                }).execute()
+                logger.info(f"[worker] Queued for human review: contract_id={contract_id}")
+            except Exception as e:
+                logger.warning(f"[worker] Failed to insert review queue: {e}")
 
         # Update contract row
         supabase.table("contracts").update({

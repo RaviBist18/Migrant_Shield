@@ -37,6 +37,7 @@ SUPABASE_BUCKET      = os.environ.get("SUPABASE_BUCKET", "migrantshield-contract
 FRONTEND_URL         = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 JWKS_URL             = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
 ADMIN_USER_ID        = os.environ.get("ADMIN_USER_ID", "")
+GROQ_API_KEY         = os.environ["GROQ_API_KEY"]
 
 # =============================================================
 # SUPABASE CLIENT
@@ -728,6 +729,7 @@ async def download_report_pdf(contract_id: str, request: Request):
 
 def _require_admin(request: Request) -> dict:
     user = _get_current_user(request)
+    logger.info(f"[admin] sub={user.get('sub')} ADMIN_USER_ID={ADMIN_USER_ID}")
     if user.get("sub") != ADMIN_USER_ID:
         raise HTTPException(status_code=403, detail="Admin access required.")
     return user
@@ -794,15 +796,24 @@ async def update_review_status(review_id: str, request: Request):
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
     status = body.get("status")
-    if status not in ("pending", "reviewed"):
-        raise HTTPException(status_code=400, detail="status must be 'pending' or 'reviewed'.")
+    admin_note = body.get("admin_note")
+
+    if status not in ("pending", "reviewed", "rejected"):
+        raise HTTPException(status_code=400, detail="status must be 'pending', 'reviewed', or 'rejected'.")
 
     supabase = _get_supabase()
 
+    update_payload: dict = {"status": status}
+    if admin_note is not None:
+        update_payload["admin_note"] = admin_note
+    if status in ("reviewed", "rejected"):
+        update_payload["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+        update_payload["reviewed_by"] = user.get("sub")
+
     try:
-        result = supabase.table("human_review_queue").update({
-            "status": status,
-        }).eq("review_id", review_id).execute()
+        result = supabase.table("human_review_queue").update(
+            update_payload
+        ).eq("review_id", review_id).execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update review: {e}")
 
@@ -810,3 +821,143 @@ async def update_review_status(review_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Review not found.")
 
     return {"review_id": review_id, "status": status}
+
+
+    # =============================================================
+# LEGAL Q&A CHAT ENDPOINT
+# =============================================================
+
+CHAT_SYSTEM_PROMPT = """You are MigrantShield's legal assistant — a trusted, knowledgeable friend who understands migrant worker rights, international labour law, and the fear and confusion workers face in foreign countries.
+
+You have been given this worker's contract analysis: their risk score, flagged clauses, and legal citations. Use this as your primary source. You may also draw on ILO Conventions, destination-country labour laws, and general migrant worker rights knowledge — but never invent specific article numbers or case names.
+
+## WHO YOU ARE TALKING TO
+A migrant worker — possibly scared, far from home, with limited legal knowledge. They may be facing exploitation right now. Treat every question as urgent and important. Never be dismissive.
+
+## HOW TO ANSWER
+
+STEP 1 — UNDERSTAND: Identify exactly what the worker is worried about.
+STEP 2 — EXPLAIN: Give a clear, direct answer in plain language. No jargon. If a clause is illegal, say it is illegal. If their rights are being violated, say so clearly.
+STEP 3 — GROUND IT: Reference the specific flag from their contract OR cite the relevant law (e.g. "ILO Convention No. 29 prohibits this"). Only cite references you are confident exist.
+STEP 4 — ACTION: End every response with 2-3 concrete steps the worker can take RIGHT NOW. Be specific. "Contact the Philippine Overseas Labor Office" is better than "seek help."
+
+## LANGUAGE RULES
+- Detect the language the worker wrote in — respond in that exact language
+- If Nepali → respond fully in Nepali
+- If mixed Nepali-English → respond in Nepali with English terms where needed
+- Never switch languages mid-response
+
+## SCOPE
+- Primary: questions about THIS contract's flags and risks
+- Also allowed: general migrant worker rights questions (passport confiscation, recruitment fees, overtime, termination rights, contract substitution)
+- Not allowed: questions unrelated to employment, labour law, or worker safety — politely redirect
+
+## TONE
+- Warm, calm, trustworthy — like a knowledgeable older sibling
+- Never cold, bureaucratic, or lecture-like
+- If the situation sounds dangerous or urgent, acknowledge that first before explaining
+- Short paragraphs. Simple sentences. Never a wall of text.
+
+## LENGTH
+- Simple questions: 3-5 sentences
+- Complex questions: up to 8-10 sentences maximum
+- Always end with the ACTION steps — never skip this
+
+## CRITICAL SAFETY RULE
+If the worker describes physical danger, document confiscation already happening, or being locked in — immediately tell them to contact local police, their embassy, or the ILO helpline BEFORE anything else. Safety first, legal explanation second."""
+
+@app.post("/report/{contract_id}/chat")
+async def chat_with_report(contract_id: str, request: Request):
+    user = _get_current_user(request)
+    user_id = user.get("sub")
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body.")
+
+    message = body.get("message", "").strip()
+    history = body.get("history", [])
+
+    if not message:
+        raise HTTPException(status_code=400, detail="message required.")
+    if len(message) > 500:
+        raise HTTPException(status_code=400, detail="Message too long. Max 500 characters.")
+    if len(history) > 20:
+        history = history[-20:]
+
+    supabase = _get_supabase()
+
+    # Verify ownership
+    try:
+        result = supabase.table("contracts").select(
+            "contract_id, status, risk_score, worker_name, employer_name, country, language"
+        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+
+    if not result.data:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    contract = result.data
+    if contract["status"] != "completed":
+        raise HTTPException(status_code=425, detail="Analysis not complete.")
+
+    # Fetch flags
+    try:
+        flags_result = supabase.table("contract_flags").select(
+            "flag_type, severity, title, description, recommendation, legal_references"
+        ).eq("contract_id", contract_id).execute()
+        flags = flags_result.data or []
+    except Exception:
+        flags = []
+
+    # Build context from flags
+    context_parts = [
+        f"CONTRACT CONTEXT:",
+        f"- Worker: {contract.get('worker_name') or 'Unknown'}",
+        f"- Employer: {contract.get('employer_name') or 'Unknown'}",
+        f"- Country: {contract.get('country') or 'Unknown'}",
+        f"- Risk Score: {contract.get('risk_score', 0)}/100",
+        f"",
+        f"DETECTED FLAGS:",
+    ]
+    for f in flags:
+        refs = ", ".join(f.get("legal_references") or [])
+        context_parts.append(
+            f"[{f['severity'].upper()}] {f['title']}: {f['description']} "
+            f"| Recommendation: {f.get('recommendation','')} "
+            f"| Legal refs: {refs}"
+        )
+
+    context = "\n".join(context_parts)
+
+    # Build messages
+    messages = [
+        {"role": "user", "content": f"{CHAT_SYSTEM_PROMPT}\n\n{context}"},
+        {"role": "assistant", "content": "Understood. I have reviewed this contract's risk analysis. What would you like to know?"},
+    ]
+    for turn in history:
+        role = turn.get("role")
+        content = turn.get("content", "")
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": message})
+
+    # Call Groq
+    try:
+        from groq import Groq as GroqClient
+        groq = GroqClient(api_key=GROQ_API_KEY)
+        response = groq.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            temperature=0.2,
+            max_tokens=400,
+        )
+        answer = response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"[chat] Groq error: {e}")
+        raise HTTPException(status_code=502, detail="AI service unavailable. Try again shortly.")
+
+    logger.info(f"[chat] contract={contract_id} user={user_id} q_len={len(message)}")
+    return {"answer": answer, "contract_id": contract_id}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import {
@@ -236,6 +236,14 @@ const UI_STRINGS: Record<
     noFlagsDesc: string;
     completed: string;
     aiConfidence: string;
+    chatTitle: string;
+    chatSubtitle: string;
+    chatPlaceholder: string;
+    chatSend: string;
+    chatWelcome: string;
+    chatError: string;
+    chatThinking: string;
+    chatDisclaimer: string;
   }
 > = {
   en: {
@@ -262,6 +270,15 @@ const UI_STRINGS: Record<
     noFlagsDesc: "No problematic clauses were detected in this contract.",
     completed: "Completed",
     aiConfidence: "AI confidence",
+    chatTitle: "Legal Assistant",
+    chatSubtitle: "Ask about your contract",
+    chatPlaceholder: "Ask a question about your contract...",
+    chatSend: "Send",
+    chatWelcome:
+      "Hi! I've reviewed your contract analysis. Ask me anything about your rights or the flagged issues.",
+    chatError: "Something went wrong. Please try again.",
+    chatThinking: "Thinking...",
+    chatDisclaimer: "AI assistant — not legal advice.",
   },
   ne: {
     extractedClause: "करारको अनुच्छेद",
@@ -287,6 +304,15 @@ const UI_STRINGS: Record<
     noFlagsDesc: "यस करारमा कुनै समस्याजनक खण्ड पत्ता लागेन।",
     completed: "पूर्ण",
     aiConfidence: "AI विश्वास",
+    chatTitle: "कानूनी सहायक",
+    chatSubtitle: "आफ्नो सम्झौताबारे सोध्नुहोस्",
+    chatPlaceholder: "आफ्नो सम्झौताबारे प्रश्न सोध्नुहोस्...",
+    chatSend: "पठाउनुहोस्",
+    chatWelcome:
+      "नमस्ते! मैले तपाईंको सम्झौता विश्लेषण हेरेको छु। आफ्नो अधिकार वा चिन्हित समस्याहरूबारे जे सोध्नुहोस्।",
+    chatError: "केही गडबडी भयो। कृपया पुनः प्रयास गर्नुहोस्।",
+    chatThinking: "सोच्दैछु...",
+    chatDisclaimer: "AI सहायक — कानूनी सल्लाह होइन।",
   },
   hi: {
     extractedClause: "अनुबंध का अनुच्छेद",
@@ -312,6 +338,15 @@ const UI_STRINGS: Record<
     noFlagsDesc: "इस अनुबंध में कोई समस्याजनक खंड नहीं पाया गया।",
     completed: "पूर्ण",
     aiConfidence: "AI विश्वास",
+    chatTitle: "कानूनी सहायक",
+    chatSubtitle: "अपने अनुबंध के बारे में पूछें",
+    chatPlaceholder: "अपने अनुबंध के बारे में प्रश्न पूछें...",
+    chatSend: "भेजें",
+    chatWelcome:
+      "नमस्ते! मैंने आपके अनुबंध विश्लेषण की समीक्षा की है। अपने अधिकारों या चिन्हित समस्याओं के बारे में कुछ भी पूछें।",
+    chatError: "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",
+    chatThinking: "सोच रहा हूँ...",
+    chatDisclaimer: "AI सहायक — कानूनी सलाह नहीं।",
   },
   ar: {
     extractedClause: "بند العقد المستخرج",
@@ -337,6 +372,15 @@ const UI_STRINGS: Record<
     noFlagsDesc: "لم يتم اكتشاف بنود إشكالية في هذا العقد.",
     completed: "مكتمل",
     aiConfidence: "ثقة الذكاء الاصطناعي",
+    chatTitle: "المساعد القانوني",
+    chatSubtitle: "اسأل عن عقدك",
+    chatPlaceholder: "اطرح سؤالاً حول عقدك...",
+    chatSend: "إرسال",
+    chatWelcome:
+      "مرحباً! لقد راجعت تحليل عقدك. اسألني أي شيء عن حقوقك أو المشكلات المُكتشفة.",
+    chatError: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    chatThinking: "أفكر...",
+    chatDisclaimer: "مساعد ذكاء اصطناعي — ليس مشورة قانونية.",
   },
   tl: {
     extractedClause: "Nakuhang Sugnay ng Kontrata",
@@ -362,6 +406,15 @@ const UI_STRINGS: Record<
     noFlagsDesc: "Walang problemadong sugnay ang natuklasan sa kontratang ito.",
     completed: "Kumpleto",
     aiConfidence: "AI kumpiyansa",
+    chatTitle: "Legal Assistant",
+    chatSubtitle: "Magtanong tungkol sa iyong kontrata",
+    chatPlaceholder: "Magtanong tungkol sa iyong kontrata...",
+    chatSend: "Ipadala",
+    chatWelcome:
+      "Kamusta! Sinuri ko ang iyong kontrata. Magtanong tungkol sa iyong mga karapatan o mga natuklasang isyu.",
+    chatError: "May nangyaring mali. Pakisubukang muli.",
+    chatThinking: "Nag-iisip...",
+    chatDisclaimer: "AI assistant — hindi legal na payo.",
   },
   bn: {
     extractedClause: "চুক্তির ধারা",
@@ -387,6 +440,15 @@ const UI_STRINGS: Record<
     noFlagsDesc: "এই চুক্তিতে কোনো সমস্যাজনক ধারা পাওয়া যায়নি।",
     completed: "সম্পন্ন",
     aiConfidence: "AI আস্থা",
+    chatTitle: "আইনি সহকারী",
+    chatSubtitle: "আপনার চুক্তি সম্পর্কে জিজ্ঞেস করুন",
+    chatPlaceholder: "আপনার চুক্তি সম্পর্কে প্রশ্ন করুন...",
+    chatSend: "পাঠান",
+    chatWelcome:
+      "হ্যালো! আমি আপনার চুক্তি বিশ্লেষণ পর্যালোচনা করেছি। আপনার অধিকার বা চিহ্নিত সমস্যা সম্পর্কে যেকোনো কিছু জিজ্ঞেস করুন।",
+    chatError: "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।",
+    chatThinking: "ভাবছি...",
+    chatDisclaimer: "AI সহকারী — আইনি পরামর্শ নয়।",
   },
 };
 
@@ -562,6 +624,654 @@ const FLAG_TYPE_LABELS: Record<string, Record<string, string>> = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+// =============================================================
+// CHAT WIDGET
+// =============================================================
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+function ChatWidget({
+  contractId,
+  token,
+  ui,
+  lang,
+  autoOpen = false,
+  flags = [],
+}: {
+  contractId: string;
+  token: string;
+  ui: (typeof UI_STRINGS)["en"];
+  lang: string;
+  autoOpen?: boolean;
+  flags?: ContractFlag[];
+}) {
+  const [open, setOpen] = useState(autoOpen);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { role: "assistant", content: ui.chatWelcome },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [followupQuestions, setFollowupQuestions] = useState<string[]>([]);
+
+  const FOLLOWUP_POOL =
+    lang === "ne"
+      ? [
+          "यसबारे थप जानकारी दिनुहोस्",
+          "म यसको बारेमा के गर्न सक्छु?",
+          "के यो कानूनी छ?",
+          "मलाई कुन कागजात चाहिन्छ?",
+          "म कसलाई सम्पर्क गर्न सक्छु?",
+          "यसको सजाय के हो?",
+          "के म उजुरी दिन सक्छु?",
+          "यो कति सामान्य छ?",
+          "मेरो नियोक्ताले के गर्न सक्छ?",
+          "म आफूलाई कसरी जोगाउन सक्छु?",
+        ]
+      : [
+          "Can you explain that in more detail?",
+          "What should I do about this?",
+          "Is this legal in my destination country?",
+          "What documents do I need for this?",
+          "Who can I contact for help?",
+          "What are the penalties for this violation?",
+          "Can I file a complaint?",
+          "How common is this issue?",
+          "What can my employer legally do?",
+          "How can I protect myself?",
+        ];
+
+  function getFollowups(offset: number): string[] {
+    const start = (offset * 3) % FOLLOWUP_POOL.length;
+    return [
+      FOLLOWUP_POOL[start % FOLLOWUP_POOL.length],
+      FOLLOWUP_POOL[(start + 1) % FOLLOWUP_POOL.length],
+      FOLLOWUP_POOL[(start + 2) % FOLLOWUP_POOL.length],
+    ];
+  }
+  const isRTL = lang === "ar";
+  const suggestedQuestions: string[] = (() => {
+    const questions: string[] = [];
+    const severities = flags.map((f) => f.severity);
+    const types = flags.map((f) =>
+      f.flag_type?.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_"),
+    );
+
+    if (types.includes("passport_confiscation"))
+      questions.push(
+        lang === "ne"
+          ? "के नियोक्ताले मेरो राहदानी राख्न सक्छ?"
+          : "Can my employer legally keep my passport?",
+      );
+    if (types.includes("recruitment_fee"))
+      questions.push(
+        lang === "ne"
+          ? "के भर्ती शुल्क तिर्नु कानूनी छ?"
+          : "Are recruitment fees legal?",
+      );
+    if (types.includes("excessive_working_hours"))
+      questions.push(
+        lang === "ne"
+          ? "अत्यधिक काम घण्टाको बारेमा के गर्न सक्छु?"
+          : "What can I do about excessive working hours?",
+      );
+    if (
+      types.includes("wage_deduction") ||
+      types.includes("below_minimum_wage")
+    )
+      questions.push(
+        lang === "ne"
+          ? "मेरो तलब कटौतीबारे के अधिकार छ?"
+          : "What are my rights regarding wage deductions?",
+      );
+    if (
+      types.includes("no_termination_right") ||
+      types.includes("one_sided_termination")
+    )
+      questions.push(
+        lang === "ne"
+          ? "के म सम्झौता तोड्न सक्छु?"
+          : "Can I legally exit this contract?",
+      );
+    if (severities.includes("critical"))
+      questions.push(
+        lang === "ne"
+          ? "मेरो सम्झौतामा सबैभन्दा गम्भीर समस्या के हो?"
+          : "What is the most serious issue in my contract?",
+      );
+    if (questions.length === 0)
+      questions.push(
+        lang === "ne"
+          ? "मेरो सम्झौता सुरक्षित छ?"
+          : "Is my contract safe to sign?",
+      );
+
+    // Fallback pool — always ensure 3
+    const fallbacks =
+      lang === "ne"
+        ? [
+            "मेरो सम्झौतामा सबैभन्दा गम्भीर समस्या के हो?",
+            "के यो सम्झौता हस्ताक्षर गर्न सुरक्षित छ?",
+            "मेरो कानूनी अधिकारहरू के हुन्?",
+            "म विवादको अवस्थामा के गर्न सक्छु?",
+          ]
+        : [
+            "What is the most serious issue in my contract?",
+            "Is this contract safe to sign?",
+            "What are my legal rights here?",
+            "What should I do if there is a dispute?",
+          ];
+
+    for (const f of fallbacks) {
+      if (questions.length >= 3) break;
+      if (!questions.includes(f)) questions.push(f);
+    }
+
+    return questions.slice(0, 3);
+  })();
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const DEFAULT_POS = { right: 16, bottom: 144 };
+  const [panelPos, setPanelPos] = useState(DEFAULT_POS);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      if (!dragging) return;
+      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+      const targetRight = Math.max(
+        8,
+        window.innerWidth - clientX - dragOffset.current.x,
+      );
+      const targetBottom = Math.max(
+        8,
+        window.innerHeight - clientY - dragOffset.current.y,
+      );
+      setPanelPos((prev) => ({
+        right: prev.right + (targetRight - prev.right) * 0.2,
+        bottom: prev.bottom + (targetBottom - prev.bottom) * 0.2,
+      }));
+    };
+    const onUp = () => setDragging(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchmove", onMove, { passive: true });
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchend", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchend", onUp);
+    };
+  }, [dragging]);
+
+  const onDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    dragOffset.current = {
+      x: window.innerWidth - clientX - rect.right + rect.left,
+      y: window.innerHeight - clientY - rect.bottom + rect.top,
+    };
+    setDragging(true);
+  };
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [open]);
+
+  async function handleSend() {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput("");
+    setFollowupQuestions([]);
+
+    const userMsg: ChatMessage = { role: "user", content: text };
+    const history = messages.filter(
+      (m) => m.role !== "assistant" || messages.indexOf(m) > 0,
+    );
+    setMessages((prev) => [...prev, userMsg]);
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/report/${contractId}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: text,
+          history: history.slice(-10),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.answer },
+      ]);
+      setFollowupQuestions(getFollowups(messages.length));
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: ui.chatError },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      {/* FLOATING BUTTON */}
+      <button
+        onClick={() =>
+          setOpen((o) => {
+            if (o) setPanelPos(DEFAULT_POS);
+            return !o;
+          })
+        }
+        className="fixed bottom-16 right-5 z-[60] w-14 h-14 bg-slate-900 hover:bg-slate-700 text-white rounded-full shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95"
+        aria-label="Open legal assistant"
+      >
+        {open ? (
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        ) : (
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 48 48"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M17 18H27M17 23H31M17 28H24"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+        {!open && messages.length > 1 && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center">
+            {messages.filter((m) => m.role === "assistant").length - 1}
+          </span>
+        )}
+      </button>
+
+      {/* CHAT PANEL */}
+      {open && (
+        <div
+          ref={panelRef}
+          className="fixed z-50 w-[340px] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          style={{
+            height: "460px",
+            right: panelPos.right,
+            bottom: panelPos.bottom,
+            cursor: dragging ? "grabbing" : "grab",
+            transition: dragging ? "none" : "right 0.15s, bottom 0.15s",
+          }}
+          dir={isRTL ? "rtl" : "ltr"}
+          onMouseDown={onDragStart}
+          onTouchStart={onDragStart}
+        >
+          {/* HEADER */}
+          <div
+            className="bg-slate-900 dark:bg-slate-800 px-4 py-3 flex items-center gap-3 shrink-0 select-none"
+            style={{ cursor: "inherit" }}
+          >
+            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+              <svg width="16" height="16" viewBox="0 0 48 48" fill="none">
+                <path
+                  d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M17 18H27M17 23H31M17 28H24"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-semibold leading-tight">
+                {ui.chatTitle}
+              </p>
+              <p className="text-slate-400 text-xs truncate">
+                {ui.chatSubtitle}
+              </p>
+            </div>
+            <button
+              onClick={() =>
+                setMessages([{ role: "assistant", content: ui.chatWelcome }])
+              }
+              className="text-slate-400 hover:text-white transition-colors text-xs px-2 py-0.5 rounded-lg hover:bg-slate-700 shrink-0"
+              title="Clear chat"
+            >
+              ↺
+            </button>
+            <div
+              className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"
+              title="Online"
+            />
+          </div>
+
+          {/* MESSAGES */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-slate-50 dark:bg-slate-950/40">
+            {false &&
+              messages.length === 1 &&
+              suggestedQuestions.length > 0 && (
+                <div className="px-1 pt-1 pb-2">
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold mb-2 pl-1">
+                    Suggested
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {suggestedQuestions.map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={async () => {
+                          setMessages((prev) => [
+                            ...prev,
+                            { role: "user", content: q },
+                          ]);
+                          setLoading(true);
+                          try {
+                            const res = await fetch(
+                              `${API_BASE}/report/${contractId}/chat`,
+                              {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({
+                                  message: q,
+                                  history: [],
+                                }),
+                              },
+                            );
+                            const data = await res.json();
+                            setMessages((prev) => [
+                              ...prev,
+                              { role: "assistant", content: data.answer },
+                            ]);
+                          } catch {
+                            setMessages((prev) => [
+                              ...prev,
+                              { role: "assistant", content: ui.chatError },
+                            ]);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        className="text-center text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all leading-relaxed font-medium"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
+              >
+                {msg.role === "assistant" && (
+                  <div className="w-6 h-6 rounded-full bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0 mb-0.5">
+                    <svg width="10" height="10" viewBox="0 0 48 48" fill="none">
+                      <path
+                        d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
+                        stroke="white"
+                        strokeWidth="3"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                )}
+                <div
+                  className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
+                    msg.role === "user"
+                      ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-br-sm"
+                      : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-sm"
+                  }`}
+                  style={{ wordBreak: "break-word" }}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+
+            {messages.length === 1 && suggestedQuestions.length > 0 && (
+              <div className="px-1 pt-1 pb-2">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold mb-2 pl-1">
+                  Suggested
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {suggestedQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={async () => {
+                        setMessages((prev) => [
+                          ...prev,
+                          { role: "user", content: q },
+                        ]);
+                        setLoading(true);
+                        try {
+                          const res = await fetch(
+                            `${API_BASE}/report/${contractId}/chat`,
+                            {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({ message: q, history: [] }),
+                            },
+                          );
+                          const data = await res.json();
+                          setMessages((prev) => [
+                            ...prev,
+                            { role: "assistant", content: data.answer },
+                          ]);
+                          setFollowupQuestions(getFollowups(messages.length));
+                        } catch {
+                          setMessages((prev) => [
+                            ...prev,
+                            { role: "assistant", content: ui.chatError },
+                          ]);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="text-center text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all leading-relaxed font-medium"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!loading &&
+              followupQuestions.length > 0 &&
+              messages.length > 1 && (
+                <div className="px-1 pt-1 pb-2">
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold mb-2 pl-1">
+                    Continue
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {followupQuestions.map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={async () => {
+                          setFollowupQuestions([]);
+                          setMessages((prev) => [
+                            ...prev,
+                            { role: "user", content: q },
+                          ]);
+                          setLoading(true);
+                          try {
+                            const res = await fetch(
+                              `${API_BASE}/report/${contractId}/chat`,
+                              {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  Authorization: `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({
+                                  message: q,
+                                  history: messages.slice(-10).map((m) => ({
+                                    role: m.role,
+                                    content: m.content,
+                                  })),
+                                }),
+                              },
+                            );
+                            const data = await res.json();
+                            setMessages((prev) => [
+                              ...prev,
+                              { role: "assistant", content: data.answer },
+                            ]);
+                            setFollowupQuestions(getFollowups(messages.length));
+                          } catch {
+                            setMessages((prev) => [
+                              ...prev,
+                              { role: "assistant", content: ui.chatError },
+                            ]);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        className="text-center text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all leading-relaxed font-medium"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            {loading && (
+              <div className="flex items-end gap-2">
+                <div className="w-6 h-6 rounded-full bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 48 48" fill="none">
+                    <path
+                      d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
+                      stroke="white"
+                      strokeWidth="3"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5 shadow-sm">
+                  <span
+                    className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* DISCLAIMER */}
+          <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 shrink-0">
+            <p
+              className="text-slate-400 dark:text-slate-500 text-center"
+              style={{ fontSize: "10px" }}
+            >
+              ⚖️ {ui.chatDisclaimer}
+            </p>
+          </div>
+
+          {/* INPUT */}
+          <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-[#0f172a] shrink-0">
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder={ui.chatPlaceholder}
+                rows={1}
+                maxLength={500}
+                disabled={loading}
+                className="flex-1 resize-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400 transition-all leading-relaxed disabled:opacity-50"
+                style={{ maxHeight: "100px", overflowY: "auto" }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                className="w-10 h-10 bg-slate-900 dark:bg-slate-100 hover:bg-slate-700 dark:hover:bg-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-white dark:text-slate-900 rounded-xl flex items-center justify-center transition-all active:scale-95 shrink-0"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 // =============================================================
 // COMPACT FLAG CARD (image 2)
@@ -758,6 +1468,7 @@ function ReportPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isCompact = searchParams.get("view") === "compact";
+  const chatAutoOpen = searchParams.get("chat") === "open";
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1121,6 +1832,16 @@ function ReportPageInner() {
               {ui.disclaimer}
             </p>
           </div>
+          {session?.access_token && (
+            <ChatWidget
+              contractId={contractId}
+              token={session.access_token}
+              ui={ui}
+              lang={report.language}
+              autoOpen={chatAutoOpen}
+              flags={report.flags}
+            />
+          )}
           <div className="h-8" />
         </div>
       </div>
@@ -1475,6 +2196,16 @@ function ReportPageInner() {
           </p>
         </div>
 
+        {session?.access_token && (
+          <ChatWidget
+            contractId={contractId}
+            token={session.access_token}
+            ui={ui}
+            lang={report.language}
+            autoOpen={chatAutoOpen}
+            flags={report.flags}
+          />
+        )}
         <div className="h-8" />
       </div>
     </div>

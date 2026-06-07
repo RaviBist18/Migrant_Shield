@@ -52,7 +52,8 @@ export default function GlobalHeader() {
   if (
     pathname === "/" ||
     pathname.startsWith("/auth") ||
-    pathname === "/reset-password"
+    pathname === "/reset-password" ||
+    pathname.startsWith("/admin")
   )
     return null;
 

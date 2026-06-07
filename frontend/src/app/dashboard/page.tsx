@@ -967,16 +967,47 @@ export default function DashboardPage() {
                             </td>
                             <td className="px-3 py-4 text-right">
                               {contract.status === "completed" && (
-                                <button
-                                  onClick={() =>
-                                    router.push(
-                                      `/report/${contract.contract_id}?view=compact`,
-                                    )
-                                  }
-                                  className="text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 text-xs font-medium flex items-center gap-1 ml-auto transition-colors"
-                                >
-                                  {t.actionView} <ArrowRight size={11} />
-                                </button>
+                                <div className="flex items-center gap-2 ml-auto">
+                                  <button
+                                    onClick={() =>
+                                      router.push(
+                                        `/report/${contract.contract_id}?view=compact&chat=open`,
+                                      )
+                                    }
+                                    className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-slate-100 hover:bg-slate-700 dark:hover:bg-slate-300 text-white dark:text-slate-900 flex items-center justify-center transition-colors"
+                                    title="Ask Legal Assistant"
+                                  >
+                                    <svg
+                                      width="12"
+                                      height="12"
+                                      viewBox="0 0 48 48"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
+                                        stroke="currentColor"
+                                        strokeWidth="3"
+                                        strokeLinejoin="round"
+                                      />
+                                      <path
+                                        d="M17 18H27M17 23H31M17 28H24"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                      />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      router.push(
+                                        `/report/${contract.contract_id}?view=compact`,
+                                      )
+                                    }
+                                    className="text-slate-600 hover:text-slate-900 dark:hover:text-slate-100 text-xs font-medium flex items-center gap-1 transition-colors"
+                                  >
+                                    {t.actionView} <ArrowRight size={11} />
+                                  </button>
+                                </div>
                               )}
                               {contract.status === "failed" && (
                                 <button
@@ -1090,16 +1121,47 @@ export default function DashboardPage() {
                         )}
                         <div className="flex gap-2">
                           {contract.status === "completed" && (
-                            <button
-                              onClick={() =>
-                                router.push(
-                                  `/report/${contract.contract_id}?view=compact`,
-                                )
-                              }
-                              className="flex items-center gap-1 text-slate-700 border border-slate-200 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                            >
-                              {t.actionView} <ArrowRight size={11} />
-                            </button>
+                            <>
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/report/${contract.contract_id}?view=compact&chat=open`,
+                                  )
+                                }
+                                className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                              >
+                                <svg
+                                  width="11"
+                                  height="11"
+                                  viewBox="0 0 48 48"
+                                  fill="none"
+                                >
+                                  <path
+                                    d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
+                                    stroke="white"
+                                    strokeWidth="3"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path
+                                    d="M17 18H27M17 23H31M17 28H24"
+                                    stroke="white"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                                Ask
+                              </button>
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/report/${contract.contract_id}?view=compact`,
+                                  )
+                                }
+                                className="flex items-center gap-1 text-slate-700 border border-slate-200 hover:bg-slate-50 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                              >
+                                {t.actionView} <ArrowRight size={11} />
+                              </button>
+                            </>
                           )}
                           {(contract.status === "failed" || stuck) && (
                             <button
