@@ -1330,8 +1330,10 @@ function CompactFlagCard({
                       : ui.info}
                 </span>
                 {flagTypeLabel &&
-                  flagTypeLabel.toLowerCase() !==
-                    flag.severity.toLowerCase() && (
+                  flagTypeLabel.toLowerCase() !== flag.severity.toLowerCase() &&
+                  flagTypeLabel.toLowerCase() !== ui.critical.toLowerCase() &&
+                  flagTypeLabel.toLowerCase() !== ui.warning.toLowerCase() &&
+                  flagTypeLabel.toLowerCase() !== ui.info.toLowerCase() && (
                     <span className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate">
                       {flagTypeLabel}
                     </span>
@@ -1367,7 +1369,10 @@ function CompactFlagCard({
                     : ui.info}
               </span>
               {flagTypeLabel &&
-                flagTypeLabel.toLowerCase() !== flag.severity.toLowerCase() && (
+                flagTypeLabel.toLowerCase() !== flag.severity.toLowerCase() &&
+                flagTypeLabel.toLowerCase() !== ui.critical.toLowerCase() &&
+                flagTypeLabel.toLowerCase() !== ui.warning.toLowerCase() &&
+                flagTypeLabel.toLowerCase() !== ui.info.toLowerCase() && (
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium border border-slate-200 dark:border-slate-700 bg-transparent text-slate-700 dark:text-slate-300">
                     {flagTypeLabel}
                   </span>
@@ -1522,31 +1527,8 @@ function ReportPageInner() {
     fetchReport();
   }, [fetchReport]);
 
-  const handleDownloadPdf = async () => {
-    if (!session?.access_token || !contractId || pdfLoading) return;
-    setPdfLoading(true);
-    setPdfToast(null);
-    try {
-      const res = await fetch(`${API_BASE}/report/${contractId}/pdf`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!res.ok) throw new Error("PDF generation failed.");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `migrantshield-report-${contractId.slice(0, 8)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setPdfToast(ui?.downloadReport ?? "PDF downloading...");
-    } catch {
-      setPdfToast("PDF failed. Try again.");
-    } finally {
-      setPdfLoading(false);
-      setTimeout(() => setPdfToast(null), 4000);
-    }
+  const handleDownloadPdf = () => {
+    window.open(`/report/${contractId}/print`, "_blank");
   };
 
   const handleShare = async () => {
@@ -1732,12 +1714,7 @@ function ReportPageInner() {
               disabled={pdfLoading}
               className="flex-1 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {pdfLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}{" "}
-              {ui.downloadReport}
+              <Download className="w-4 h-4" /> {ui.downloadReport}
             </button>
             <button
               onClick={handleShare}
@@ -1997,12 +1974,7 @@ function ReportPageInner() {
             disabled={pdfLoading}
             className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {pdfLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}{" "}
-            Save as PDF
+            <Download className="w-4 h-4" /> Save as PDF
           </button>
           <button
             onClick={handleShare}

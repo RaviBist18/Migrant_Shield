@@ -104,10 +104,31 @@ export default function PrintReportPage() {
 
   // Auto-print once data is ready
   useEffect(() => {
-    if (ready) {
-      const timer = setTimeout(() => window.print(), 800);
-      return () => clearTimeout(timer);
-    }
+    if (!ready) return;
+    const timer = setTimeout(async () => {
+      const html2canvas = (await import("html2canvas")).default;
+      const jsPDF = (await import("jspdf")).default;
+      const element = document.getElementById("print-content");
+      if (!element) return;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: element.scrollWidth,
+        ignoreElements: (el) => el.id === "no-print",
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(`migrantshield-report-${contractId.slice(0, 8)}.pdf`);
+      setTimeout(() => window.close(), 100);
+    }, 800);
+    return () => clearTimeout(timer);
   }, [ready]);
 
   // =============================================================
@@ -269,11 +290,11 @@ export default function PrintReportPage() {
         .print-btn:hover { background: #1e293b; }
       `}</style>
 
-      <div className="page">
+      <div className="page" id="print-content">
         {/* Manual print button (hidden on print) */}
-        <div className="no-print" style={{ marginBottom: 0 }}>
+        <div id="no-print" className="no-print" style={{ marginBottom: 0 }}>
           <button className="print-btn" onClick={() => window.print()}>
-            ⬇ Save as PDF / Print
+            ⬇ Save as PDF
           </button>
         </div>
 
