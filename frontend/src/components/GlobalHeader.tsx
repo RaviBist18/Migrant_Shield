@@ -22,16 +22,17 @@ export default function GlobalHeader() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [lang, setLang] = useState<Lang>("en");
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [lang, setLang] = useState<Lang>(() =>
+    typeof window !== "undefined"
+      ? ((localStorage.getItem("lang") as Lang) ?? "en")
+      : "en",
+  );
+
   useEffect(() => {
-    const sync = () => {
-      const stored = localStorage.getItem("lang");
-      setLang(stored === "ne" ? "ne" : "en");
-    };
-    sync();
+    const sync = () => setLang((localStorage.getItem("lang") as Lang) ?? "en");
     window.addEventListener("langchange", sync);
     return () => window.removeEventListener("langchange", sync);
   }, []);

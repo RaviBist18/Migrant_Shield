@@ -740,11 +740,11 @@ function HistoryContent() {
 
                     {/* Employer or error reason */}
                     <span
-                      className="text-xs truncate w-24 text-right hidden sm:block shrink-0 ${
-                      filter === 'failed' && contract.error_reason
-                        ? 'text-red-400 dark:text-red-500'
-                        : 'text-slate-400'
-                    }"
+                      className={`text-xs truncate w-24 text-right hidden sm:block shrink-0 ${
+                        filter === "failed" && contract.error_reason
+                          ? "text-red-400 dark:text-red-500"
+                          : "text-slate-400"
+                      }`}
                     >
                       {filter === "failed"
                         ? (contract.error_reason ?? "Unknown error")
@@ -793,7 +793,7 @@ function HistoryContent() {
                       <button
                         onClick={() => handleDeleteOne(contract.contract_id)}
                         title="Delete"
-                        className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                       >
                         <Trash2 size={13} />
                       </button>
