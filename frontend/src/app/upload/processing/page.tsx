@@ -42,6 +42,16 @@ function ProcessingContent() {
   const [pollingStatus, setPollingStatus] = useState<PollingStatus>("polling");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [uiLang, setUiLang] = useState<"en" | "ne">("en");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("lang");
+    if (stored === "ne") setUiLang("ne");
+    const sync = () =>
+      setUiLang(localStorage.getItem("lang") === "ne" ? "ne" : "en");
+    window.addEventListener("langchange", sync);
+    return () => window.removeEventListener("langchange", sync);
+  }, []);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,10 +170,12 @@ function ProcessingContent() {
         <main className="max-w-lg mx-auto px-4 py-12">
           <div className="mb-10">
             <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
-              Analysis Timed Out
+              {uiLang === "ne" ? "विश्लेषण समय सकियो" : "Analysis Timed Out"}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
-              The analysis pipeline did not respond within the expected window.
+              {uiLang === "ne"
+                ? "विश्लेषण पाइपलाइनले अपेक्षित समयमा प्रतिक्रिया दिएन।"
+                : "The analysis pipeline did not respond within the expected window."}
             </p>
           </div>
 
@@ -186,12 +198,14 @@ function ProcessingContent() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800">
-                  Processing timeout — 90 seconds exceeded
+                  {uiLang === "ne"
+                    ? "प्रशोधन समय सकियो — ९० सेकेन्ड बढी भयो"
+                    : "Processing timeout — 90 seconds exceeded"}
                 </p>
                 <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                  Your contract was uploaded successfully. The AI analysis
-                  engine is taking longer than expected. This is usually caused
-                  by high server load or a large document.
+                  {uiLang === "ne"
+                    ? "तपाईंको सम्झौता सफलतापूर्वक अपलोड भयो। AI विश्लेषण इन्जिन अपेक्षाभन्दा बढी समय लिइरहेको छ। यो सामान्यतया उच्च सर्भर लोड वा ठूलो कागजातका कारण हुन्छ।"
+                    : "Your contract was uploaded successfully. The AI analysis engine is taking longer than expected. This is usually caused by high server load or a large document."}
                 </p>
               </div>
             </div>
@@ -205,8 +219,9 @@ function ProcessingContent() {
 
           <div className="mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200">
             <p className="text-xs font-medium text-amber-800">
-              Your analysis may still complete in the background. Check your
-              dashboard in a few minutes, or retry the analysis below.
+              {uiLang === "ne"
+                ? "तपाईंको विश्लेषण पृष्ठभूमिमा अझै पूरा हुन सक्छ। केही मिनेटमा ड्यासबोर्ड जाँच गर्नुहोस् वा तलको विकल्पबाट पुनः प्रयास गर्नुहोस्।"
+                : "Your analysis may still complete in the background. Check your dashboard in a few minutes, or retry the analysis below."}
             </p>
           </div>
 
@@ -215,13 +230,13 @@ function ProcessingContent() {
               onClick={() => router.push("/dashboard")}
               className="w-full py-2.5 px-4 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
             >
-              Go to Dashboard
+              {uiLang === "ne" ? "ड्यासबोर्डमा जानुहोस्" : "Go to Dashboard"}
             </button>
             <button
               onClick={() => window.location.reload()}
               className="w-full py-2.5 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
             >
-              Retry Polling
+              {uiLang === "ne" ? "पुनः पोलिङ गर्नुहोस्" : "Retry Polling"}
             </button>
           </div>
         </main>
@@ -238,11 +253,12 @@ function ProcessingContent() {
         <main className="max-w-lg mx-auto px-4 py-12">
           <div className="mb-10">
             <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
-              Analysis Failed
+              {uiLang === "ne" ? "विश्लेषण असफल भयो" : "Analysis Failed"}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
-              The AI analysis pipeline encountered an error processing your
-              contract.
+              {uiLang === "ne"
+                ? "AI विश्लेषण पाइपलाइनले तपाईंको सम्झौता प्रशोधन गर्दा त्रुटि भयो।"
+                : "The AI analysis pipeline encountered an error processing your contract."}
             </p>
           </div>
 
@@ -265,11 +281,14 @@ function ProcessingContent() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800">
-                  Analysis pipeline error
+                  {uiLang === "ne"
+                    ? "विश्लेषण पाइपलाइन त्रुटि"
+                    : "Analysis pipeline error"}
                 </p>
                 <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                  Your file was uploaded securely but could not be analysed.
-                  Please try uploading again. If this persists, contact support.
+                  {uiLang === "ne"
+                    ? "तपाईंको फाइल सुरक्षित रूपमा अपलोड भयो तर विश्लेषण गर्न सकिएन। फेरि अपलोड गर्नुहोस्। समस्या जारी रहे सहायतामा सम्पर्क गर्नुहोस्।"
+                    : "Your file was uploaded securely but could not be analysed. Please try uploading again. If this persists, contact support."}
                 </p>
               </div>
             </div>
@@ -295,13 +314,13 @@ function ProcessingContent() {
               onClick={() => router.push("/upload")}
               className="w-full py-2.5 px-4 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors"
             >
-              Upload Again
+              {uiLang === "ne" ? "फेरि अपलोड गर्नुहोस्" : "Upload Again"}
             </button>
             <button
               onClick={() => router.push("/dashboard")}
               className="w-full py-2.5 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
             >
-              Go to Dashboard
+              {uiLang === "ne" ? "ड्यासबोर्डमा जानुहोस्" : "Go to Dashboard"}
             </button>
           </div>
         </main>
@@ -317,11 +336,12 @@ function ProcessingContent() {
       <main className="max-w-lg mx-auto px-4 py-12">
         <div className="mb-10">
           <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
-            Analysing Contract
+            {uiLang === "ne" ? "सम्झौता विश्लेषण हुँदै" : "Analysing Contract"}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Please keep this screen open. Our AI engine is scanning your
-            contract for labour rights violations.
+            {uiLang === "ne"
+              ? "कृपया यो स्क्रिन खुला राख्नुहोस्। हाम्रो AI इन्जिनले श्रम अधिकार उल्लङ्घनका लागि तपाईंको सम्झौता स्क्यान गर्दैछ।"
+              : "Please keep this screen open. Our AI engine is scanning your contract for labour rights violations."}
           </p>
         </div>
 
@@ -352,8 +372,12 @@ function ProcessingContent() {
 
           <p className="text-center text-sm font-medium text-slate-600 mb-4">
             {pollingStatus === "completed"
-              ? "Analysis complete. Redirecting..."
-              : "AI analysis in progress..."}
+              ? uiLang === "ne"
+                ? "विश्लेषण पूरा भयो। पुनर्निर्देशित हुँदै..."
+                : "Analysis complete. Redirecting..."
+              : uiLang === "ne"
+                ? "AI विश्लेषण जारी छ..."
+                : "AI analysis in progress..."}
           </p>
 
           <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
@@ -367,11 +391,14 @@ function ProcessingContent() {
           </div>
 
           <p className="text-right text-xs text-slate-400 mt-2">
-            {elapsedSeconds}s elapsed
+            {elapsedSeconds}
+            {uiLang === "ne" ? "से बितिसक्यो" : "s elapsed"}
           </p>
 
           <div className="mt-6 pt-4 border-t border-slate-100">
-            <p className="text-xs text-slate-400 text-center">Reference ID</p>
+            <p className="text-xs text-slate-400 text-center">
+              {uiLang === "ne" ? "सन्दर्भ ID" : "Reference ID"}
+            </p>
             <p className="text-xs font-mono text-slate-600 text-center mt-1 break-all">
               {contractId}
             </p>
@@ -380,10 +407,9 @@ function ProcessingContent() {
 
         <div className="mt-6 p-4 rounded-lg bg-slate-100 border border-slate-200">
           <p className="text-xs text-slate-500 leading-relaxed">
-            Our AI engine is evaluating your contract against international
-            labour law standards — checking for illegal recruitment fees,
-            passport confiscation clauses, forced wage deductions, and
-            termination threats. This typically takes 15–45 seconds.
+            {uiLang === "ne"
+              ? "हाम्रो AI इन्जिनले तपाईंको सम्झौतालाई अन्तर्राष्ट्रिय श्रम कानून मानकहरू विरुद्ध मूल्यांकन गर्दैछ — अवैध भर्ती शुल्क, राहदानी जफत धाराहरू, जबरजस्ती तलब कटौती र बर्खास्तीका धम्कीहरू जाँच गर्दैछ। यसमा सामान्यतया १५–४५ सेकेन्ड लाग्छ।"
+              : "Our AI engine is evaluating your contract against international labour law standards — checking for illegal recruitment fees, passport confiscation clauses, forced wage deductions, and termination threats. This typically takes 15–45 seconds."}
           </p>
         </div>
       </main>

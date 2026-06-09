@@ -22,13 +22,6 @@ import { useTheme } from "@/context/ThemeContext";
 type Lang = "en" | "ne";
 type Theme = "light" | "dark" | "system";
 
-const THEME_OPTIONS: { value: Theme; icon: React.ReactNode; label: string }[] =
-  [
-    { value: "light", icon: <Sun size={14} />, label: "Light" },
-    { value: "dark", icon: <Moon size={14} />, label: "Dark" },
-    { value: "system", icon: <Monitor size={14} />, label: "System" },
-  ];
-
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -38,6 +31,28 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
+
+  const THEME_OPTIONS: {
+    value: Theme;
+    icon: React.ReactNode;
+    label: string;
+  }[] = [
+    {
+      value: "light",
+      icon: <Sun size={14} />,
+      label: lang === "ne" ? "उज्यालो" : "Light",
+    },
+    {
+      value: "dark",
+      icon: <Moon size={14} />,
+      label: lang === "ne" ? "अँध्यारो" : "Dark",
+    },
+    {
+      value: "system",
+      icon: <Monitor size={14} />,
+      label: lang === "ne" ? "सिस्टम" : "System",
+    },
+  ];
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -163,7 +178,7 @@ export default function SettingsPage() {
           className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 text-sm font-medium mb-4 transition-colors"
         >
           <ArrowLeft size={16} />
-          Back
+          {lang === "ne" ? "फिर्ता" : "Back"}
         </button>
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">
@@ -182,7 +197,7 @@ export default function SettingsPage() {
           {/* Profile */}
           <div className="px-4 py-4 border-b border-slate-100 dark:border-slate-800">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
-              Profile
+              {lang === "ne" ? "प्रोफाइल" : "Profile"}
             </p>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-14 h-14 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center text-lg font-bold shrink-0">
@@ -190,10 +205,12 @@ export default function SettingsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Display name
+                  {lang === "ne" ? "प्रदर्शन नाम" : "Display name"}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Shown in your profile
+                  {lang === "ne"
+                    ? "तपाईंको प्रोफाइलमा देखाइन्छ"
+                    : "Shown in your profile"}
                 </p>
               </div>
             </div>
@@ -202,7 +219,9 @@ export default function SettingsPage() {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
+                placeholder={
+                  lang === "ne" ? "पूरा नाम लेख्नुहोस्" : "Enter your full name"
+                }
                 className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400"
               />
               <button
@@ -210,7 +229,7 @@ export default function SettingsPage() {
                 disabled={saving || !fullName.trim()}
                 className="px-3 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium rounded-lg disabled:opacity-50 transition-colors hover:bg-slate-800 dark:hover:bg-slate-200"
               >
-                {saving ? "…" : "Save"}
+                {saving ? "…" : lang === "ne" ? "सुरक्षित गर्नुहोस्" : "Save"}
               </button>
             </div>
           </div>
@@ -277,7 +296,7 @@ export default function SettingsPage() {
               label: t?.settings?.partnerNGOs ?? "Partner NGOs",
               href: "/partners",
             },
-            { label: "Get Help", href: "/help" },
+            { label: lang === "ne" ? "सहायता" : "Get Help", href: "/help" },
           ].map(({ label, href }) => (
             <a
               key={label}

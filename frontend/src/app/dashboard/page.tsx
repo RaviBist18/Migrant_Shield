@@ -315,7 +315,7 @@ export default function DashboardPage() {
             setContracts((prev) =>
               prev.map((c) =>
                 c.contract_id === (payload.new as Contract).contract_id
-                  ? (payload.new as Contract)
+                  ? { ...c, ...(payload.new as Contract) }
                   : c,
               ),
             );
@@ -563,7 +563,7 @@ export default function DashboardPage() {
     {
       key: "failed" as FilterType,
       icon: <XCircle size={18} />,
-      label: "Failed",
+      label: t.statusFailed,
       value: failedCount,
       trend: thisWeekFailed > 0 ? `${thisWeekFailed} this week` : null,
       trendUp: false,
@@ -738,7 +738,9 @@ export default function DashboardPage() {
                       />
                       <input
                         type="text"
-                        placeholder="Search worker or employer…"
+                        placeholder={
+                          translations[lang].history.searchPlaceholder
+                        }
                         value={searchQuery}
                         onChange={(e) => {
                           setSearchQuery(e.target.value);
@@ -793,14 +795,14 @@ export default function DashboardPage() {
                       }`}
                     >
                       {f === "all"
-                        ? "All"
+                        ? translations[lang].history.filterAll
                         : f === "completed"
-                          ? "Completed"
+                          ? t.statusCompleted
                           : f === "processing"
-                            ? "Processing"
+                            ? t.statusProcessing
                             : f === "failed"
-                              ? `Failed${failedCount > 0 ? ` (${failedCount})` : ""}`
-                              : "Critical"}
+                              ? `${t.statusFailed}${failedCount > 0 ? ` (${failedCount})` : ""}`
+                              : t.criticalFlags}
                     </button>
                   ))}
                 </div>
