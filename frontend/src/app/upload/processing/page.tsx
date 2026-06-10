@@ -67,7 +67,7 @@ function ProcessingContent() {
 
   useEffect(() => {
     // Guard inside effect — safe, doesn't break hook rules
-    if (!user || !contractId) return;
+    if (!contractId) return;
 
     let isMounted = true;
 
@@ -76,20 +76,22 @@ function ProcessingContent() {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          clearAllTimers();
-          router.replace("/");
-          return;
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        } else {
+          const guestId = localStorage.getItem("guest_id");
+          if (guestId) headers["X-Guest-ID"] = guestId;
         }
 
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/status/${contractId}`,
           {
             method: "GET",
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-              "Content-Type": "application/json",
-            },
+            headers,
           },
         );
 
@@ -152,14 +154,10 @@ function ProcessingContent() {
 
   // Guards AFTER all hooks
   useEffect(() => {
-    if (!user) router.replace("/");
-  }, [user]);
-
-  useEffect(() => {
     if (!contractId) router.replace("/upload");
   }, [contractId]);
 
-  if (!user || !contractId) return null;
+  if (!contractId) return null;
 
   // --------------------------------------------------------------------------
   // Timeout state

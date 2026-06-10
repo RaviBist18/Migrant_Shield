@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
@@ -48,9 +48,7 @@ export default function PreviewPage() {
     return () => window.removeEventListener("langchange", sync);
   }, []);
 
-  useEffect(() => {
-    if (!loading && !user) router.replace("/");
-  }, [user, loading, router]);
+  // Guest allowed — no redirect
 
   useEffect(() => {
     const data = sessionStorage.getItem("upload_file_data");
@@ -74,8 +72,11 @@ export default function PreviewPage() {
     router.replace("/upload");
   };
 
+  const submitRef = useRef(false);
+
   const handleSubmit = async () => {
-    if (!preview || !user) return;
+    if (!preview || submitRef.current) return;
+    submitRef.current = true;
     setUploading(true);
     setError(null);
 
@@ -93,15 +94,23 @@ export default function PreviewPage() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      if (!session) throw new Error("Session expired. Please sign in again.");
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      } else {
+        let guestId = localStorage.getItem("guest_id");
+        if (!guestId) {
+          guestId = crypto.randomUUID();
+          localStorage.setItem("guest_id", guestId);
+        }
+        headers["X-Guest-ID"] = guestId;
+      }
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/upload`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          headers,
           body: formData,
         },
       );
@@ -121,6 +130,7 @@ export default function PreviewPage() {
     } catch (err: any) {
       setError(err.message || "Unexpected error. Please try again.");
       setUploading(false);
+      submitRef.current = false;
     }
   };
 

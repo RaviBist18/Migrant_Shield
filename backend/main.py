@@ -136,6 +136,40 @@ def _extract_token(request: Request) -> str:
         raise HTTPException(status_code=403, detail="Missing Bearer token.")
     return auth.split(" ", 1)[1]
 
+def _get_optional_user(request: Request) -> dict | None:
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    try:
+        return _validate_jwt(auth.split(" ", 1)[1])
+    except HTTPException:
+        return None
+
+def _check_guest_rate_limit(ip: str, supabase) -> None:
+    try:
+        row = supabase.table("guest_rate_limits").select("*").eq("ip", ip).single().execute()
+        data = row.data
+        window_start = datetime.fromisoformat(data["window_start"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) - window_start > timedelta(hours=24):
+            supabase.table("guest_rate_limits").update({
+                "analysis_count": 1,
+                "window_start": datetime.now(timezone.utc).isoformat()
+            }).eq("ip", ip).execute()
+        elif data["analysis_count"] >= 5:
+            raise HTTPException(status_code=429, detail="Guest limit reached. Sign up for unlimited access.")
+        else:
+            supabase.table("guest_rate_limits").update({
+                "analysis_count": data["analysis_count"] + 1
+            }).eq("ip", ip).execute()
+    except HTTPException:
+        raise
+    except Exception:
+        supabase.table("guest_rate_limits").insert({
+            "ip": ip,
+            "analysis_count": 1,
+            "window_start": datetime.now(timezone.utc).isoformat()
+        }).execute()
+
 def _get_current_user(request: Request) -> dict:
     token = _extract_token(request)
     return _validate_jwt(token)
@@ -179,11 +213,6 @@ async def upload_contract(
     file: UploadFile = File(...),
     language: str = Form(default="en"),
 ):
-    user = _get_current_user(request)
-    user_id = user.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token payload.")
-
     # Validate language
     if language not in ALLOWED_LANGUAGES:
         raise HTTPException(
@@ -204,11 +233,34 @@ async def upload_contract(
             detail=f"File exceeds {MAX_FILE_SIZE_MB}MB limit."
         )
 
+    user = _get_optional_user(request)
+    user_id = user.get("sub") if user else None
+    guest_id = request.headers.get("X-Guest-ID") or str(uuid.uuid4())
+
     contract_id = str(uuid.uuid4())
     ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "bin"
-    object_path = f"contracts/{user_id}/{contract_id}.{ext}"
+    object_path = f"contracts/{user_id or guest_id}/{contract_id}.{ext}"
 
     supabase = _get_supabase()
+
+    # Insert contracts row
+    try:
+        expires = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat() if not user_id else None
+        supabase.table("contracts").insert({
+            "contract_id":           contract_id,
+            "user_id":               user_id,
+            "guest_id":              guest_id,
+            "file_path":             object_path,
+            "mime_type":             file.content_type,
+            "original_filename":     file.filename,
+            "status":                "queued",
+            "legal_review_required": False,
+            "language":              language,
+            "upload_date":           datetime.now(timezone.utc).isoformat(),
+            "expires_at":            expires,
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create contract record: {str(e)}")
 
     # Upload to storage
     try:
@@ -221,22 +273,7 @@ async def upload_contract(
         logger.error(f"Storage upload failed: {e}")
         raise HTTPException(status_code=500, detail="File storage failed.")
 
-    # Insert contracts row
-    try:
-        supabase.table("contracts").insert({
-            "contract_id":           contract_id,
-            "user_id":               user_id,
-            "file_path":             object_path,
-            "mime_type":             file.content_type,
-            "original_filename":     file.filename,
-            "status":                "queued",
-            "legal_review_required": False,
-            "language":              language,
-            "upload_date":           datetime.now(timezone.utc).isoformat(),
-        }).execute()
-    except Exception as e:
-        logger.error(f"DB insert failed: {e}")
-        raise HTTPException(status_code=500, detail="Database record creation failed.")
+    
 
     # Enqueue via ARQ
     from worker import enqueue_contract_sync
@@ -252,15 +289,24 @@ async def upload_contract(
 # --------------------------------------------------------------
 @app.get("/status/{contract_id}")
 async def get_status(contract_id: str, request: Request):
-    user = _get_current_user(request)
-    user_id = user.get("sub")
+    user = _get_optional_user(request)
+    user_id = user.get("sub") if user else None
+    guest_id = request.headers.get("X-Guest-ID") if not user_id else None
+
+    if not user_id and not guest_id:
+        raise HTTPException(status_code=401, detail="Auth or guest ID required.")
 
     supabase = _get_supabase()
 
     try:
-        result = supabase.table("contracts").select(
+        query = supabase.table("contracts").select(
             "contract_id, status, risk_score, error_reason, analyzed_at, upload_date, language"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        ).eq("contract_id", contract_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        else:
+            query = query.eq("guest_id", guest_id)
+        result = query.single().execute()
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -303,17 +349,20 @@ async def get_status(contract_id: str, request: Request):
 async def get_report(contract_id: str, request: Request):
     if request.method == "OPTIONS":
         return JSONResponse(status_code=200, content={})
-    user = _get_current_user(request)
-    user_id = user.get("sub")
+    user = _get_optional_user(request)
+    user_id = user.get("sub") if user else None
 
     supabase = _get_supabase()
 
     # Verify ownership + fetch contract
     try:
-        result = supabase.table("contracts").select(
+        query = supabase.table("contracts").select(
             "contract_id, status, risk_score, worker_name, employer_name, "
             "country, original_filename, upload_date, analyzed_at, language, error_reason"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        ).eq("contract_id", contract_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = query.single().execute()
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -890,3 +939,152 @@ async def chat_with_report(contract_id: str, request: Request):
 
     logger.info(f"[chat] contract={contract_id} user={user_id} q_len={len(message)}")
     return {"answer": answer, "contract_id": contract_id}
+
+    logger.info(f"[chat] contract={contract_id} user={user_id} q_len={len(message)}")
+    return {"answer": answer, "contract_id": contract_id}
+
+
+# =============================================================
+# SHARE ENDPOINTS
+# =============================================================
+
+@app.post("/report/{contract_id}/share")
+async def create_share_token(contract_id: str, request: Request):
+    user = _get_current_user(request)
+    user_id = user.get("sub")
+
+    supabase = _get_supabase()
+
+    # Verify ownership
+    try:
+        result = supabase.table("contracts").select("contract_id, status").eq(
+            "contract_id", contract_id
+        ).eq("user_id", user_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+
+    if not result.data:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    if result.data["status"] != "completed":
+        raise HTTPException(status_code=425, detail="Analysis not complete.")
+
+    # Check existing active token
+    try:
+        existing = supabase.table("contract_shares").select("share_token, expires_at").eq(
+            "contract_id", contract_id
+        ).eq("revoked", False).execute()
+        if existing.data:
+            token = existing.data[0]["share_token"]
+            return {"share_token": token, "contract_id": contract_id}
+    except Exception:
+        pass
+
+    # Create new token
+    try:
+        ins = supabase.table("contract_shares").insert({
+            "contract_id": contract_id,
+            "created_by":  user_id,
+            "expires_at":  (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+        }).execute()
+        token = ins.data[0]["share_token"]
+    except Exception as e:
+        logger.error(f"Share token creation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create share link.")
+
+    logger.info(f"Share token created: contract={contract_id} user={user_id}")
+    return {"share_token": token, "contract_id": contract_id}
+
+
+@app.get("/shared/{share_token}")
+async def get_shared_report(share_token: str):
+    supabase = _get_supabase()
+
+    # Validate token
+    try:
+        share = supabase.table("contract_shares").select(
+            "contract_id, expires_at, revoked"
+        ).eq("share_token", share_token).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Share link not found.")
+
+    if not share.data:
+        raise HTTPException(status_code=404, detail="Share link not found.")
+
+    s = share.data
+    if s["revoked"]:
+        raise HTTPException(status_code=410, detail="Share link has been revoked.")
+
+    if datetime.fromisoformat(s["expires_at"].replace("Z", "+00:00")) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Share link has expired.")
+
+    contract_id = s["contract_id"]
+
+    # Fetch contract
+    try:
+        result = supabase.table("contracts").select(
+            "contract_id, status, risk_score, worker_name, employer_name, "
+            "country, original_filename, upload_date, analyzed_at, language"
+        ).eq("contract_id", contract_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+
+    contract = result.data
+    if contract["status"] != "completed":
+        raise HTTPException(status_code=425, detail="Analysis not complete.")
+
+    # Fetch flags
+    try:
+        flags_result = supabase.table("contract_flags").select(
+            "flag_id, flag_type, severity, title, description, clause_text, "
+            "recommendation, mitigation_steps, legal_references, created_at"
+        ).eq("contract_id", contract_id).order("severity").execute()
+        flags = flags_result.data or []
+    except Exception:
+        flags = []
+
+    return {
+        "contract_id":       contract["contract_id"],
+        "worker_name":       contract.get("worker_name"),
+        "employer_name":     contract.get("employer_name"),
+        "country":           contract.get("country"),
+        "original_filename": contract.get("original_filename"),
+        "upload_date":       contract.get("upload_date"),
+        "analyzed_at":       contract.get("analyzed_at"),
+        "language":          contract.get("language", "en"),
+        "risk_score":        contract.get("risk_score"),
+        "flags":             flags,
+        "flags_count":       len(flags),
+        "critical_count":    sum(1 for f in flags if f["severity"] == "critical"),
+        "warning_count":     sum(1 for f in flags if f["severity"] == "warning"),
+        "info_count":        sum(1 for f in flags if f["severity"] == "info"),
+    }
+
+
+@app.delete("/report/{contract_id}/share")
+async def revoke_share_token(contract_id: str, request: Request):
+    user = _get_current_user(request)
+    user_id = user.get("sub")
+
+    supabase = _get_supabase()
+
+    # Verify ownership
+    try:
+        result = supabase.table("contracts").select("contract_id").eq(
+            "contract_id", contract_id
+        ).eq("user_id", user_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+
+    if not result.data:
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    try:
+        supabase.table("contract_shares").update({"revoked": True}).eq(
+            "contract_id", contract_id
+        ).eq("revoked", False).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to revoke share link.")
+
+    logger.info(f"Share revoked: contract={contract_id} user={user_id}")
+    return {"status": "revoked", "contract_id": contract_id}

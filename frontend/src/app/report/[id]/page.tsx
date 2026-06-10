@@ -1505,12 +1505,14 @@ function ReportPageInner() {
   }, []);
 
   const fetchReport = useCallback(async () => {
-    if (!session?.access_token || !contractId) return;
+    if (!contractId) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/report/${contractId}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -1529,8 +1531,8 @@ function ReportPageInner() {
   }, [session?.access_token, contractId]);
 
   useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
+    if (contractId) fetchReport();
+  }, [contractId]);
 
   const handleDownloadPdf = () => {
     window.open(`/report/${contractId}/print`, "_blank");
@@ -1863,6 +1865,27 @@ function ReportPageInner() {
               {ui.disclaimer}
             </p>
           </div>
+          {!session && (
+            <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between gap-3">
+              <p className="text-sm font-medium">
+                Save this report to your account
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => router.push("/auth/phone")}
+                  className="text-xs font-semibold text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={() => router.push("/auth/phone")}
+                  className="text-xs font-bold bg-white text-slate-900 px-3 py-1.5 rounded-lg"
+                >
+                  Sign up free
+                </button>
+              </div>
+            </div>
+          )}
           {session?.access_token && (
             <ChatWidget
               contractId={contractId}
@@ -2405,14 +2428,27 @@ function ReportPageInner() {
           </div>
         )}
 
-        <div className="bg-slate-100 border border-slate-200 rounded-xl p-4">
-          <p className="text-slate-500 text-xs leading-relaxed">
-            <span className="font-semibold text-slate-600">
-              {ui.disclaimerLabel}{" "}
-            </span>
-            {ui.disclaimer}
-          </p>
-        </div>
+        {!session && (
+          <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">
+              Save this report to your account
+            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => router.push("/auth/phone")}
+                className="text-xs font-semibold text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Sign in
+              </button>
+              <button
+                onClick={() => router.push("/auth/phone")}
+                className="text-xs font-bold bg-white text-slate-900 px-3 py-1.5 rounded-lg"
+              >
+                Sign up free
+              </button>
+            </div>
+          </div>
+        )}
 
         {session?.access_token && (
           <ChatWidget

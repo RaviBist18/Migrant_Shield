@@ -38,11 +38,7 @@ export default function UploadPage() {
     return () => window.removeEventListener("langchange", sync);
   }, []);
 
-  useEffect(() => {
-    if (!user) router.replace("/");
-  }, [user, router]);
-
-  if (!user) return null;
+  // Guest allowed — no redirect
 
   const t = translations[lang].upload;
 
