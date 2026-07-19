@@ -1169,7 +1169,11 @@ function HistoryContent() {
                                         `/report/${contract.contract_id}?view=compact&chat=open`,
                                       )
                                     }
-                                    title="Ask Legal Assistant"
+                                    title={
+                                      lang === "ne"
+                                        ? "कानूनी सहायकलाई सोध्नुहोस्"
+                                        : "Ask Legal Assistant"
+                                    }
                                     className="w-9 h-9 rounded-lg bg-slate-900 dark:bg-slate-100 hover:bg-slate-700 dark:hover:bg-slate-300 text-white dark:text-slate-900 flex items-center justify-center transition-colors"
                                   >
                                     <svg

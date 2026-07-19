@@ -234,6 +234,7 @@ const UI_STRINGS: Record<
     riskHigh: string;
     riskCaution: string;
     riskLow: string;
+    back: string;
   }
 > = {
   en: {
@@ -275,6 +276,7 @@ const UI_STRINGS: Record<
     riskHigh: "High Risk",
     riskCaution: "Caution",
     riskLow: "Low Risk",
+    back: "Back",
   },
   ne: {
     extractedClause: "करारको अनुच्छेद",
@@ -315,6 +317,7 @@ const UI_STRINGS: Record<
     riskHigh: "उच्च जोखिम",
     riskCaution: "सावधानी",
     riskLow: "कम जोखिम",
+    back: "फिर्ता",
   },
   hi: {
     extractedClause: "अनुबंध का अनुच्छेद",
@@ -355,6 +358,7 @@ const UI_STRINGS: Record<
     riskHigh: "उच्च जोखिम",
     riskCaution: "सावधानी",
     riskLow: "कम जोखिम",
+    back: "वापस",
   },
   ar: {
     extractedClause: "بند العقد المستخرج",
@@ -395,6 +399,7 @@ const UI_STRINGS: Record<
     riskHigh: "خطر مرتفع",
     riskCaution: "تنبيه",
     riskLow: "خطر منخفض",
+    back: "العودة",
   },
   tl: {
     extractedClause: "Nakuhang Sugnay ng Kontrata",
@@ -435,6 +440,7 @@ const UI_STRINGS: Record<
     riskHigh: "Mataas na Panganib",
     riskCaution: "Mag-ingat",
     riskLow: "Mababang Panganib",
+    back: "Bumalik",
   },
   bn: {
     extractedClause: "চুক্তির ধারা",
@@ -475,6 +481,7 @@ const UI_STRINGS: Record<
     riskHigh: "উচ্চ ঝুঁকি",
     riskCaution: "সতর্কতা",
     riskLow: "কম ঝুঁকি",
+    back: "ফিরে যান",
   },
 };
 
@@ -998,38 +1005,46 @@ function ChatWidget({
   return (
     <>
       {/* FAB */}
-      <button
-        onClick={() =>
-          setOpen((o) => {
-            if (o) setPanelPos(DEFAULT_POS);
-            return !o;
-          })
-        }
-        className="fixed bottom-16 right-5 z-[60] w-14 h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 active:scale-95 ring-1 ring-slate-700"
-        aria-label="Open legal assistant"
-      >
-        {open ? (
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        ) : (
-          <MessageSquare className="w-5 h-5" />
+      <>
+        {!open && (
+          <div className="fixed bottom-[86px] right-5 z-[60] bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-[220px]">
+            {ui.chatTitle} — {ui.chatSubtitle}
+            <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white dark:bg-slate-800 border-r border-b border-slate-200 dark:border-slate-700 rotate-45" />
+          </div>
         )}
-        {!open && messages.length > 1 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center">
-            {messages.filter((m) => m.role === "assistant").length - 1}
-          </span>
-        )}
-      </button>
+        <button
+          onClick={() =>
+            setOpen((o) => {
+              if (o) setPanelPos(DEFAULT_POS);
+              return !o;
+            })
+          }
+          className="fixed bottom-16 right-5 z-[60] w-14 h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 active:scale-95 ring-1 ring-slate-700"
+          aria-label="Open legal assistant"
+        >
+          {open ? (
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <MessageSquare className="w-5 h-5" />
+          )}
+          {!open && messages.length > 1 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center">
+              {messages.filter((m) => m.role === "assistant").length - 1}
+            </span>
+          )}
+        </button>
+      </>
 
       {/* PANEL */}
       {open && (
@@ -2412,7 +2427,7 @@ function ReportPageInner() {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         {/* DISCLAIMER BANNER */}
         <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/50 px-4 py-2.5">
-          <div className="max-w-2xl mx-auto flex items-start gap-2">
+          <div className="max-w-2xl mx-auto px-4 flex items-start gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-amber-700 dark:text-amber-400 text-[11px] leading-relaxed">
               {ui.aiWarning}
@@ -2650,11 +2665,10 @@ function ReportPageInner() {
           )}
 
           {/* DISCLAIMER */}
-          <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-            <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
-              <span className="font-semibold text-slate-600 dark:text-slate-300">
-                {ui.disclaimerLabel}{" "}
-              </span>
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-xl p-4 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-blue-800 dark:text-blue-300 text-xs leading-relaxed">
+              <span className="font-semibold">{ui.disclaimerLabel} </span>
               {ui.disclaimer}
             </p>
           </div>
@@ -2722,7 +2736,7 @@ function ReportPageInner() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* STICKY DISCLAIMER */}
       <div className="bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-900/40 px-4 py-2.5 sticky top-0 z-40">
-        <div className="max-w-2xl mx-auto flex items-start gap-2">
+        <div className="max-w-2xl mx-auto px-4 flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
           <p className="text-amber-700 dark:text-amber-400 text-[11px] leading-relaxed">
             {ui.aiWarning}

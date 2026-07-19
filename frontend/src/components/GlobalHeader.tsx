@@ -199,7 +199,7 @@ export default function GlobalHeader() {
             <path d="M13 14h4M13 18h6" />
             <path d="M19 10l-2-2-4 4" />
           </svg>
-          <span className="text-slate-900 dark:text-slate-100 font-bold text-base tracking-tight">
+          <span className="text-slate-900 dark:text-slate-100 font-bold text-lg tracking-tight">
             MigrantShield
           </span>
         </Link>

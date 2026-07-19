@@ -51,6 +51,7 @@ JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
 ADMIN_USER_ID = os.environ.get("ADMIN_USER_ID", "")
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 CHAT_GROQ_API_KEY = os.environ.get("CHAT_GROQ_API_KEY", GROQ_API_KEY)
+DEMO_CONTRACT_ID = os.environ.get("DEMO_CONTRACT_ID", "")
 
 
 # =============================================================
@@ -424,6 +425,7 @@ async def get_report(contract_id: str, request: Request):
         return JSONResponse(status_code=200, content={})
     user = _get_optional_user(request)
     user_id = user.get("sub") if user else None
+    is_demo = DEMO_CONTRACT_ID and contract_id == DEMO_CONTRACT_ID
 
     supabase = _get_supabase()
 
@@ -437,7 +439,7 @@ async def get_report(contract_id: str, request: Request):
             )
             .eq("contract_id", contract_id)
         )
-        if user_id:
+        if user_id and not is_demo:
             query = query.eq("user_id", user_id)
         result = query.single().execute()
     except Exception:

@@ -145,6 +145,14 @@ export interface LandingTranslations {
     askQuestionSub: string;
     complianceReport: string;
     complianceReportSub: string;
+    sampleReport: string;
+    sampleReportSub: string;
+    criticalFlagDetected: string;
+    criticalFlagsDetected: string;
+    daysAgo: string;
+    hoursAgo: string;
+    minsAgo: string;
+    justNow: string;
   };
   riskSummaryPage: {
     title: string;
@@ -521,6 +529,14 @@ export const translations: Record<Lang, LandingTranslations> = {
       askQuestionSub: "Get legal guidance on contract terms",
       complianceReport: "Generate Compliance Report",
       complianceReportSub: "Export a summary for review or filing",
+      sampleReport: "View Sample Report",
+      sampleReportSub: "See a full example analysis — no upload needed",
+      criticalFlagDetected: "critical flag detected",
+      criticalFlagsDetected: "critical flags detected",
+      daysAgo: "d ago",
+      hoursAgo: "h ago",
+      minsAgo: "m ago",
+      justNow: "just now",
     },
     riskSummaryPage: {
       title: "Risk Summary",
@@ -905,6 +921,14 @@ export const translations: Record<Lang, LandingTranslations> = {
       askQuestionSub: "सम्झौता सर्तहरूमा कानूनी मार्गदर्शन पाउनुहोस्",
       complianceReport: "अनुपालन रिपोर्ट बनाउनुहोस्",
       complianceReportSub: "समीक्षा वा दर्ताका लागि सारांश निर्यात गर्नुहोस्",
+      sampleReport: "नमूना रिपोर्ट हेर्नुहोस्",
+      sampleReportSub: "नमूना विश्लेषण हेर्नुहोस् — अपलोड आवश्यक छैन",
+      criticalFlagDetected: "गम्भीर चेतावनी फेला पर्यो",
+      criticalFlagsDetected: "गम्भीर चेतावनीहरू फेला परे",
+      daysAgo: "दिन अघि",
+      hoursAgo: "घण्टा अघि",
+      minsAgo: "मिनेट अघि",
+      justNow: "भर्खरै",
     },
     riskSummaryPage: {
       title: "जोखिम सारांश",

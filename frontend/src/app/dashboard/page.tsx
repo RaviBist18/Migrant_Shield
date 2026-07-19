@@ -630,13 +630,13 @@ export default function DashboardPage() {
         />
       )}
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-10 pb-24 md:pb-6">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 md:pb-6">
         {isLoading ? (
           <Skeleton />
         ) : (
           <>
             {/* ── Greeting ── */}
-            <div className="mb-4 mt-2">
+            <div className="mb-6 mt-5">
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight mt-[-20px]">
                 {totalContracts === 0
                   ? `${t.welcomeMsg}${userName ? `, ${userName}` : ""}.`
@@ -697,6 +697,31 @@ export default function DashboardPage() {
                   </button>
                 </div>
               )}
+
+            {/* ── Sample Report (always visible) ── */}
+            <div className="mb-5 mt-4">
+              <button
+                onClick={() =>
+                  router.push(
+                    "/report/0c74c253-4326-4d3c-bb1e-c92955ae2994?view=compact",
+                  )
+                }
+                className="w-full flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 border-l-purple-500 rounded-lg px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left"
+              >
+                <div className="bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 p-2.5 rounded-lg shrink-0">
+                  <FileText size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                    {t.sampleReport}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {t.sampleReportSub}
+                  </p>
+                </div>
+                <ArrowRight size={15} className="text-slate-400 shrink-0" />
+              </button>
+            </div>
 
             {/* ── Stat cards ── */}
             <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-5 mt-8">
@@ -784,10 +809,10 @@ export default function DashboardPage() {
             {/* ── What's Next ── */}
             {totalContracts > 0 && (
               <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3 mt-3">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-5 mt-5">
                   {t.whatsNext}
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 mb-3">
                   {[
                     {
                       label: t.uploadNewContract,
@@ -826,7 +851,7 @@ export default function DashboardPage() {
                     <button
                       key={item.label}
                       onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-10 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
+                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
                     >
                       <div
                         className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
@@ -853,7 +878,7 @@ export default function DashboardPage() {
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
                   {[
                     {
                       label: t.askQuestion,
@@ -877,7 +902,7 @@ export default function DashboardPage() {
                     <button
                       key={item.label}
                       onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-10 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
+                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
                     >
                       <div
                         className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
@@ -912,7 +937,7 @@ export default function DashboardPage() {
                   onClick={() => router.push("/history")}
                   className="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 flex items-center gap-1 transition-colors"
                 >
-                  View All <ArrowRight size={12} />
+                  {t.viewAll} <ArrowRight size={12} />
                 </button>
               </div>
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
@@ -942,7 +967,7 @@ export default function DashboardPage() {
                       const eventText = isFailed
                         ? t.analysisFailed
                         : isCritical
-                          ? `${c.critical_flags_count} critical flag${c.critical_flags_count !== 1 ? "s" : ""} detected`
+                          ? `${c.critical_flags_count} ${c.critical_flags_count !== 1 ? t.criticalFlagsDetected : t.criticalFlagDetected}`
                           : isCompleted
                             ? `${t.analysedRisk} ${c.risk_score}`
                             : isProcessing
@@ -956,10 +981,10 @@ export default function DashboardPage() {
                             const mins = Math.floor(diff / 60000);
                             const hrs = Math.floor(mins / 60);
                             const days = Math.floor(hrs / 24);
-                            if (days > 0) return `${days}d ago`;
-                            if (hrs > 0) return `${hrs}h ago`;
-                            if (mins > 0) return `${mins}m ago`;
-                            return "just now";
+                            if (days > 0) return `${days} ${t.daysAgo}`;
+                            if (hrs > 0) return `${hrs} ${t.hoursAgo}`;
+                            if (mins > 0) return `${mins} ${t.minsAgo}`;
+                            return t.justNow;
                           })()
                         : "—";
 
