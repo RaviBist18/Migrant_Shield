@@ -1,4 +1,4 @@
-export type Severity = "CRITICAL" | "WARNING" | "SAFE";
+export type Severity = "CRITICAL" | "WARNING" | "INFO" | "SAFE";
 export type Status = "queued" | "processing" | "completed" | "failed";
 export type Category =
   | "Fees"

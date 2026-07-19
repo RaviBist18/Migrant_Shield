@@ -70,21 +70,39 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <main className="max-w-lg mx-auto px-4 py-12">
-        <div className="mb-8">
+      <main className="max-w-lg mx-auto px-4 pb-10">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-1.5 group text-slate-400 hover:text-slate-900 text-sm font-medium transition-colors duration-200 mb-6 mt-8"
+        >
+          <svg
+            className="w-4 h-4 transition-transform duration-200 ease-in-out group-hover:-translate-x-0.5"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M13 8H3M7 4L3 8l4 4" />
+          </svg>
+          {t.dashboardLink}
+        </Link>
+        <div className="mb-2">
           <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
             {t.heading}
           </h1>
           <p className="mt-2 text-sm text-slate-500">{t.subheading}</p>
         </div>
 
+        {/* Upload zone */}
         <div
-          className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-10 flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition-colors"
+          className="mt-6 relative border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900 p-10 flex flex-col items-center justify-center gap-5 cursor-pointer group hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 transition-all duration-200"
           onClick={() => inputRef.current?.click()}
         >
-          <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
             <svg
-              className="w-7 h-7 text-slate-400"
+              className="w-8 h-8 text-teal-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -97,14 +115,28 @@ export default function UploadPage() {
               />
             </svg>
           </div>
-
           <div className="text-center">
-            <p className="text-sm font-medium text-slate-700">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
               {t.tapToSelect}
             </p>
             <p className="text-xs text-slate-400 mt-1">{t.tapSub}</p>
           </div>
-
+          <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
+            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
+              JPG
+            </span>
+            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
+              PNG
+            </span>
+            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
+              WEBP
+            </span>
+            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
+              PDF
+            </span>
+            <span className="text-slate-300">·</span>
+            <span>max 15MB</span>
+          </div>
           <input
             ref={inputRef}
             type="file"
@@ -116,45 +148,60 @@ export default function UploadPage() {
         </div>
 
         {error && (
-          <div className="mt-4 p-4 rounded-lg bg-red-50 border border-red-200">
+          <div className="mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-red-500 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+              />
+            </svg>
             <p className="text-sm text-red-700 font-medium">{error}</p>
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-4 gap-2">
-          {["JPG", "PNG", "WEBP", "PDF"].map((fmt) => (
+        {/* Trust signals */}
+        <div className="mt-5 grid grid-cols-3 gap-2.5">
+          {[
+            { icon: "🔒", text: lang === "ne" ? "एन्क्रिप्टेड" : "Encrypted" },
+            {
+              icon: "⚡",
+              text: lang === "ne" ? "६० सेकेन्ड" : "~60s analysis",
+            },
+            {
+              icon: "🛡",
+              text: lang === "ne" ? "१४ कानून" : "14 laws checked",
+            },
+          ].map((item) => (
             <div
-              key={fmt}
-              className="flex items-center justify-center py-2 px-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+              key={item.text}
+              className="flex flex-col items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-3 px-2"
             >
-              <span className="text-xs font-semibold text-slate-500 tracking-wide">
-                {fmt}
+              <span className="text-lg">{item.icon}</span>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 text-center leading-tight">
+                {item.text}
               </span>
             </div>
           ))}
         </div>
 
-        <p className="mt-6 text-xs text-slate-400 text-center">
+        <p className="mt-5 text-xs text-slate-400 text-center">
           {t.securityNote}
         </p>
-
-        <Link
-          href="/dashboard"
-          className="mt-8 flex items-center justify-center gap-1.5 group text-slate-400 hover:text-slate-900 text-sm font-medium transition-colors duration-200"
-        >
-          {t.dashboardLink}
-          <svg
-            className="w-4 h-4 transition-transform duration-200 ease-in-out group-hover:translate-x-0.5"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 8h10M9 4l4 4-4 4" />
-          </svg>
-        </Link>
+        <div className="mt-3 flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+          <span className="text-amber-500 text-sm shrink-0 mt-0.5">⚠</span>
+          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+            {lang === "ne"
+              ? "यो AI-आधारित कानुनी जानकारी हो, कानुनी सल्लाह होइन। आफ्नो अवस्थाका लागि दूतावास वा योग्य वकिलसँग सम्पर्क गर्नुहोस्।"
+              : "AI-generated legal information about your contract — not legal advice. Consult your embassy or a qualified lawyer for your specific situation."}
+          </p>
+        </div>
       </main>
     </div>
   );

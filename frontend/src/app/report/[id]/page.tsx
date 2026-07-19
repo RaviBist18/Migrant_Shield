@@ -20,6 +20,10 @@ import {
   ChevronDown,
   Globe,
   ExternalLink,
+  MessageSquare,
+  Info,
+  ArrowRight,
+  Check,
 } from "lucide-react";
 
 // =============================================================
@@ -59,7 +63,7 @@ type Verdict = "SAFE" | "CAUTION" | "CRITICAL";
 type TabKey = "critical" | "warning" | "info" | "all";
 
 // =============================================================
-// HELPERS — IMAGE 1 (full report)
+// HELPERS
 // =============================================================
 function resolveVerdict(score: number): Verdict {
   if (score >= 70) return "CRITICAL";
@@ -67,139 +71,90 @@ function resolveVerdict(score: number): Verdict {
   return "SAFE";
 }
 
-function verdictStyles(verdict: Verdict) {
+function verdictConfig(verdict: Verdict, ui: (typeof UI_STRINGS)["en"]) {
   switch (verdict) {
     case "CRITICAL":
       return {
         bg: "bg-red-50",
-        border: "border-red-200",
-        text: "text-red-700",
-        badge: "bg-red-100 text-red-700 border-red-200",
-        bar: "bg-red-500",
-        icon: <XCircle className="w-6 h-6 text-red-600" />,
+        border: "border-red-100",
+        scoreColor: "text-red-600",
+        barColor: "bg-red-500",
+        badgeBg: "bg-red-100",
+        badgeText: "text-red-700",
+        icon: <XCircle className="w-5 h-5 text-red-500" />,
         label: "High Risk",
+        dot: "bg-red-500",
       };
     case "CAUTION":
       return {
         bg: "bg-amber-50",
-        border: "border-amber-200",
-        text: "text-amber-700",
-        badge: "bg-amber-100 text-amber-700 border-amber-200",
-        bar: "bg-amber-400",
-        icon: <AlertTriangle className="w-6 h-6 text-amber-600" />,
+        border: "border-amber-100",
+        scoreColor: "text-amber-600",
+        barColor: "bg-amber-400",
+        badgeBg: "bg-amber-100",
+        badgeText: "text-amber-700",
+        icon: <AlertTriangle className="w-5 h-5 text-amber-500" />,
         label: "Review Required",
+        dot: "bg-amber-400",
       };
     case "SAFE":
       return {
         bg: "bg-emerald-50",
-        border: "border-emerald-200",
-        text: "text-emerald-700",
-        badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
-        bar: "bg-emerald-400",
-        icon: <CheckCircle className="w-6 h-6 text-emerald-600" />,
+        border: "border-emerald-100",
+        scoreColor: "text-emerald-600",
+        barColor: "bg-emerald-500",
+        badgeBg: "bg-emerald-100",
+        badgeText: "text-emerald-700",
+        icon: <CheckCircle className="w-5 h-5 text-emerald-500" />,
         label: "Looks Safe",
+        dot: "bg-emerald-500",
       };
   }
 }
 
-// =============================================================
-// HELPERS — IMAGE 2 (compact view)
-// =============================================================
-function getRiskCircleStyle(score: number) {
-  if (score >= 70)
-    return {
-      ring: "border-red-500",
-      text: "text-red-500",
-      label: "High Risk",
-      labelColor: "text-red-500",
-    };
-  if (score >= 40)
-    return {
-      ring: "border-amber-500",
-      text: "text-amber-500",
-      label: "Caution",
-      labelColor: "text-amber-500",
-    };
-  return {
-    ring: "border-emerald-500",
-    text: "text-emerald-500",
-    label: "Low Risk",
-    labelColor: "text-emerald-500",
-  };
-}
-
-function getProgressBarColor(score: number) {
-  if (score >= 70) return "bg-red-500";
-  if (score >= 40) return "bg-amber-500";
-  return "bg-emerald-500";
-}
-
-// =============================================================
-// SHARED SEVERITY STYLES
-// =============================================================
-function severityStylesFull(severity: string) {
+function severityConfig(severity: string) {
   switch (severity.toLowerCase()) {
     case "critical":
       return {
-        text: "text-red-600 dark:text-red-400",
-        badge:
-          "px-2 py-0.5 rounded-full text-xs font-medium border border-red-200 dark:border-red-800 bg-transparent text-red-600 dark:text-red-400",
-        accent: "border-l-2 border-l-red-400 dark:border-l-red-600",
-        clauseBorder: "border-l-red-400 dark:border-l-red-600",
-        headerText: "text-slate-900 dark:text-slate-50",
-        cardBg: "bg-white dark:bg-[#0f172a]",
+        topBorder: "border-t-red-500",
+        leftBorder: "border-l-red-400",
+        clauseBorder: "border-l-red-300",
+        badgeBg: "bg-red-50",
+        badgeBorder: "border-red-200",
+        badgeText: "text-red-700",
+        iconColor: "text-red-500",
+        icon: <XCircle className="w-4 h-4" />,
+        label: "Critical",
+        dotColor: "bg-red-500",
+        sectionColor: "text-red-600",
       };
     case "warning":
       return {
-        text: "text-amber-600 dark:text-amber-400",
-        badge:
-          "px-2 py-0.5 rounded-full text-xs font-medium border border-amber-200 dark:border-amber-800 bg-transparent text-amber-600 dark:text-amber-400",
-        accent: "border-l-2 border-l-amber-400 dark:border-l-amber-600",
-        clauseBorder: "border-l-amber-400 dark:border-l-amber-600",
-        headerText: "text-slate-900 dark:text-slate-50",
-        cardBg: "bg-white dark:bg-[#0f172a]",
+        topBorder: "border-t-amber-400",
+        leftBorder: "border-l-amber-400",
+        clauseBorder: "border-l-amber-300",
+        badgeBg: "bg-amber-50",
+        badgeBorder: "border-amber-200",
+        badgeText: "text-amber-700",
+        iconColor: "text-amber-500",
+        icon: <AlertTriangle className="w-4 h-4" />,
+        label: "Warning",
+        dotColor: "bg-amber-400",
+        sectionColor: "text-amber-600",
       };
     default:
       return {
-        text: "text-slate-500 dark:text-slate-400",
-        badge:
-          "px-2 py-0.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 bg-transparent text-slate-600 dark:text-slate-300",
-        accent: "border-l-2 border-l-slate-300 dark:border-l-slate-600",
-        clauseBorder: "border-l-slate-300 dark:border-l-slate-600",
-        headerText: "text-slate-900 dark:text-slate-50",
-        cardBg: "bg-white dark:bg-[#0f172a]",
-      };
-  }
-}
-
-function severityStylesCompact(severity: string) {
-  switch (severity.toLowerCase()) {
-    case "critical":
-      return {
-        text: "text-red-600 dark:text-red-400",
-        badge:
-          "border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 bg-transparent",
-        accentBar: "bg-red-500",
-        clauseBorder: "border-l-red-400 dark:border-l-red-600",
-        icon: <XCircle className="w-3.5 h-3.5 text-red-500" />,
-      };
-    case "warning":
-      return {
-        text: "text-amber-600 dark:text-amber-400",
-        badge:
-          "border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 bg-transparent",
-        accentBar: "bg-amber-500",
-        clauseBorder: "border-l-amber-400 dark:border-l-amber-600",
-        icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />,
-      };
-    default:
-      return {
-        text: "text-slate-500 dark:text-slate-400",
-        badge:
-          "border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-transparent",
-        accentBar: "bg-slate-400",
-        clauseBorder: "border-l-slate-300 dark:border-l-slate-600",
-        icon: <Shield className="w-3.5 h-3.5 text-slate-400" />,
+        topBorder: "border-t-slate-300",
+        leftBorder: "border-l-slate-300",
+        clauseBorder: "border-l-slate-200",
+        badgeBg: "bg-slate-50",
+        badgeBorder: "border-slate-200",
+        badgeText: "text-slate-600",
+        iconColor: "text-slate-400",
+        icon: <Info className="w-4 h-4" />,
+        label: "Info",
+        dotColor: "bg-slate-400",
+        sectionColor: "text-slate-500",
       };
   }
 }
@@ -208,6 +163,35 @@ function getConfidence(flag: ContractFlag): number {
   if (flag.severity === "critical") return 92;
   if (flag.severity === "warning") return 78;
   return 65;
+}
+
+function getRiskCircleStyle(score: number, ui: (typeof UI_STRINGS)["en"]) {
+  if (score >= 70)
+    return {
+      ring: "border-red-500",
+      text: "text-red-600",
+      label: "High Risk",
+      labelColor: "text-red-500",
+    };
+  if (score >= 40)
+    return {
+      ring: "border-amber-400",
+      text: "text-amber-600",
+      label: "Caution",
+      labelColor: "text-amber-500",
+    };
+  return {
+    ring: "border-emerald-500",
+    text: "text-emerald-600",
+    label: "Low Risk",
+    labelColor: "text-emerald-500",
+  };
+}
+
+function getProgressBarColor(score: number) {
+  if (score >= 70) return "bg-red-500";
+  if (score >= 40) return "bg-amber-400";
+  return "bg-emerald-500";
 }
 
 // =============================================================
@@ -244,6 +228,12 @@ const UI_STRINGS: Record<
     chatError: string;
     chatThinking: string;
     chatDisclaimer: string;
+    verdictCritical: string;
+    verdictCaution: string;
+    verdictSafe: string;
+    riskHigh: string;
+    riskCaution: string;
+    riskLow: string;
   }
 > = {
   en: {
@@ -263,7 +253,7 @@ const UI_STRINGS: Record<
     warning: "Warning",
     info: "Info",
     allClauses: "All clauses",
-    riskScore: "risk score",
+    riskScore: "Risk Score",
     downloadReport: "Download PDF",
     viewOriginal: "View original contract",
     noFlags: "No Issues Found",
@@ -279,6 +269,12 @@ const UI_STRINGS: Record<
     chatError: "Something went wrong. Please try again.",
     chatThinking: "Thinking...",
     chatDisclaimer: "AI assistant — not legal advice.",
+    verdictCritical: "High Risk",
+    verdictCaution: "Review Required",
+    verdictSafe: "Looks Safe",
+    riskHigh: "High Risk",
+    riskCaution: "Caution",
+    riskLow: "Low Risk",
   },
   ne: {
     extractedClause: "करारको अनुच्छेद",
@@ -313,6 +309,12 @@ const UI_STRINGS: Record<
     chatError: "केही गडबडी भयो। कृपया पुनः प्रयास गर्नुहोस्।",
     chatThinking: "सोच्दैछु...",
     chatDisclaimer: "AI सहायक — कानूनी सल्लाह होइन।",
+    verdictCritical: "उच्च जोखिम",
+    verdictCaution: "समीक्षा आवश्यक",
+    verdictSafe: "सुरक्षित देखिन्छ",
+    riskHigh: "उच्च जोखिम",
+    riskCaution: "सावधानी",
+    riskLow: "कम जोखिम",
   },
   hi: {
     extractedClause: "अनुबंध का अनुच्छेद",
@@ -347,6 +349,12 @@ const UI_STRINGS: Record<
     chatError: "कुछ गलत हो गया। कृपया पुनः प्रयास करें।",
     chatThinking: "सोच रहा हूँ...",
     chatDisclaimer: "AI सहायक — कानूनी सलाह नहीं।",
+    verdictCritical: "उच्च जोखिम",
+    verdictCaution: "समीक्षा आवश्यक",
+    verdictSafe: "सुरक्षित दिखता है",
+    riskHigh: "उच्च जोखिम",
+    riskCaution: "सावधानी",
+    riskLow: "कम जोखिम",
   },
   ar: {
     extractedClause: "بند العقد المستخرج",
@@ -381,6 +389,12 @@ const UI_STRINGS: Record<
     chatError: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
     chatThinking: "أفكر...",
     chatDisclaimer: "مساعد ذكاء اصطناعي — ليس مشورة قانونية.",
+    verdictCritical: "خطر مرتفع",
+    verdictCaution: "يحتاج مراجعة",
+    verdictSafe: "يبدو آمناً",
+    riskHigh: "خطر مرتفع",
+    riskCaution: "تنبيه",
+    riskLow: "خطر منخفض",
   },
   tl: {
     extractedClause: "Nakuhang Sugnay ng Kontrata",
@@ -399,7 +413,7 @@ const UI_STRINGS: Record<
     warning: "Babala",
     info: "Impormasyon",
     allClauses: "Lahat ng sugnay",
-    riskScore: "risk score",
+    riskScore: "Risk Score",
     downloadReport: "I-download ang ulat",
     viewOriginal: "Tingnan ang orihinal na kontrata",
     noFlags: "Walang Nahanap na Problema",
@@ -415,6 +429,12 @@ const UI_STRINGS: Record<
     chatError: "May nangyaring mali. Pakisubukang muli.",
     chatThinking: "Nag-iisip...",
     chatDisclaimer: "AI assistant — hindi legal na payo.",
+    verdictCritical: "Mataas na Panganib",
+    verdictCaution: "Kailangang Suriin",
+    verdictSafe: "Mukhang Ligtas",
+    riskHigh: "Mataas na Panganib",
+    riskCaution: "Mag-ingat",
+    riskLow: "Mababang Panganib",
   },
   bn: {
     extractedClause: "চুক্তির ধারা",
@@ -428,7 +448,7 @@ const UI_STRINGS: Record<
     disclaimer:
       "এই রিপোর্টটি শুধুমাত্র তথ্যের জন্য AI-জেনারেটেড। MigrantShield আইনি পরামর্শ প্রদান করে না। আপনার কর্মসংস্থান চুক্তি সম্পর্কে সিদ্ধান্ত নেওয়ার আগে একজন যোগ্য আইন বিশেষজ্ঞের পরামর্শ নিন।",
     referencesNote:
-      "তথ্যসূত্রগুলি AI-জেনারেটেড এবং এখতিয়ার-নির্দিষ্ট নাও হতে পারে। সকল উদ্ধৃতি একজন যোগ্য আইন বিশেষজ্ঞের সাথে যাচাই করুন.",
+      "তথ্যসূত্রগুলি AI-জেনারেটেড এবং এখতিয়ার-নির্দিষ্ট নাও হতে পারে। সকল উদ্ধৃতি একজন যোগ্য আইন বিশেষজ্ঞের সাথে যাচাই করুন।",
     critical: "গুরুতর",
     warning: "সতর্কতা",
     info: "তথ্য",
@@ -449,6 +469,12 @@ const UI_STRINGS: Record<
     chatError: "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।",
     chatThinking: "ভাবছি...",
     chatDisclaimer: "AI সহকারী — আইনি পরামর্শ নয়।",
+    verdictCritical: "উচ্চ ঝুঁকি",
+    verdictCaution: "পর্যালোচনা প্রয়োজন",
+    verdictSafe: "নিরাপদ মনে হচ্ছে",
+    riskHigh: "উচ্চ ঝুঁকি",
+    riskCaution: "সতর্কতা",
+    riskLow: "কম ঝুঁকি",
   },
 };
 
@@ -633,6 +659,36 @@ interface ChatMessage {
   content: string;
 }
 
+function formatMessage(content: string) {
+  const lines = content.split("\n");
+  return lines.map((line, i) => {
+    const numberedMatch = line.match(/^(\d+)\.\s+(.+)/);
+    if (numberedMatch) {
+      return (
+        <div key={i} className="flex items-start gap-2.5 my-1.5">
+          <span className="w-5 h-5 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+            {numberedMatch[1]}
+          </span>
+          <span className="text-sm leading-relaxed">{numberedMatch[2]}</span>
+        </div>
+      );
+    }
+    if (line.startsWith("**") && line.endsWith("**")) {
+      return (
+        <p key={i} className="font-semibold mt-2 text-sm">
+          {line.slice(2, -2)}
+        </p>
+      );
+    }
+    if (line.trim() === "") return <div key={i} className="h-2" />;
+    return (
+      <p key={i} className="leading-relaxed text-sm">
+        {line}
+      </p>
+    );
+  });
+}
+
 function ChatWidget({
   contractId,
   token,
@@ -648,12 +704,15 @@ function ChatWidget({
   autoOpen?: boolean;
   flags?: ContractFlag[];
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(autoOpen);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: ui.chatWelcome },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [followupQuestions, setFollowupQuestions] = useState<string[]>([]);
@@ -693,14 +752,15 @@ function ChatWidget({
       FOLLOWUP_POOL[(start + 2) % FOLLOWUP_POOL.length],
     ];
   }
+
   const isRTL = lang === "ar";
+
   const suggestedQuestions: string[] = (() => {
     const questions: string[] = [];
     const severities = flags.map((f) => f.severity);
     const types = flags.map((f) =>
       f.flag_type?.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_"),
     );
-
     if (types.includes("passport_confiscation"))
       questions.push(
         lang === "ne"
@@ -749,8 +809,6 @@ function ChatWidget({
           ? "मेरो सम्झौता सुरक्षित छ?"
           : "Is my contract safe to sign?",
       );
-
-    // Fallback pool — always ensure 3
     const fallbacks =
       lang === "ne"
         ? [
@@ -765,40 +823,55 @@ function ChatWidget({
             "What are my legal rights here?",
             "What should I do if there is a dispute?",
           ];
-
     for (const f of fallbacks) {
       if (questions.length >= 3) break;
       if (!questions.includes(f)) questions.push(f);
     }
-
     return questions.slice(0, 3);
   })();
 
   const panelRef = useRef<HTMLDivElement>(null);
-  const dragOffset = useRef({ x: 0, y: 0 });
+  const dragStart = useRef({ mouseX: 0, mouseY: 0, right: 0, bottom: 0 });
   const DEFAULT_POS = { right: 16, bottom: 144 };
   const [panelPos, setPanelPos] = useState(DEFAULT_POS);
   const [dragging, setDragging] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(480);
+  const resizing = useRef(false);
+  const resizeStartY = useRef(0);
+  const resizeStartH = useRef(0);
 
   useEffect(() => {
     const onMove = (e: MouseEvent | TouchEvent) => {
+      if (resizing.current) {
+        const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+        const delta = resizeStartY.current - clientY;
+        const newH = Math.min(700, Math.max(320, resizeStartH.current + delta));
+        setPanelHeight(newH);
+        return;
+      }
       if (!dragging) return;
       const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
       const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-      const targetRight = Math.max(
+      const newRight = Math.max(
         8,
-        window.innerWidth - clientX - dragOffset.current.x,
+        Math.min(
+          window.innerWidth - 200,
+          dragStart.current.right - (clientX - dragStart.current.mouseX),
+        ),
       );
-      const targetBottom = Math.max(
+      const newBottom = Math.max(
         8,
-        window.innerHeight - clientY - dragOffset.current.y,
+        Math.min(
+          window.innerHeight - 100,
+          dragStart.current.bottom - (clientY - dragStart.current.mouseY),
+        ),
       );
-      setPanelPos((prev) => ({
-        right: prev.right + (targetRight - prev.right) * 0.2,
-        bottom: prev.bottom + (targetBottom - prev.bottom) * 0.2,
-      }));
+      setPanelPos({ right: newRight, bottom: newBottom });
     };
-    const onUp = () => setDragging(false);
+    const onUp = () => {
+      setDragging(false);
+      resizing.current = false;
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("touchmove", onMove, { passive: true });
     window.addEventListener("mouseup", onUp);
@@ -812,39 +885,33 @@ function ChatWidget({
   }, [dragging]);
 
   const onDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const rect = panel.getBoundingClientRect();
     const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    dragOffset.current = {
-      x: window.innerWidth - clientX - rect.right + rect.left,
-      y: window.innerHeight - clientY - rect.bottom + rect.top,
+    dragStart.current = {
+      mouseX: clientX,
+      mouseY: clientY,
+      right: panelPos.right,
+      bottom: panelPos.bottom,
     };
     setDragging(true);
+  };
+
+  const onResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizing.current = true;
+    resizeStartY.current = e.clientY;
+    resizeStartH.current = panelHeight;
   };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
-
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text || loading) return;
-    setInput("");
-    setFollowupQuestions([]);
-
-    const userMsg: ChatMessage = { role: "user", content: text };
-    const history = messages.filter(
-      (m) => m.role !== "assistant" || messages.indexOf(m) > 0,
-    );
-    setMessages((prev) => [...prev, userMsg]);
+  async function sendMessage(text: string, history: ChatMessage[]) {
     setLoading(true);
-
     try {
       const res = await fetch(`${API_BASE}/report/${contractId}/chat`, {
         method: "POST",
@@ -852,10 +919,7 @@ function ChatWidget({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          message: text,
-          history: history.slice(-10),
-        }),
+        body: JSON.stringify({ message: text, history: history.slice(-10) }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -863,7 +927,7 @@ function ChatWidget({
         ...prev,
         { role: "assistant", content: data.answer },
       ]);
-      setFollowupQuestions(getFollowups(messages.length));
+      setFollowupQuestions(getFollowups(history.length));
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -874,9 +938,66 @@ function ChatWidget({
     }
   }
 
+  async function handleSend() {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput("");
+    setFollowupQuestions([]);
+    const history = messages.filter(
+      (m) => m.role !== "assistant" || messages.indexOf(m) > 0,
+    );
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    await sendMessage(text, history);
+  }
+
+  async function handleSuggestion(q: string) {
+    setFollowupQuestions([]);
+    const history = messages.filter(
+      (m) => m.role !== "assistant" || messages.indexOf(m) > 0,
+    );
+    setMessages((prev) => [...prev, { role: "user", content: q }]);
+    await sendMessage(q, history);
+  }
+
+  function copyMessage(content: string, index: number) {
+    navigator.clipboard.writeText(content);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  }
+
+  function copyAll() {
+    const text = messages
+      .map((m) => `${m.role === "user" ? "You" : "Assistant"}: ${m.content}`)
+      .join("\n\n");
+    navigator.clipboard.writeText(text);
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2000);
+  }
+
+  function SuggestedList({
+    questions,
+  }: {
+    questions: string[];
+    label?: string;
+  }) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        {questions.map((q, i) => (
+          <button
+            key={i}
+            onClick={() => handleSuggestion(q)}
+            className="text-left text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-white dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-sm transition-all leading-relaxed font-medium"
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* FLOATING BUTTON */}
+      {/* FAB */}
       <button
         onClick={() =>
           setOpen((o) => {
@@ -884,13 +1005,13 @@ function ChatWidget({
             return !o;
           })
         }
-        className="fixed bottom-16 right-5 z-[60] w-14 h-14 bg-slate-900 hover:bg-slate-700 text-white rounded-full shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95"
+        className="fixed bottom-16 right-5 z-[60] w-14 h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 active:scale-95 ring-1 ring-slate-700"
         aria-label="Open legal assistant"
       >
         {open ? (
           <svg
-            width="20"
-            height="20"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -901,26 +1022,7 @@ function ChatWidget({
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         ) : (
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 48 48"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M17 18H27M17 23H31M17 28H24"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
+          <MessageSquare className="w-5 h-5" />
         )}
         {!open && messages.length > 1 && (
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center">
@@ -929,42 +1031,36 @@ function ChatWidget({
         )}
       </button>
 
-      {/* CHAT PANEL */}
+      {/* PANEL */}
       {open && (
         <div
           ref={panelRef}
-          className="fixed z-50 w-[340px] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          className="fixed z-50 w-[352px] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           style={{
-            height: "460px",
+            height: `${panelHeight}px`,
             right: panelPos.right,
             bottom: panelPos.bottom,
-            cursor: dragging ? "grabbing" : "grab",
             transition: dragging ? "none" : "right 0.15s, bottom 0.15s",
           }}
           dir={isRTL ? "rtl" : "ltr"}
-          onMouseDown={onDragStart}
-          onTouchStart={onDragStart}
         >
+          {/* RESIZE */}
+          <div
+            className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize z-10 group"
+            onMouseDown={onResizeStart}
+          >
+            <div className="mx-auto mt-0.5 w-8 h-1 rounded-full bg-slate-200 dark:bg-slate-600 group-hover:bg-slate-300 dark:group-hover:bg-slate-500 transition-colors" />
+          </div>
+
           {/* HEADER */}
           <div
-            className="bg-slate-900 dark:bg-slate-800 px-4 py-3 flex items-center gap-3 shrink-0 select-none"
-            style={{ cursor: "inherit" }}
+            className="bg-slate-900 dark:bg-slate-800 px-4 py-3.5 flex items-center gap-3 shrink-0 select-none mt-1"
+            style={{ cursor: dragging ? "grabbing" : "grab" }}
+            onMouseDown={onDragStart}
+            onTouchStart={onDragStart}
           >
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
-              <svg width="16" height="16" viewBox="0 0 48 48" fill="none">
-                <path
-                  d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M17 18H27M17 23H31M17 28H24"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
+            <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+              <Shield className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold leading-tight">
@@ -974,242 +1070,195 @@ function ChatWidget({
                 {ui.chatSubtitle}
               </p>
             </div>
-            <button
-              onClick={() =>
-                setMessages([{ role: "assistant", content: ui.chatWelcome }])
-              }
-              className="text-slate-400 hover:text-white transition-colors text-xs px-2 py-0.5 rounded-lg hover:bg-slate-700 shrink-0"
-              title="Clear chat"
-            >
-              ↺
-            </button>
-            <div
-              className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"
-              title="Online"
-            />
+            <div className="flex items-center gap-1">
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() =>
+                  setMessages([{ role: "assistant", content: ui.chatWelcome }])
+                }
+                className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-700"
+                title="Clear chat"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 .49-3.5" />
+                </svg>
+              </button>
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={copyAll}
+                className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-700"
+                title={copiedAll ? "Copied!" : "Copy all"}
+              >
+                {copiedAll ? (
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#34d399"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => router.push(`/report/${contractId}/chat`)}
+                className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-700"
+                title="Open full page"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* MESSAGES */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 bg-slate-50 dark:bg-slate-950/40">
-            {false &&
-              messages.length === 1 &&
-              suggestedQuestions.length > 0 && (
-                <div className="px-1 pt-1 pb-2">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold mb-2 pl-1">
-                    Suggested
-                  </p>
-                  <div className="flex flex-col gap-1.5">
-                    {suggestedQuestions.map((q, i) => (
-                      <button
-                        key={i}
-                        onClick={async () => {
-                          setMessages((prev) => [
-                            ...prev,
-                            { role: "user", content: q },
-                          ]);
-                          setLoading(true);
-                          try {
-                            const res = await fetch(
-                              `${API_BASE}/report/${contractId}/chat`,
-                              {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  Authorization: `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({
-                                  message: q,
-                                  history: [],
-                                }),
-                              },
-                            );
-                            const data = await res.json();
-                            setMessages((prev) => [
-                              ...prev,
-                              { role: "assistant", content: data.answer },
-                            ]);
-                          } catch {
-                            setMessages((prev) => [
-                              ...prev,
-                              { role: "assistant", content: ui.chatError },
-                            ]);
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        className="text-center text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all leading-relaxed font-medium"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3 bg-slate-50 dark:bg-slate-950/40">
             {messages.map((msg, i) => (
               <div
                 key={i}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}
               >
                 {msg.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0 mb-0.5">
-                    <svg width="10" height="10" viewBox="0 0 48 48" fill="none">
-                      <path
-                        d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
-                        stroke="white"
-                        strokeWidth="3"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                  <div className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0 mb-0.5">
+                    <Shield className="w-3.5 h-3.5 text-white" />
                   </div>
                 )}
-                <div
-                  className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
-                    msg.role === "user"
-                      ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-br-sm"
-                      : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-sm"
-                  }`}
-                  style={{ wordBreak: "break-word" }}
-                >
-                  {msg.content}
+                <div className="flex flex-col gap-1 max-w-[82%]">
+                  <div
+                    className={`rounded-2xl px-3.5 py-2.5 shadow-sm ${msg.role === "user" ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-br-sm" : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-sm"}`}
+                    style={{ wordBreak: "break-word" }}
+                  >
+                    {msg.role === "assistant" ? (
+                      formatMessage(msg.content)
+                    ) : (
+                      <p className="text-sm">{msg.content}</p>
+                    )}
+                  </div>
+                  {msg.role === "assistant" && i > 0 && (
+                    <button
+                      onClick={() => copyMessage(msg.content, i)}
+                      className="self-start flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors ml-1"
+                    >
+                      {copiedIndex === i ? (
+                        <>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#34d399"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          <span className="text-emerald-500">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect
+                              x="9"
+                              y="9"
+                              width="13"
+                              height="13"
+                              rx="2"
+                              ry="2"
+                            />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
 
             {messages.length === 1 && suggestedQuestions.length > 0 && (
-              <div className="px-1 pt-1 pb-2">
+              <div className="pt-1 pb-2">
                 <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold mb-2 pl-1">
                   Suggested
                 </p>
-                <div className="flex flex-col gap-1.5">
-                  {suggestedQuestions.map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={async () => {
-                        setMessages((prev) => [
-                          ...prev,
-                          { role: "user", content: q },
-                        ]);
-                        setLoading(true);
-                        try {
-                          const res = await fetch(
-                            `${API_BASE}/report/${contractId}/chat`,
-                            {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${token}`,
-                              },
-                              body: JSON.stringify({ message: q, history: [] }),
-                            },
-                          );
-                          const data = await res.json();
-                          setMessages((prev) => [
-                            ...prev,
-                            { role: "assistant", content: data.answer },
-                          ]);
-                          setFollowupQuestions(getFollowups(messages.length));
-                        } catch {
-                          setMessages((prev) => [
-                            ...prev,
-                            { role: "assistant", content: ui.chatError },
-                          ]);
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                      className="text-center text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all leading-relaxed font-medium"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
+                <SuggestedList questions={suggestedQuestions} />
               </div>
             )}
+
             {!loading &&
               followupQuestions.length > 0 &&
               messages.length > 1 && (
-                <div className="px-1 pt-1 pb-2">
+                <div className="pt-1 pb-2">
                   <p className="text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-semibold mb-2 pl-1">
                     Continue
                   </p>
-                  <div className="flex flex-col gap-1.5">
-                    {followupQuestions.map((q, i) => (
-                      <button
-                        key={i}
-                        onClick={async () => {
-                          setFollowupQuestions([]);
-                          setMessages((prev) => [
-                            ...prev,
-                            { role: "user", content: q },
-                          ]);
-                          setLoading(true);
-                          try {
-                            const res = await fetch(
-                              `${API_BASE}/report/${contractId}/chat`,
-                              {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  Authorization: `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({
-                                  message: q,
-                                  history: messages.slice(-10).map((m) => ({
-                                    role: m.role,
-                                    content: m.content,
-                                  })),
-                                }),
-                              },
-                            );
-                            const data = await res.json();
-                            setMessages((prev) => [
-                              ...prev,
-                              { role: "assistant", content: data.answer },
-                            ]);
-                            setFollowupQuestions(getFollowups(messages.length));
-                          } catch {
-                            setMessages((prev) => [
-                              ...prev,
-                              { role: "assistant", content: ui.chatError },
-                            ]);
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        className="text-center text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all leading-relaxed font-medium"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
+                  <SuggestedList questions={followupQuestions} />
                 </div>
               )}
+
             {loading && (
               <div className="flex items-end gap-2">
-                <div className="w-6 h-6 rounded-full bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 48 48" fill="none">
-                    <path
-                      d="M24 4L6 11V24C6 33.94 13.94 43.28 24 46C34.06 43.28 42 33.94 42 24V11L24 4Z"
-                      stroke="white"
-                      strokeWidth="3"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                <div className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                  <Shield className="w-3.5 h-3.5 text-white" />
                 </div>
                 <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5 shadow-sm">
-                  <span
-                    className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <span
-                    className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <span
-                    className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  />
+                  {[0, 150, 300].map((d) => (
+                    <span
+                      key={d}
+                      className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+                      style={{ animationDelay: `${d}ms` }}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -1243,7 +1292,7 @@ function ChatWidget({
                 rows={1}
                 maxLength={500}
                 disabled={loading}
-                className="flex-1 resize-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400 transition-all leading-relaxed disabled:opacity-50"
+                className="flex-1 resize-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400 transition-all disabled:opacity-50"
                 style={{ maxHeight: "100px", overflowY: "auto" }}
               />
               <button
@@ -1274,7 +1323,205 @@ function ChatWidget({
 }
 
 // =============================================================
-// COMPACT FLAG CARD (image 2)
+// SHARE MODAL (shared by both views)
+// =============================================================
+function ShareModal({
+  shareUrl,
+  shareCopied,
+  shareRevoked,
+  onCopy,
+  onRevoke,
+  onClose,
+}: {
+  shareUrl: string;
+  shareCopied: boolean;
+  shareRevoked: boolean;
+  onCopy: () => void;
+  onRevoke: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.45)",
+        padding: "1rem",
+      }}
+    >
+      <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        {/* HEADER */}
+        <div className="bg-slate-900 dark:bg-slate-800 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Share2 className="w-4 h-4 text-white" />
+            <p className="text-white text-sm font-semibold">Share Report</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-700"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {shareRevoked ? (
+            <div className="text-center py-6">
+              <XCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+              <p className="text-slate-800 dark:text-slate-200 font-semibold text-sm">
+                Link revoked
+              </p>
+              <p className="text-slate-400 text-xs mt-1">
+                This share link is no longer active.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
+                  Share link · valid 30 days
+                </p>
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5">
+                  <p className="flex-1 text-xs text-slate-600 dark:text-slate-300 font-mono truncate">
+                    {shareUrl}
+                  </p>
+                  <button
+                    onClick={onCopy}
+                    className="shrink-0 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    {shareCopied ? "✓ Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    const t = encodeURIComponent(
+                      `MigrantShield Contract Report: ${shareUrl}`,
+                    );
+                    window.open(`https://wa.me/?text=${t}`, "_blank");
+                  }}
+                  className="bg-[#25D366] hover:bg-[#20b858] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  WhatsApp
+                </button>
+                <button
+                  onClick={() => {
+                    const t = encodeURIComponent(
+                      `MigrantShield Contract Report: ${shareUrl}`,
+                    );
+                    window.open(`viber://forward?text=${t}`, "_blank");
+                  }}
+                  className="bg-[#7360f2] hover:bg-[#5b4ac4] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M11.398.002C9.473.028 5.331.344 3.014 2.467 1.03 4.453.36 7.34.286 10.943c-.073 3.601-.16 10.348 6.333 12.168h.006l-.006 2.789s-.042.812.504.977c.657.2 1.047-.425 1.677-1.109.347-.373.825-.92 1.186-1.337 3.27.275 5.784-.353 6.072-.446.66-.214 4.397-.693 5.005-5.655.627-5.109-.305-8.334-1.97-9.789l-.001-.002c-.483-.435-2.42-1.856-6.218-2.077a18.703 18.703 0 0 0-1.476-.46z" />
+                  </svg>
+                  Viber
+                </button>
+                <button
+                  onClick={() =>
+                    window.open(
+                      `https://www.facebook.com/dialog/send?link=${encodeURIComponent(shareUrl)}&app_id=181374994990&redirect_uri=${encodeURIComponent(shareUrl)}`,
+                      "_blank",
+                    )
+                  }
+                  className="bg-[#0084ff] hover:bg-[#006ed4] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 0C5.373 0 0 4.974 0 11.111c0 3.498 1.744 6.614 4.469 8.652V24l4.088-2.242c1.092.3 2.246.464 3.443.464 6.627 0 12-4.975 12-11.111S18.627 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.259L19.752 8l-6.561 6.963z" />
+                  </svg>
+                  Messenger
+                </button>
+                <button
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: "MigrantShield Report",
+                        url: shareUrl,
+                      });
+                    } else {
+                      window.open(
+                        `sms:?body=${encodeURIComponent(`MigrantShield Contract Report: ${shareUrl}`)}`,
+                        "_blank",
+                      );
+                    }
+                  }}
+                  className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                    <polyline points="16 6 12 2 8 6" />
+                    <line x1="12" y1="2" x2="12" y2="15" />
+                  </svg>
+                  More / SMS
+                </button>
+              </div>
+
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-3 flex items-center justify-between">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  No login required to view.
+                </p>
+                <button
+                  onClick={onRevoke}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+                >
+                  Revoke link
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
+// FLAG CARD — COMPACT VIEW
 // =============================================================
 function CompactFlagCard({
   flag,
@@ -1289,19 +1536,80 @@ function CompactFlagCard({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const ss = severityStylesCompact(flag.severity);
+  const sc = severityConfig(flag.severity);
   const confidence = getConfidence(flag);
+  function normalizeForCompare(s: string) {
+    return s
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .trim();
+  }
 
-  const steps: string[] = Array.isArray(flag.mitigation_steps)
-    ? flag.mitigation_steps
-    : flag.recommendation
-      ? [flag.recommendation]
-      : [];
+  // word-overlap similarity check — catches near-dup, not just exact match
+  function isSimilar(a: string, b: string, threshold = 0.6) {
+    const wordsA = new Set(
+      normalizeForCompare(a)
+        .split(/\s+/)
+        .filter((w) => w.length > 2),
+    );
+    const wordsB = new Set(
+      normalizeForCompare(b)
+        .split(/\s+/)
+        .filter((w) => w.length > 2),
+    );
+    if (wordsA.size === 0 || wordsB.size === 0) return false;
+    let overlap = 0;
+    wordsA.forEach((w) => {
+      if (wordsB.has(w)) overlap++;
+    });
+    const ratio = overlap / Math.min(wordsA.size, wordsB.size);
+    return ratio >= threshold;
+  }
 
+  let explanationPoints: string[] = flag.description
+    ? flag.description
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  // dedupe near-identical sentences within description itself
+  explanationPoints = explanationPoints.filter(
+    (point, idx) =>
+      !explanationPoints.slice(0, idx).some((prev) => isSimilar(prev, point)),
+  );
+
+  // need min 2 distinct points — if backend gave only 1, try clause-split as last resort.
+  // if still <2, show single point as-is (no fake content manufactured) and flag it for review.
+  let explanationIncomplete = false;
+  if (explanationPoints.length < 2) {
+    const commaSplit = (flag.description || "")
+      .split(/,\s+(?=[a-z\u0900-\u097F])/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (commaSplit.length >= 2 && !isSimilar(commaSplit[0], commaSplit[1])) {
+      explanationPoints = commaSplit;
+    } else {
+      explanationIncomplete = true;
+    }
+  }
+
+  const explanationNorms = new Set(explanationPoints.map(normalizeForCompare));
+
+  const steps: string[] = (
+    Array.isArray(flag.mitigation_steps)
+      ? flag.mitigation_steps
+      : flag.recommendation
+        ? [flag.recommendation]
+        : []
+  ).filter(
+    (step) =>
+      !explanationNorms.has(normalizeForCompare(step)) &&
+      !explanationPoints.some((point) => isSimilar(point, step)),
+  );
   const refs: string[] = Array.isArray(flag.legal_references)
     ? flag.legal_references
     : [];
-
   const flagTypeKey = flag.flag_type
     ?.toLowerCase()
     .replace(/\s+/g, "_")
@@ -1310,122 +1618,555 @@ function CompactFlagCard({
     FLAG_TYPE_LABELS[flagTypeKey]?.[lang] ??
     FLAG_TYPE_LABELS[flagTypeKey]?.["en"] ??
     flag.flag_type?.replace(/_/g, " ");
+  const severityLabel =
+    flag.severity === "critical"
+      ? ui.critical
+      : flag.severity === "warning"
+        ? ui.warning
+        : ui.info;
 
   return (
-    <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm mb-3">
-      <div className={`h-0.5 w-full ${ss.accentBar}`} />
-      <button onClick={onToggle} className="w-full text-left px-4 py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            {ss.icon}
+    <div
+      className={`bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm mb-3 border-t-2 ${sc.topBorder}`}
+    >
+      <button onClick={onToggle} className="w-full text-left px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <span
+              className={`mt-0.5 shrink-0 w-4 h-4 flex items-center justify-center ${sc.iconColor}`}
+            >
+              {sc.icon}
+            </span>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 mb-1.5">
                 <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ss.badge}`}
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${sc.badgeBg} ${sc.badgeBorder} ${sc.badgeText}`}
                 >
-                  {flag.severity === "critical"
-                    ? ui.critical
-                    : flag.severity === "warning"
-                      ? ui.warning
-                      : ui.info}
+                  {severityLabel}
                 </span>
-                {flagTypeLabel &&
-                  flagTypeLabel.toLowerCase() !== flag.severity.toLowerCase() &&
-                  flagTypeLabel.toLowerCase() !== ui.critical.toLowerCase() &&
-                  flagTypeLabel.toLowerCase() !== ui.warning.toLowerCase() &&
-                  flagTypeLabel.toLowerCase() !== ui.info.toLowerCase() && (
-                    <span className="text-xs text-slate-400 dark:text-slate-500 font-medium truncate">
-                      {flagTypeLabel}
-                    </span>
-                  )}
               </div>
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 leading-snug mt-1.5 truncate">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 leading-snug">
                 {flag.title}
               </p>
               {!isExpanded && flag.description && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
                   {flag.description}
                 </p>
               )}
             </div>
           </div>
           <ChevronDown
-            className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 mt-1 ${isExpanded ? "rotate-180" : ""}`}
           />
         </div>
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-5 space-y-5 border-t border-slate-100 dark:border-slate-800">
-          <div className="pt-4 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
+        <div className="border-t border-slate-100 dark:border-slate-800">
+          {/* CONFIDENCE ROW */}
+          <div className="px-4 py-3 flex items-center justify-between bg-slate-50 dark:bg-slate-900/40">
+            <div className="flex items-center gap-2">
               <span
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${ss.badge}`}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${sc.badgeBg} ${sc.badgeBorder} ${sc.badgeText}`}
               >
-                {flag.severity === "critical"
-                  ? ui.critical
-                  : flag.severity === "warning"
-                    ? ui.warning
-                    : ui.info}
+                {severityLabel}
               </span>
-              {flagTypeLabel &&
-                flagTypeLabel.toLowerCase() !== flag.severity.toLowerCase() &&
-                flagTypeLabel.toLowerCase() !== ui.critical.toLowerCase() &&
-                flagTypeLabel.toLowerCase() !== ui.warning.toLowerCase() &&
-                flagTypeLabel.toLowerCase() !== ui.info.toLowerCase() && (
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium border border-slate-200 dark:border-slate-700 bg-transparent text-slate-700 dark:text-slate-300">
-                    {flagTypeLabel}
-                  </span>
-                )}
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-32 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-slate-900 dark:bg-slate-200 rounded-full transition-all"
+                  className="h-full bg-slate-800 dark:bg-slate-200 rounded-full"
                   style={{ width: `${confidence}%` }}
                 />
               </div>
-              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">
+              <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
                 {confidence}% {ui.aiConfidence}
               </span>
             </div>
           </div>
 
+          <div className="px-4 py-4 space-y-5">
+            {flag.clause_text && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mb-2">
+                  <FileText className="w-3.5 h-3.5" /> {ui.extractedClause}
+                </p>
+                <div
+                  className={`border-l-2 ${sc.clauseBorder} bg-slate-50 dark:bg-slate-900/40 px-4 py-3 rounded-r-lg`}
+                >
+                  <p className="font-mono text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {flag.clause_text}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mb-2">
+                <BookOpen className="w-3.5 h-3.5" /> {ui.plainExplanation}
+              </p>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                {flag.description}
+              </p>
+            </div>
+
+            {steps.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mb-3">
+                  <ShieldCheck className="w-3.5 h-3.5" /> {ui.whatYouCanDo}
+                </p>
+                <div className="space-y-2.5">
+                  {steps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                        <ArrowRight className="w-4 h-4 text-slate-500 dark:text-slate-300" />
+                      </span>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {step}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {refs.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mb-2">
+                  <Scale className="w-3.5 h-3.5" /> {ui.legalReferences}
+                </p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {refs.map((ref, i) => (
+                    <span
+                      key={i}
+                      className="border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 py-1 px-3 rounded-lg text-xs"
+                    >
+                      {ref}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-slate-400 dark:text-slate-500 text-[11px]">
+                  {ui.referencesNote}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================
+// FLAG CARD — FULL VIEW
+// =============================================================
+function FullFlagCard({
+  flag,
+  ui,
+  lang,
+  isExpanded,
+  onToggle,
+}: {
+  flag: ContractFlag;
+  ui: (typeof UI_STRINGS)["en"];
+  lang: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const sc = severityConfig(flag.severity);
+  const confidence = getConfidence(flag);
+  const steps: string[] = Array.isArray(flag.mitigation_steps)
+    ? flag.mitigation_steps
+    : flag.recommendation
+      ? [flag.recommendation]
+      : [];
+  console.log(
+    "DEBUG mitigation_steps:",
+    flag.title,
+    typeof flag.mitigation_steps,
+    flag.mitigation_steps,
+    "isArray:",
+    Array.isArray(flag.mitigation_steps),
+  );
+  const refs: string[] = Array.isArray(flag.legal_references)
+    ? flag.legal_references
+    : [];
+  const flagTypeKey = flag.flag_type
+    ?.toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+  const flagTypeLabel =
+    FLAG_TYPE_LABELS[flagTypeKey]?.[lang] ??
+    FLAG_TYPE_LABELS[flagTypeKey]?.["en"] ??
+    flag.flag_type?.replace(/_/g, " ");
+  const severityLabel =
+    flag.severity === "critical"
+      ? ui.critical
+      : flag.severity === "warning"
+        ? ui.warning
+        : ui.info;
+
+  return (
+    <div
+      className={`bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm border-t-2 ${sc.topBorder}`}
+    >
+      <button onClick={onToggle} className="w-full text-left px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <span
+              className={`mt-0.5 shrink-0 w-4 h-4 flex items-center justify-center ${sc.iconColor}`}
+            >
+              {sc.icon}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${sc.badgeBg} ${sc.badgeBorder} ${sc.badgeText}`}
+                >
+                  {severityLabel}
+                </span>
+                {flagTypeLabel &&
+                  flagTypeLabel.toLowerCase() !== severityLabel.toLowerCase() &&
+                  flagTypeLabel.toLowerCase() !==
+                    flag.severity.toLowerCase() && (
+                    <span className="text-xs text-slate-400 font-medium">
+                      {flagTypeLabel}
+                    </span>
+                  )}
+              </div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 leading-snug">
+                {flag.title}
+              </p>
+              {flag.description && !isExpanded && (
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">
+                  {flag.description}
+                </p>
+              )}
+            </div>
+          </div>
+          <ChevronDown
+            className={`w-4 h-4 text-slate-400 shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+          />
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="border-t border-slate-100 dark:border-slate-800">
+          {/* CONFIDENCE */}
+          <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900/40 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${sc.badgeBg} ${sc.badgeBorder} ${sc.badgeText}`}
+              >
+                {severityLabel}
+              </span>
+              {flagTypeLabel &&
+                flagTypeLabel.toLowerCase() !== flag.severity.toLowerCase() && (
+                  <span className="text-xs px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium">
+                    {flagTypeLabel}
+                  </span>
+                )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-28 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-slate-800 dark:bg-slate-300 rounded-full transition-all"
+                  style={{ width: `${confidence}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
+                {confidence}% {ui.aiConfidence}
+              </span>
+            </div>
+          </div>
+
+          <div className="px-5 py-5 space-y-6">
+            {flag.clause_text && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
+                  <FileText className="w-3.5 h-3.5" /> {ui.extractedClause}
+                </p>
+                <div
+                  className={`border-l-2 ${sc.clauseBorder} bg-slate-50 dark:bg-slate-900/40 px-4 py-3.5 rounded-r-lg`}
+                >
+                  <p className="font-mono text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {flag.clause_text}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
+                <BookOpen className="w-3.5 h-3.5" /> {ui.plainExplanation}
+              </p>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                {flag.description}
+              </p>
+            </div>
+
+            {steps.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-3">
+                  <ShieldCheck className="w-3.5 h-3.5" /> {ui.whatYouCanDo}
+                </p>
+                <div className="space-y-3">
+                  {steps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                        <Check className="w-4 h-4 text-slate-500 dark:text-slate-300" />
+                      </span>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        {step}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {refs.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
+                  <Scale className="w-3.5 h-3.5" /> {ui.legalReferences}
+                </p>
+                <div className="flex flex-wrap gap-2 mb-2.5">
+                  {refs.map((ref, i) => (
+                    <span
+                      key={i}
+                      className="border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 py-1.5 px-3 rounded-lg text-xs font-medium"
+                    >
+                      {ref}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-slate-400 dark:text-slate-500 text-[11px] leading-relaxed">
+                  {ui.referencesNote}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================
+// NEW: SEVERITY-GROUPED FLAG SECTION (img1-style shell)
+// =============================================================
+
+function severitySectionStyle(severity: "critical" | "warning" | "info") {
+  switch (severity) {
+    case "critical":
+      return {
+        borderL: "border-l-red-500",
+        headerBg: "bg-red-50 dark:bg-red-950/20",
+        icon: <XCircle size={18} className="text-red-600" />,
+        itemBorder: "border-red-200 dark:border-red-900/40",
+        bulletText: "text-red-500",
+      };
+    case "warning":
+      return {
+        borderL: "border-l-amber-500",
+        headerBg: "bg-amber-50 dark:bg-amber-950/20",
+        icon: <AlertTriangle size={18} className="text-amber-600" />,
+        itemBorder: "border-amber-200 dark:border-amber-900/40",
+        bulletText: "text-amber-500",
+      };
+    default:
+      return {
+        borderL: "border-l-slate-400",
+        headerBg: "bg-slate-50 dark:bg-slate-900",
+        icon: <Info size={18} className="text-slate-500" />,
+        itemBorder: "border-slate-200 dark:border-slate-800",
+        bulletText: "text-slate-400",
+      };
+  }
+}
+
+function FlagSeveritySection({
+  severity,
+  label,
+  count,
+  defaultOpen,
+  children,
+}: {
+  severity: "critical" | "warning" | "info";
+  label: string;
+  count: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  const s = severitySectionStyle(severity);
+
+  return (
+    <div
+      className={`border border-slate-200 dark:border-slate-800 border-l-4 ${s.borderL} rounded-xl overflow-hidden mb-4`}
+    >
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full ${s.headerBg} px-5 py-3 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 text-left`}
+      >
+        {s.icon}
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex-1">
+          {label}
+          <span className="ml-2 text-slate-400 font-semibold">({count})</span>
+        </h3>
+        <ChevronDown
+          size={14}
+          className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="bg-white dark:bg-slate-900 px-5 py-4 space-y-3">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FlagBulletItem({
+  flag,
+  ui,
+  isExpanded,
+  onToggle,
+}: {
+  flag: ContractFlag;
+  ui: (typeof UI_STRINGS)["en"];
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const s = severitySectionStyle(flag.severity);
+  const confidence = getConfidence(flag);
+  function normalizeSteps(raw: unknown, fallback: string): string[] {
+    if (Array.isArray(raw) && raw.length > 0) return raw as string[];
+    if (typeof raw === "string" && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        return [raw];
+      }
+    }
+    return fallback ? [fallback] : [];
+  }
+  const steps: string[] = normalizeSteps(
+    flag.mitigation_steps,
+    flag.recommendation,
+  );
+  const refs: string[] = Array.isArray(flag.legal_references)
+    ? flag.legal_references
+    : [];
+
+  let explanationPoints: string[] = flag.description
+    ? flag.description
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
+  // fallback: backend gave only 1 sentence — split on comma-clauses to get 2 points minimum
+  if (explanationPoints.length === 1) {
+    const commaSplit = explanationPoints[0]
+      .split(/,\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (commaSplit.length >= 2) {
+      explanationPoints = commaSplit;
+    }
+  }
+
+  function normalizeForCompare(s: string) {
+    return s
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .trim();
+  }
+  const explanationNorms = new Set(explanationPoints.map(normalizeForCompare));
+
+  return (
+    <div
+      className={`bg-white dark:bg-[#0f172a] border ${s.itemBorder} rounded-lg overflow-hidden`}
+    >
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-4 py-3 flex items-start gap-3"
+      >
+        <span className={`mt-0.5 shrink-0 ${s.bulletText}`}>{s.icon}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-slate-800 dark:text-slate-200 text-sm font-semibold leading-snug">
+            {flag.title}
+          </p>
+          {!isExpanded && flag.description && (
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 line-clamp-2 leading-relaxed">
+              {flag.description}
+            </p>
+          )}
+        </div>
+        <ChevronDown
+          size={14}
+          className={`text-slate-400 shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+          <div className="flex items-center gap-2">
+            <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-slate-800 dark:bg-slate-300 rounded-full"
+                style={{ width: `${confidence}%` }}
+              />
+            </div>
+            <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
+              {confidence}% {ui.aiConfidence}
+            </span>
+          </div>
+
           {flag.clause_text && (
             <div>
-              <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" />
-                📄 {ui.extractedClause}
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2">
+                <FileText className="w-3.5 h-3.5" /> {ui.extractedClause}
               </p>
-              <div
-                className={`bg-slate-50/60 dark:bg-slate-900/40 border-l-2 ${ss.clauseBorder} p-4 rounded-r-lg font-mono text-sm text-slate-700 dark:text-slate-300 antialiased leading-relaxed`}
-              >
-                {flag.clause_text}
+              <div className="border-l-2 border-slate-300 bg-slate-50 dark:bg-slate-900/40 px-4 py-3 rounded-r-lg">
+                <p className="font-mono text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {flag.clause_text}
+                </p>
               </div>
             </div>
           )}
 
           <div>
-            <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5" />
-              📖 {ui.plainExplanation}
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
+              <BookOpen className="w-3.5 h-3.5" /> {ui.plainExplanation}
             </p>
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed pl-3.5 border-l border-slate-200 dark:border-slate-800">
-              {flag.description}
-            </p>
+            <div className="space-y-2.5">
+              {explanationPoints.map((point, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                    <ArrowRight className="w-4 h-4 text-slate-500 dark:text-slate-300" />
+                  </span>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {point}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {steps.length > 0 && (
             <div>
-              <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                🛡️ {ui.whatYouCanDo}
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
+                <ShieldCheck className="w-3.5 h-3.5" /> {ui.whatYouCanDo}
               </p>
               <div className="space-y-2.5">
                 {steps.map((step, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                      {i + 1}
+                    <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                      <Check className="w-4 h-4 text-slate-500 dark:text-slate-300" />
                     </span>
                     <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                       {step}
@@ -1438,25 +2179,22 @@ function CompactFlagCard({
 
           {refs.length > 0 && (
             <div>
-              <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-                <Scale className="w-3.5 h-3.5" />❯ {ui.legalReferences}
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2">
+                <Scale className="w-3.5 h-3.5" /> {ui.legalReferences}
               </p>
-              <div>
+              <div className="flex flex-wrap gap-2 mb-2">
                 {refs.map((ref, i) => (
                   <span
                     key={i}
-                    className="bg-transparent border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 py-1.5 px-3 rounded-lg text-xs font-normal mr-2 inline-block mb-2"
+                    className="border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 py-1 px-3 rounded-lg text-xs"
                   >
                     {ref}
                   </span>
                 ))}
-                <p
-                  className="text-slate-400 dark:text-slate-500 mt-2 block"
-                  style={{ fontSize: "11px" }}
-                >
-                  {ui.referencesNote}
-                </p>
               </div>
+              <p className="text-slate-400 dark:text-slate-500 text-[11px]">
+                {ui.referencesNote}
+              </p>
             </div>
           )}
         </div>
@@ -1466,7 +2204,7 @@ function CompactFlagCard({
 }
 
 // =============================================================
-// INNER COMPONENT (needs useSearchParams — wrapped in Suspense)
+// INNER PAGE
 // =============================================================
 function ReportPageInner() {
   const params = useParams();
@@ -1482,11 +2220,18 @@ function ReportPageInner() {
 
   const contractId = params?.id as string;
 
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<any>(undefined);
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedSet, setExpandedSet] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => {
+    setExpandedSet((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfToast, setPdfToast] = useState<string | null>(null);
@@ -1520,6 +2265,7 @@ function ReportPageInner() {
       }
       const data: ReportData = await res.json();
       setReport(data);
+      setExpandedSet(new Set(data.flags.map((f) => f.flag_id)));
       if (data.critical_count > 0) setActiveTab("critical");
       else if (data.warning_count > 0) setActiveTab("warning");
       else setActiveTab("all");
@@ -1531,8 +2277,8 @@ function ReportPageInner() {
   }, [session?.access_token, contractId]);
 
   useEffect(() => {
-    if (contractId) fetchReport();
-  }, [contractId]);
+    if (contractId && session !== undefined) fetchReport();
+  }, [contractId, session]);
 
   const handleDownloadPdf = () => {
     window.open(`/report/${contractId}/print`, "_blank");
@@ -1551,7 +2297,6 @@ function ReportPageInner() {
       const data = await res.json();
       setShareToken(data.share_token);
       setShareModal(true);
-      console.log("SHARE MODAL STATE:", true, "TOKEN:", data.share_token);
     } catch {
       setPdfToast("Failed to generate share link.");
       setTimeout(() => setPdfToast(null), 3000);
@@ -1583,14 +2328,6 @@ function ReportPageInner() {
     setTimeout(() => setShareCopied(false), 2000);
   };
 
-  const handleWhatsApp = () => {
-    if (!shareUrl) return;
-    const text = encodeURIComponent(
-      `MigrantShield Contract Report: ${shareUrl}`,
-    );
-    window.open(`https://wa.me/?text=${text}`, "_blank");
-  };
-
   const handleViewOriginal = async () => {
     if (!session?.access_token || !contractId) return;
     try {
@@ -1600,18 +2337,18 @@ function ReportPageInner() {
       if (!res.ok) return;
       const { url } = await res.json();
       window.open(url, "_blank");
-    } catch (_) {}
+    } catch {}
   };
 
   // =============================================================
-  // LOADING / ERROR STATES
+  // LOADING
   // =============================================================
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-slate-900 dark:border-slate-100 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Loading report...</p>
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-2 border-slate-300 dark:border-slate-600 border-t-slate-900 dark:border-t-slate-100 rounded-full animate-spin mx-auto" />
+          <p className="text-slate-400 text-sm font-medium">Loading report…</p>
         </div>
       </div>
     );
@@ -1620,17 +2357,19 @@ function ReportPageInner() {
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl p-8 max-w-md w-full text-center shadow-sm">
-          <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
-            Failed to Load Report
+        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-sm w-full text-center shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <XCircle className="w-6 h-6 text-red-500" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">
+            Failed to load report
           </h2>
-          <p className="text-slate-500 text-sm mb-6">{error}</p>
+          <p className="text-slate-500 text-sm mb-6 leading-relaxed">{error}</p>
           <button
             onClick={() => fetchReport()}
-            className="bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors inline-flex items-center gap-2"
+            className="bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors inline-flex items-center gap-2"
           >
-            <RefreshCw className="w-4 h-4" /> Retry
+            <RefreshCw className="w-4 h-4" /> Try again
           </button>
         </div>
       </div>
@@ -1642,11 +2381,20 @@ function ReportPageInner() {
   const ui = UI_STRINGS[report.language] ?? UI_STRINGS["en"];
 
   // =============================================================
-  // COMPACT VIEW (image 2) — from history / dashboard
+  // COMPACT VIEW
   // =============================================================
   if (isCompact) {
-    const riskStyle = getRiskCircleStyle(report.risk_score);
+    const riskStyle = getRiskCircleStyle(report.risk_score, ui);
     const progressColor = getProgressBarColor(report.risk_score);
+    const langLabel =
+      {
+        en: "English",
+        ne: "Nepali",
+        hi: "Hindi",
+        ar: "Arabic",
+        tl: "Filipino",
+        bn: "Bengali",
+      }[report.language] ?? report.language;
 
     const tabs = [
       { key: "critical", label: ui.critical, count: report.critical_count },
@@ -1660,40 +2408,30 @@ function ReportPageInner() {
         ? report.flags
         : report.flags.filter((f) => f.severity === activeTab);
 
-    const langLabel =
-      {
-        en: "English",
-        ne: "Nepali",
-        hi: "Hindi",
-        ar: "Arabic",
-        tl: "Filipino",
-        bn: "Bengali",
-      }[report.language] ?? report.language;
-
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        {/* DISCLAIMER BANNER */}
         <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/50 px-4 py-2.5">
           <div className="max-w-2xl mx-auto flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
-            <p
-              className="text-amber-700 dark:text-amber-400"
-              style={{ fontSize: "11px" }}
-            >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-amber-700 dark:text-amber-400 text-[11px] leading-relaxed">
               {ui.aiWarning}
             </p>
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+          {/* BACK */}
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors text-sm font-medium"
+            className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors text-sm font-medium group"
           >
-            <ArrowLeft className="w-4 h-4" /> Back
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />{" "}
+            Back
           </button>
 
-          {/* HERO HEADER */}
-          <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+          {/* HERO CARD */}
+          <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight">
@@ -1708,20 +2446,27 @@ function ReportPageInner() {
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
-                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                  <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
                     <CheckCircle className="w-3 h-3" /> {ui.completed}
                   </span>
                   {report.language && report.language !== "en" && (
-                    <span className="flex items-center gap-1 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-full">
                       <Globe className="w-3 h-3" /> {langLabel}
                     </span>
                   )}
                 </div>
-                <div className="mt-3.5">
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">
-                    {ui.riskScore}: {report.risk_score}/100
-                  </p>
+
+                {/* PROGRESS */}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-medium text-slate-500">
+                      {ui.riskScore}
+                    </p>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {report.risk_score} / 100
+                    </p>
+                  </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-700 ${progressColor}`}
@@ -1730,16 +2475,15 @@ function ReportPageInner() {
                   </div>
                 </div>
               </div>
+
+              {/* SCORE CIRCLE */}
               <div
-                className={`w-20 h-20 rounded-full border-4 ${riskStyle.ring} flex flex-col items-center justify-center shrink-0`}
+                className={`w-20 h-20 rounded-full border-[3px] ${riskStyle.ring} flex flex-col items-center justify-center shrink-0`}
               >
                 <span
                   className={`text-2xl font-black leading-none ${riskStyle.text}`}
                 >
                   {report.risk_score}
-                </span>
-                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                  {ui.riskScore}
                 </span>
                 <span
                   className={`text-[9px] font-bold mt-0.5 ${riskStyle.labelColor}`}
@@ -1747,6 +2491,45 @@ function ReportPageInner() {
                   {riskStyle.label}
                 </span>
               </div>
+            </div>
+
+            {/* STATS ROW */}
+            <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              {[
+                {
+                  label: ui.critical,
+                  count: report.critical_count,
+                  color: "text-red-600",
+                  bg: "bg-red-50 dark:bg-red-950/30",
+                  border: "border-red-100 dark:border-red-900/40",
+                },
+                {
+                  label: ui.warning,
+                  count: report.warning_count,
+                  color: "text-amber-600",
+                  bg: "bg-amber-50 dark:bg-amber-950/30",
+                  border: "border-amber-100 dark:border-amber-900/40",
+                },
+                {
+                  label: ui.info,
+                  count: report.info_count,
+                  color: "text-slate-500",
+                  bg: "bg-slate-50 dark:bg-slate-800/60",
+                  border: "border-slate-200 dark:border-slate-700",
+                },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className={`rounded-xl border ${s.bg} ${s.border} text-center py-3`}
+                >
+                  <div className={`text-2xl font-black ${s.color}`}>
+                    {s.count}
+                  </div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                    {s.label}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1757,19 +2540,19 @@ function ReportPageInner() {
             </div>
           )}
 
-          {/* ACTION BUTTONS */}
-          <div className="flex flex-wrap gap-2.5">
+          {/* ACTIONS */}
+          <div className="flex gap-2.5">
             <button
               onClick={handleDownloadPdf}
               disabled={pdfLoading}
-              className="flex-1 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
+              className="flex-1 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
             >
               <Download className="w-4 h-4" /> {ui.downloadReport}
             </button>
             <button
               onClick={handleShare}
               disabled={shareLoading}
-              className="flex-1 bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
+              className="flex-1 bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {shareLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1780,84 +2563,94 @@ function ReportPageInner() {
             </button>
             <button
               onClick={handleViewOriginal}
-              className="bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold py-2.5 px-3 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
               title={ui.viewOriginal}
+              className="bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 py-3 px-3.5 rounded-xl transition-colors inline-flex items-center justify-center"
             >
               <ExternalLink className="w-4 h-4" />
             </button>
           </div>
 
-          {/* TABS + FLAG CARDS */}
+          {/* FLAGS */}
           {report.flags.length > 0 ? (
             <div>
-              <div className="flex items-center border-b border-slate-200 dark:border-slate-800 mb-4 gap-1 overflow-x-auto scrollbar-hide">
+              {/* TABS */}
+              <div className="flex items-center border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto scrollbar-hide">
                 {tabs.map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => {
                       setActiveTab(tab.key as TabKey);
-                      setExpanded(null);
+                      setExpandedSet(new Set());
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                      activeTab === tab.key
-                        ? "border-slate-900 dark:border-slate-100 text-slate-900 dark:text-slate-100"
-                        : "border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.key ? "border-slate-900 dark:border-slate-100 text-slate-900 dark:text-slate-100" : "border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
                   >
                     {tab.label}
-                    {tab.key !== "all" && (
-                      <span
-                        className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                          activeTab === tab.key
-                            ? tab.key === "critical"
-                              ? "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
-                              : tab.key === "warning"
-                                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500"
-                        }`}
-                      >
-                        {tab.count}
-                      </span>
-                    )}
-                    {tab.key === "all" && (
-                      <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                        {tab.count}
-                      </span>
-                    )}
+                    <span
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${
+                        activeTab === tab.key
+                          ? tab.key === "critical"
+                            ? "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
+                            : tab.key === "warning"
+                              ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400"
+                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                          : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
                   </button>
                 ))}
               </div>
-              <div>
-                {visibleFlags.map((flag) => (
-                  <CompactFlagCard
-                    key={flag.flag_id}
-                    flag={flag}
-                    ui={ui}
-                    lang={report.language}
-                    isExpanded={expanded === flag.flag_id}
-                    onToggle={() =>
-                      setExpanded(
-                        expanded === flag.flag_id ? null : flag.flag_id,
-                      )
-                    }
-                  />
-                ))}
-              </div>
+
+              {(["critical", "warning", "info"] as const).map((sev) => {
+                const flagsInSev = visibleFlags.filter(
+                  (f) => f.severity === sev,
+                );
+                if (flagsInSev.length === 0) return null;
+                const label =
+                  sev === "critical"
+                    ? ui.critical
+                    : sev === "warning"
+                      ? ui.warning
+                      : ui.info;
+
+                return (
+                  <FlagSeveritySection
+                    key={sev}
+                    severity={sev}
+                    label={label}
+                    count={flagsInSev.length}
+                    defaultOpen={sev === "critical"}
+                  >
+                    {flagsInSev.map((flag) => (
+                      <FlagBulletItem
+                        key={flag.flag_id}
+                        flag={flag}
+                        ui={ui}
+                        isExpanded={expandedSet.has(flag.flag_id)}
+                        onToggle={() => toggleExpanded(flag.flag_id)}
+                      />
+                    ))}
+                  </FlagSeveritySection>
+                );
+              })}
             </div>
           ) : (
-            <div className="bg-white dark:bg-[#0f172a] border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-6 text-center shadow-sm">
-              <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-              <p className="text-slate-900 dark:text-slate-100 font-semibold text-sm">
+            <div className="bg-white dark:bg-[#0f172a] border border-emerald-200 dark:border-emerald-900/50 rounded-2xl p-8 text-center shadow-sm">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle className="w-6 h-6 text-emerald-500" />
+              </div>
+              <p className="text-slate-900 dark:text-slate-100 font-semibold">
                 {ui.noFlags}
               </p>
-              <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">
+              <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">
                 {ui.noFlagsDesc}
               </p>
             </div>
           )}
 
-          <div className="bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+          {/* DISCLAIMER */}
+          <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl p-4">
             <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
               <span className="font-semibold text-slate-600 dark:text-slate-300">
                 {ui.disclaimerLabel}{" "}
@@ -1865,27 +2658,33 @@ function ReportPageInner() {
               {ui.disclaimer}
             </p>
           </div>
+
+          {/* SIGN UP BANNER */}
           {!session && (
-            <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between gap-3">
-              <p className="text-sm font-medium">
-                Save this report to your account
-              </p>
+            <div className="bg-slate-900 text-white rounded-2xl p-5 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Save this report</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Create a free account to access it anytime.
+                </p>
+              </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => router.push("/auth/phone")}
-                  className="text-xs font-semibold text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
+                  className="text-xs font-semibold border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   Sign in
                 </button>
                 <button
                   onClick={() => router.push("/auth/phone")}
-                  className="text-xs font-bold bg-white text-slate-900 px-3 py-1.5 rounded-lg"
+                  className="text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   Sign up free
                 </button>
               </div>
             </div>
           )}
+
           {session?.access_token && (
             <ChatWidget
               contractId={contractId}
@@ -1896,353 +2695,210 @@ function ReportPageInner() {
               flags={report.flags}
             />
           )}
-
-          {/* SHARE MODAL — compact view */}
-          {shareModal && (
-            <div
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "rgba(0,0,0,0.5)",
-                padding: "1rem",
-              }}
-            >
-              <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-                <div className="bg-slate-900 dark:bg-slate-800 px-5 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Share2 className="w-4 h-4 text-white" />
-                    <p className="text-white text-sm font-semibold">
-                      Share Report
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShareModal(false)}
-                    className="text-slate-400 hover:text-white transition-colors"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    >
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="p-5 space-y-4">
-                  {shareRevoked ? (
-                    <div className="text-center py-4">
-                      <XCircle className="w-10 h-10 text-red-400 mx-auto mb-2" />
-                      <p className="text-slate-700 dark:text-slate-200 font-semibold text-sm">
-                        Link revoked
-                      </p>
-                      <p className="text-slate-400 text-xs mt-1">
-                        This share link is no longer active.
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                          Share link (valid 30 days)
-                        </p>
-                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5">
-                          <p className="flex-1 text-xs text-slate-600 dark:text-slate-300 font-mono truncate">
-                            {shareUrl}
-                          </p>
-                          <button
-                            onClick={handleCopyShareLink}
-                            className="shrink-0 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 px-2.5 py-1 rounded-lg transition-colors"
-                          >
-                            {shareCopied ? "✓ Copied" : "Copy"}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            const text = encodeURIComponent(
-                              `MigrantShield Contract Report: ${shareUrl}`,
-                            );
-                            window.open(
-                              `https://wa.me/?text=${text}`,
-                              "_blank",
-                            );
-                          }}
-                          className="bg-[#25D366] hover:bg-[#20b858] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                        >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                          </svg>
-                          WhatsApp
-                        </button>
-                        <button
-                          onClick={() => {
-                            const text = encodeURIComponent(
-                              `MigrantShield Contract Report: ${shareUrl}`,
-                            );
-                            window.open(
-                              `viber://forward?text=${text}`,
-                              "_blank",
-                            );
-                          }}
-                          className="bg-[#7360f2] hover:bg-[#5b4ac4] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                        >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M11.398.002C9.473.028 5.331.344 3.014 2.467 1.03 4.453.36 7.34.286 10.943c-.073 3.601-.16 10.348 6.333 12.168h.006l-.006 2.789s-.042.812.504.977c.657.2 1.047-.425 1.677-1.109.347-.373.825-.92 1.186-1.337 3.27.275 5.784-.353 6.072-.446.66-.214 4.397-.693 5.005-5.655.627-5.109-.305-8.334-1.97-9.789l-.001-.002c-.483-.435-2.42-1.856-6.218-2.077a18.703 18.703 0 0 0-1.476-.46zM11.46 1.5h.046c3.38.186 5.102 1.424 5.522 1.808 1.418 1.24 2.2 4.124 1.65 8.497-.512 4.178-3.487 4.462-4.04 4.641-.24.078-2.499.626-5.344.44 0 0-2.12 2.558-2.783 3.223-.104.106-.223.149-.302.128-.112-.029-.143-.166-.141-.366l.031-3.133c-.001 0-.001-.001 0-.001-5.548-1.538-5.47-7.363-5.406-10.498.067-3.224.617-5.724 2.34-7.406C5.388 1.767 8.88 1.476 11.46 1.5zm.24 2.574c-.355-.005-.356.545-.001.552 2.833.058 4.199 1.378 4.248 4.115.007.357.559.35.552-.007-.056-3.053-1.647-4.601-4.799-4.66zm-.866 1.574a.276.276 0 0 0-.271.283c.003.152.128.274.28.271 1.865-.044 2.924.98 2.875 2.79a.277.277 0 0 0 .271.284.276.276 0 0 0 .281-.27c.057-2.105-1.22-3.309-3.436-3.358zm-2.138.532c-.376-.09-.924.05-1.208.86 0 0-.27.628-.242 1.655.03 1.028.29 2.432 1.168 3.665.88 1.234 2.79 2.669 4.984 3.009 0 0 .536.09.861-.174.244-.198.48-.647.538-.951.06-.316-.089-.482-.258-.554l-1.749-.797c-.175-.08-.418-.026-.54.212l-.355.685c-.108.196-.322.25-.536.168C10.01 13.57 8.47 11.9 8.196 10.37c-.04-.222.016-.425.208-.54l.68-.407c.235-.14.274-.38.191-.564l-.79-1.767c-.073-.162-.244-.44-.59-.513zm3.023.86a.276.276 0 0 0-.27.284c.015.69.38 1.022 1.038 1.037a.276.276 0 0 0 .283-.27.276.276 0 0 0-.27-.284c-.41-.009-.522-.103-.53-.496a.276.276 0 0 0-.251-.271z" />
-                          </svg>
-                          Viber
-                        </button>
-                        <button
-                          onClick={() => {
-                            window.open(
-                              `https://www.facebook.com/dialog/send?link=${encodeURIComponent(shareUrl)}&app_id=181374994990&redirect_uri=${encodeURIComponent(shareUrl)}`,
-                              "_blank",
-                            );
-                          }}
-                          className="bg-[#0084ff] hover:bg-[#006ed4] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                        >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M12 0C5.373 0 0 4.974 0 11.111c0 3.498 1.744 6.614 4.469 8.652V24l4.088-2.242c1.092.3 2.246.464 3.443.464 6.627 0 12-4.975 12-11.111S18.627 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.259L19.752 8l-6.561 6.963z" />
-                          </svg>
-                          Messenger
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (navigator.share) {
-                              navigator.share({
-                                title: "MigrantShield Report",
-                                url: shareUrl,
-                              });
-                            } else {
-                              window.open(
-                                `sms:?body=${encodeURIComponent(`MigrantShield Contract Report: ${shareUrl}`)}`,
-                                "_blank",
-                              );
-                            }
-                          }}
-                          className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                        >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                            <polyline points="16 6 12 2 8 6" />
-                            <line x1="12" y1="2" x2="12" y2="15" />
-                          </svg>
-                          More / SMS
-                        </button>
-                      </div>
-                      <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">
-                          Anyone with this link can view the full report. No
-                          login required.
-                        </p>
-                        <button
-                          onClick={handleRevokeShare}
-                          className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-medium transition-colors"
-                        >
-                          Revoke link
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="h-8" />
         </div>
+
+        {shareModal && (
+          <ShareModal
+            shareUrl={shareUrl}
+            shareCopied={shareCopied}
+            shareRevoked={shareRevoked}
+            onCopy={handleCopyShareLink}
+            onRevoke={handleRevokeShare}
+            onClose={() => setShareModal(false)}
+          />
+        )}
+        <div className="h-8" />
       </div>
     );
   }
 
   // =============================================================
-  // FULL VIEW (image 1) — after analysis / direct link
+  // FULL VIEW
   // =============================================================
   const verdict = resolveVerdict(report.risk_score);
-  const vs = verdictStyles(verdict);
+  const vc = verdictConfig(verdict, ui);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 sticky top-0 z-50">
-        <div className="max-w-2xl mx-auto flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-slate-400 mt-1.5" style={{ fontSize: "11px" }}>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* STICKY DISCLAIMER */}
+      <div className="bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-900/40 px-4 py-2.5 sticky top-0 z-40">
+        <div className="max-w-2xl mx-auto flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <p className="text-amber-700 dark:text-amber-400 text-[11px] leading-relaxed">
             {ui.aiWarning}
           </p>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+        {/* BACK */}
         <button
           onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors text-sm font-medium"
+          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors text-sm font-medium group"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />{" "}
+          Back to Dashboard
         </button>
 
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="w-5 h-5 text-slate-700" />
-            <h1 className="text-xl font-bold text-slate-900">
+        {/* PAGE HEADER */}
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-slate-800 flex items-center justify-center shrink-0 mt-0.5">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-50">
               Contract Risk Report
             </h1>
-          </div>
-          <p className="text-xs text-slate-500 font-mono break-all">
-            ID: {contractId}
-          </p>
-          {report.analyzed_at && (
-            <p className="text-xs text-slate-400 mt-0.5">
-              Analysed: {new Date(report.analyzed_at).toLocaleString()}
+            <p className="text-xs text-slate-400 dark:text-slate-500 font-mono mt-0.5 break-all">
+              ID: {contractId}
             </p>
-          )}
+            {report.analyzed_at && (
+              <p className="text-xs text-slate-400 mt-0.5">
+                Analysed {new Date(report.analyzed_at).toLocaleString()}
+              </p>
+            )}
+          </div>
         </div>
 
+        {/* CONTRACT META */}
         {(report.worker_name || report.employer_name || report.country) && (
-          <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
-            {report.worker_name && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Worker</span>
-                <span className="text-slate-800 font-medium">
-                  {report.worker_name}
-                </span>
-              </div>
-            )}
-            {report.employer_name && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Employer</span>
-                <span className="text-slate-800 font-medium">
-                  {report.employer_name}
-                </span>
-              </div>
-            )}
-            {report.country && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Country</span>
-                <span className="text-slate-800 font-medium">
-                  {report.country}
-                </span>
-              </div>
-            )}
-            {report.original_filename && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">File</span>
-                <span className="text-slate-600 font-mono text-xs truncate max-w-[60%]">
-                  {report.original_filename}
-                </span>
-              </div>
-            )}
+          <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Contract Details
+              </p>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {report.worker_name && (
+                <div className="flex justify-between items-center px-5 py-3">
+                  <span className="text-sm text-slate-500">Worker</span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {report.worker_name}
+                  </span>
+                </div>
+              )}
+              {report.employer_name && (
+                <div className="flex justify-between items-center px-5 py-3">
+                  <span className="text-sm text-slate-500">Employer</span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {report.employer_name}
+                  </span>
+                </div>
+              )}
+              {report.country && (
+                <div className="flex justify-between items-center px-5 py-3">
+                  <span className="text-sm text-slate-500">Destination</span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {report.country}
+                  </span>
+                </div>
+              )}
+              {report.original_filename && (
+                <div className="flex justify-between items-center px-5 py-3">
+                  <span className="text-sm text-slate-500">File</span>
+                  <span className="text-xs font-mono text-slate-500 truncate max-w-[60%]">
+                    {report.original_filename}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        <div className={`rounded-xl border ${vs.bg} ${vs.border} p-5`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              {vs.icon}
+        {/* RISK SCORE CARD */}
+        <div
+          className={`rounded-2xl border ${vc.border} ${vc.bg} overflow-hidden shadow-sm`}
+        >
+          <div className="px-5 py-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                {vc.icon}
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Risk Assessment
+                  </p>
+                  <p className={`text-base font-bold ${vc.scoreColor}`}>
+                    {vc.label}
+                  </p>
+                </div>
+              </div>
               <span
-                className={`text-sm font-bold uppercase tracking-wide ${vs.text}`}
+                className={`text-xs font-bold px-3 py-1 rounded-full ${vc.badgeBg} ${vc.badgeText}`}
               >
-                {vs.label}
+                {verdict}
               </span>
             </div>
-            <span
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${vs.badge}`}
-            >
-              {verdict}
-            </span>
+
+            <div className="flex items-end gap-2 mb-3">
+              <span
+                className={`text-5xl font-black ${vc.scoreColor} leading-none`}
+              >
+                {report.risk_score}
+              </span>
+              <span className="text-slate-400 text-sm mb-1 font-medium">
+                / 100
+              </span>
+            </div>
+
+            <div className="w-full bg-white/60 rounded-full h-2.5 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${vc.barColor}`}
+                style={{ width: `${report.risk_score}%` }}
+              />
+            </div>
           </div>
-          <div className="flex items-end gap-2 mb-3">
-            <span className={`text-5xl font-black ${vs.text}`}>
-              {report.risk_score}
-            </span>
-            <span className="text-slate-400 text-sm mb-2">/ 100</span>
-          </div>
-          <div className="w-full bg-white rounded-full h-2.5 border border-slate-200 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${vs.bar}`}
-              style={{ width: `${report.risk_score}%` }}
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-2 mt-4">
+
+          {/* STATS */}
+          <div className="grid grid-cols-3 divide-x divide-slate-200/60 dark:divide-slate-700/40 border-t border-slate-200/60 dark:border-slate-700/40">
             {[
               {
                 label: ui.critical,
                 count: report.critical_count,
-                style: "bg-red-100 text-red-700 border-red-200",
+                color: "text-red-600 dark:text-red-400",
               },
               {
                 label: ui.warning,
                 count: report.warning_count,
-                style: "bg-amber-100 text-amber-700 border-amber-200",
+                color: "text-amber-600 dark:text-amber-400",
               },
               {
                 label: ui.info,
                 count: report.info_count,
-                style: "bg-slate-100 text-slate-700 border-slate-200",
+                color: "text-slate-500 dark:text-slate-400",
               },
             ].map((s) => (
-              <div
-                key={s.label}
-                className={`rounded-lg border text-center py-2 px-1 ${s.style}`}
-              >
-                <div className="text-xl font-black">{s.count}</div>
-                <div className="text-xs font-medium">{s.label}</div>
+              <div key={s.label} className="text-center py-4">
+                <div className={`text-2xl font-black ${s.color}`}>
+                  {s.count}
+                </div>
+                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                  {s.label}
+                </div>
               </div>
             ))}
           </div>
         </div>
 
+        {/* TOAST */}
         {pdfToast && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg">
             {pdfToast}
           </div>
         )}
 
+        {/* ACTIONS */}
         <div className="flex gap-3">
           <button
             onClick={handleDownloadPdf}
             disabled={pdfLoading}
-            className="flex-1 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
+            className="flex-1 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-slate-200 text-white dark:text-slate-900 text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
           >
             <Download className="w-4 h-4" /> Save as PDF
           </button>
           <button
             onClick={handleShare}
             disabled={shareLoading}
-            className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
+            className="flex-1 bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {shareLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -2253,196 +2909,90 @@ function ReportPageInner() {
           </button>
         </div>
 
+        {/* FLAGS */}
         {report.flags.length > 0 ? (
           <div>
-            <h2 className="text-base font-bold text-slate-900 mb-3">
-              Risk Flags ({report.flags_count})
-            </h2>
-            <div className="space-y-3">
-              {report.flags.map((flag) => {
-                const ss = severityStylesFull(flag.severity);
-                const isExpanded = expanded === flag.flag_id;
-
-                const steps: string[] = Array.isArray(flag.mitigation_steps)
-                  ? flag.mitigation_steps
-                  : flag.recommendation
-                    ? [flag.recommendation]
-                    : [];
-
-                const refs: string[] = Array.isArray(flag.legal_references)
-                  ? flag.legal_references
-                  : [];
-
-                return (
-                  <div
-                    key={flag.flag_id}
-                    className={`rounded-xl border border-slate-200 dark:border-slate-800 ${ss.cardBg} ${ss.accent} shadow-sm overflow-hidden mb-4`}
-                  >
-                    <button
-                      onClick={() =>
-                        setExpanded(isExpanded ? null : flag.flag_id)
-                      }
-                      className="w-full text-left p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <AlertTriangle
-                              className={`w-3.5 h-3.5 ${ss.text}`}
-                            />
-                            <span
-                              className={`text-xs font-bold px-2 py-0.5 rounded-full ${ss.badge}`}
-                            >
-                              {flag.severity === "critical"
-                                ? ui.critical.toUpperCase()
-                                : flag.severity === "warning"
-                                  ? ui.warning.toUpperCase()
-                                  : ui.info.toUpperCase()}
-                            </span>
-                            {flag.flag_type &&
-                              flag.flag_type.toLowerCase() !==
-                                flag.severity.toLowerCase() && (
-                                <span className="text-xs text-slate-500 font-medium">
-                                  {FLAG_TYPE_LABELS[
-                                    flag.flag_type
-                                      .toLowerCase()
-                                      .replace(/\s+/g, "_")
-                                      .replace(/-/g, "_")
-                                  ]?.[report.language] ??
-                                    FLAG_TYPE_LABELS[
-                                      flag.flag_type
-                                        .toLowerCase()
-                                        .replace(/\s+/g, "_")
-                                        .replace(/-/g, "_")
-                                    ]?.["en"] ??
-                                    flag.flag_type.replace(/_/g, " ")}
-                                </span>
-                              )}
-                          </div>
-                          <p
-                            className={`text-sm font-bold leading-snug ${ss.headerText}`}
-                          >
-                            {flag.title}
-                          </p>
-                          {flag.description && (
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">
-                              {flag.description}
-                            </p>
-                          )}
-                        </div>
-                        <span
-                          className={`text-slate-400 flex-shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
-                        >
-                          ▶
-                        </span>
-                      </div>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="px-4 pb-5 space-y-5 border-t border-slate-100 dark:border-slate-800">
-                        {flag.clause_text && (
-                          <div className="pt-4">
-                            <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-                              <FileText className="w-3.5 h-3.5" />
-                              📄 {ui.extractedClause}
-                            </p>
-                            <div
-                              className={`bg-slate-50/60 dark:bg-slate-900/40 border-l-2 ${ss.clauseBorder} p-4 rounded-r-lg font-mono text-sm text-slate-700 dark:text-slate-300 antialiased`}
-                            >
-                              {flag.clause_text}
-                            </div>
-                          </div>
-                        )}
-
-                        <div>
-                          <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-                            <BookOpen className="w-3.5 h-3.5" />
-                            📖 {ui.plainExplanation}
-                          </p>
-                          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed pl-3.5 border-l border-slate-200 dark:border-slate-800">
-                            {flag.description}
-                          </p>
-                        </div>
-
-                        {steps.length > 0 && (
-                          <div>
-                            <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-3 flex items-center gap-1.5">
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              🛡️ {ui.whatYouCanDo}
-                            </p>
-                            <div className="space-y-2.5">
-                              {steps.map((step, i) => (
-                                <div key={i} className="flex items-start gap-3">
-                                  <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                                    {i + 1}
-                                  </span>
-                                  <p className="text-sm text-slate-600 dark:text-slate-300">
-                                    {step}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {refs.length > 0 && (
-                          <div>
-                            <p className="text-xs uppercase font-semibold tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-                              <Scale className="w-3.5 h-3.5" />❯{" "}
-                              {ui.legalReferences}
-                            </p>
-                            <div>
-                              {refs.map((ref, i) => (
-                                <span
-                                  key={i}
-                                  className="bg-transparent border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 py-1.5 px-3 rounded-lg text-xs font-normal mr-2 inline-block mb-2"
-                                >
-                                  {ref}
-                                </span>
-                              ))}
-                              <p
-                                className="text-slate-400 dark:text-slate-500 mt-2 block"
-                                style={{ fontSize: "11px" }}
-                              >
-                                {ui.referencesNote}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                Risk Flags
+                <span className="ml-2 text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                  {report.flags_count}
+                </span>
+              </h2>
             </div>
+
+            {(["critical", "warning", "info"] as const).map((sev) => {
+              const flagsInSev = report.flags.filter((f) => f.severity === sev);
+              if (flagsInSev.length === 0) return null;
+              const label =
+                sev === "critical"
+                  ? ui.critical
+                  : sev === "warning"
+                    ? ui.warning
+                    : ui.info;
+
+              return (
+                <FlagSeveritySection
+                  key={sev}
+                  severity={sev}
+                  label={label}
+                  count={flagsInSev.length}
+                  defaultOpen={sev === "critical"}
+                >
+                  {flagsInSev.map((flag) => (
+                    <FlagBulletItem
+                      key={flag.flag_id}
+                      flag={flag}
+                      ui={ui}
+                      isExpanded={expandedSet.has(flag.flag_id)}
+                      onToggle={() => toggleExpanded(flag.flag_id)}
+                    />
+                  ))}
+                </FlagSeveritySection>
+              );
+            })}
           </div>
         ) : (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 text-center">
-            <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-            <p className="text-emerald-700 font-semibold text-sm">
-              No Issues Found
+          <div className="bg-white dark:bg-[#0f172a] border border-emerald-200 dark:border-emerald-900/50 rounded-2xl p-8 text-center shadow-sm">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle className="w-6 h-6 text-emerald-500" />
+            </div>
+            <p className="text-slate-900 dark:text-slate-100 font-semibold">
+              {ui.noFlags}
             </p>
-            <p className="text-emerald-600 text-xs mt-1">
-              No problematic clauses were detected in this contract.
-            </p>
+            <p className="text-slate-500 text-sm mt-1">{ui.noFlagsDesc}</p>
           </div>
         )}
 
+        {/* DISCLAIMER */}
+        <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
+          <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+            <span className="font-semibold text-slate-600 dark:text-slate-300">
+              {ui.disclaimerLabel}{" "}
+            </span>
+            {ui.disclaimer}
+          </p>
+        </div>
+
+        {/* AUTH BANNER */}
         {!session && (
-          <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">
-              Save this report to your account
-            </p>
+          <div className="bg-slate-900 text-white rounded-2xl p-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Save this report</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Create a free account to access it anytime.
+              </p>
+            </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => router.push("/auth/phone")}
-                className="text-xs font-semibold text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
+                className="text-xs font-semibold border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
               >
                 Sign in
               </button>
               <button
                 onClick={() => router.push("/auth/phone")}
-                className="text-xs font-bold bg-white text-slate-900 px-3 py-1.5 rounded-lg"
+                className="text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
               >
                 Sign up free
               </button>
@@ -2460,208 +3010,32 @@ function ReportPageInner() {
             flags={report.flags}
           />
         )}
-
-        {/* SHARE MODAL */}
-        {shareModal && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 9999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(0,0,0,0.5)",
-            }}
-          >
-            <div className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-              <div className="bg-slate-900 dark:bg-slate-800 px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Share2 className="w-4 h-4 text-white" />
-                  <p className="text-white text-sm font-semibold">
-                    Share Report
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShareModal(false)}
-                  className="text-slate-400 hover:text-white transition-colors"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="p-5 space-y-4">
-                {shareRevoked ? (
-                  <div className="text-center py-4">
-                    <XCircle className="w-10 h-10 text-red-400 mx-auto mb-2" />
-                    <p className="text-slate-700 dark:text-slate-200 font-semibold text-sm">
-                      Link revoked
-                    </p>
-                    <p className="text-slate-400 text-xs mt-1">
-                      This share link is no longer active.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                        Share link (valid 30 days)
-                      </p>
-                      <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5">
-                        <p className="flex-1 text-xs text-slate-600 dark:text-slate-300 font-mono truncate">
-                          {shareUrl}
-                        </p>
-                        <button
-                          onClick={handleCopyShareLink}
-                          className="shrink-0 text-xs font-semibold text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 px-2.5 py-1 rounded-lg transition-colors"
-                        >
-                          {shareCopied ? "✓ Copied" : "Copy"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Share buttons */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* WhatsApp */}
-                      <button
-                        onClick={() => {
-                          const text = encodeURIComponent(
-                            `MigrantShield Contract Report: ${shareUrl}`,
-                          );
-                          window.open(`https://wa.me/?text=${text}`, "_blank");
-                        }}
-                        className="bg-[#25D366] hover:bg-[#20b858] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                        </svg>
-                        WhatsApp
-                      </button>
-                      {/* Viber */}
-                      <button
-                        onClick={() => {
-                          const text = encodeURIComponent(
-                            `MigrantShield Contract Report: ${shareUrl}`,
-                          );
-                          window.open(`viber://forward?text=${text}`, "_blank");
-                        }}
-                        className="bg-[#7360f2] hover:bg-[#5b4ac4] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d="M11.398.002C9.473.028 5.331.344 3.014 2.467 1.03 4.453.36 7.34.286 10.943c-.073 3.601-.16 10.348 6.333 12.168h.006l-.006 2.789s-.042.812.504.977c.657.2 1.047-.425 1.677-1.109.347-.373.825-.92 1.186-1.337 3.27.275 5.784-.353 6.072-.446.66-.214 4.397-.693 5.005-5.655.627-5.109-.305-8.334-1.97-9.789l-.001-.002c-.483-.435-2.42-1.856-6.218-2.077a18.703 18.703 0 0 0-1.476-.46zM11.46 1.5h.046c3.38.186 5.102 1.424 5.522 1.808 1.418 1.24 2.2 4.124 1.65 8.497-.512 4.178-3.487 4.462-4.04 4.641-.24.078-2.499.626-5.344.44 0 0-2.12 2.558-2.783 3.223-.104.106-.223.149-.302.128-.112-.029-.143-.166-.141-.366l.031-3.133c-.001 0-.001-.001 0-.001-5.548-1.538-5.47-7.363-5.406-10.498.067-3.224.617-5.724 2.34-7.406C5.388 1.767 8.88 1.476 11.46 1.5zm.24 2.574c-.355-.005-.356.545-.001.552 2.833.058 4.199 1.378 4.248 4.115.007.357.559.35.552-.007-.056-3.053-1.647-4.601-4.799-4.66zm-.866 1.574a.276.276 0 0 0-.271.283c.003.152.128.274.28.271 1.865-.044 2.924.98 2.875 2.79a.277.277 0 0 0 .271.284.276.276 0 0 0 .281-.27c.057-2.105-1.22-3.309-3.436-3.358zm-2.138.532c-.376-.09-.924.05-1.208.86 0 0-.27.628-.242 1.655.03 1.028.29 2.432 1.168 3.665.88 1.234 2.79 2.669 4.984 3.009 0 0 .536.09.861-.174.244-.198.48-.647.538-.951.06-.316-.089-.482-.258-.554l-1.749-.797c-.175-.08-.418-.026-.54.212l-.355.685c-.108.196-.322.25-.536.168C10.01 13.57 8.47 11.9 8.196 10.37c-.04-.222.016-.425.208-.54l.68-.407c.235-.14.274-.38.191-.564l-.79-1.767c-.073-.162-.244-.44-.59-.513zm3.023.86a.276.276 0 0 0-.27.284c.015.69.38 1.022 1.038 1.037a.276.276 0 0 0 .283-.27.276.276 0 0 0-.27-.284c-.41-.009-.522-.103-.53-.496a.276.276 0 0 0-.251-.271z" />
-                        </svg>
-                        Viber
-                      </button>
-                      {/* Facebook Messenger */}
-                      <button
-                        onClick={() => {
-                          window.open(
-                            `https://www.facebook.com/dialog/send?link=${encodeURIComponent(shareUrl)}&app_id=181374994990&redirect_uri=${encodeURIComponent(shareUrl)}`,
-                            "_blank",
-                          );
-                        }}
-                        className="bg-[#0084ff] hover:bg-[#006ed4] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <path d="M12 0C5.373 0 0 4.974 0 11.111c0 3.498 1.744 6.614 4.469 8.652V24l4.088-2.242c1.092.3 2.246.464 3.443.464 6.627 0 12-4.975 12-11.111S18.627 0 12 0zm1.191 14.963l-3.055-3.26-5.963 3.26L10.732 8l3.131 3.259L19.752 8l-6.561 6.963z" />
-                        </svg>
-                        Messenger
-                      </button>
-                      {/* Native share / SMS fallback */}
-                      <button
-                        onClick={() => {
-                          if (navigator.share) {
-                            navigator.share({
-                              title: "MigrantShield Report",
-                              url: shareUrl,
-                            });
-                          } else {
-                            window.open(
-                              `sms:?body=${encodeURIComponent(`MigrantShield Contract Report: ${shareUrl}`)}`,
-                              "_blank",
-                            );
-                          }
-                        }}
-                        className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
-                      >
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                          <polyline points="16 6 12 2 8 6" />
-                          <line x1="12" y1="2" x2="12" y2="15" />
-                        </svg>
-                        More / SMS
-                      </button>
-                    </div>
-
-                    <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">
-                        Anyone with this link can view the full report. No login
-                        required.
-                      </p>
-                      <button
-                        onClick={handleRevokeShare}
-                        className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-medium transition-colors"
-                      >
-                        Revoke link
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="h-8" />
       </div>
+
+      {shareModal && (
+        <ShareModal
+          shareUrl={shareUrl}
+          shareCopied={shareCopied}
+          shareRevoked={shareRevoked}
+          onCopy={handleCopyShareLink}
+          onRevoke={handleRevokeShare}
+          onClose={() => setShareModal(false)}
+        />
+      )}
+      <div className="h-8" />
     </div>
   );
 }
 
 // =============================================================
-// EXPORT — wrapped in Suspense for useSearchParams
+// EXPORT
 // =============================================================
 export default function ReportPage() {
   return (
     <Suspense
       fallback={
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-          <div className="w-10 h-10 border-2 border-slate-900 dark:border-slate-100 border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
         </div>
       }
     >

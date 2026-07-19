@@ -1,6 +1,6 @@
 # =============================================================
 # FILE: backend/worker.py
-# MigrantShield Phase 5 — ARQ Async Worker + Groq + Legal Corpus
+# MigrantShield Phase 5 — ARQ Async Worker + Groq + RAG
 # =============================================================
 
 import io
@@ -18,6 +18,8 @@ from arq.connections import RedisSettings
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
+from retriever import retrieve_legal_context
+
 load_dotenv(override=True)
 
 # =============================================================
@@ -29,24 +31,25 @@ logger = logging.getLogger("migrantshield.worker")
 # =============================================================
 # ENV
 # =============================================================
-SUPABASE_URL         = os.environ["SUPABASE_URL"]
+SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-SUPABASE_BUCKET      = os.environ.get("SUPABASE_BUCKET", "migrantshield-contracts")
-GROQ_API_KEY         = os.environ["GROQ_API_KEY"]
-REDIS_URL            = os.environ["REDIS_URL"]
-
-# =============================================================
-# CORPUS CACHE
-# =============================================================
-_corpus_cache: dict[str, str] = {}
+SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "migrantshield-contracts")
+GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+REDIS_URL = os.environ["REDIS_URL"]
 
 # =============================================================
 # CLIENTS
 # =============================================================
 _groq_client = Groq(api_key=GROQ_API_KEY)
 
+from sentence_transformers import SentenceTransformer
+
+_embedding_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+
+
 def _get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
 
 # =============================================================
 # REDIS SETTINGS
@@ -59,58 +62,41 @@ def _parse_redis_settings(url: str) -> RedisSettings:
     password = auth_part.split(":", 1)[1] if ":" in auth_part else auth_part
     host, port_str = host_part.rsplit(":", 1)
     port = int(port_str)
-    return RedisSettings(host=host, port=port, password=password, ssl=ssl)
+    return RedisSettings(
+        host=host,
+        port=port,
+        password=password,
+        ssl=ssl,
+        conn_timeout=10,
+        conn_retries=10,
+        conn_retry_delay=2,
+    )
+
 
 REDIS_SETTINGS = _parse_redis_settings(REDIS_URL)
 
 # =============================================================
-# LEGAL CORPUS LOADER
+# COUNTRY DETECTION (fast keyword scan — no Groq call)
 # =============================================================
-
-def _get_corpus_for_country(country: str | None) -> str:
-    if not country or not _corpus_cache:
-        # Return ILO conventions as fallback
-        ilo_keys = [k for k in _corpus_cache if k.startswith("ilo_")]
-        parts = [_corpus_cache[k] for k in ilo_keys]
-        return "\n\n---\n\n".join(parts)
-
-    country_lower = country.lower()
-    mapping = {
-        "united arab emirates": ["uae_labour_law_2021", "ilo_c029", "ilo_c189"],
-        "qatar":                 ["qatar_labour_law", "qatar_labour_law_2017_amendment", "ilo_c029"],
-        "saudi arabia":          ["saudi_labour_law", "ilo_c029", "ilo_c189"],
-        "philippines":           ["poea_rules_full", "poea_standard_contract", "ilo_c143"],
-    }
-
-    keys = next((v for k, v in mapping.items() if k in country_lower), None)
-    if not keys:
-        keys = [k for k in _corpus_cache if k.startswith("ilo_")]
-
-    parts = [_corpus_cache[k] for k in keys if k in _corpus_cache]
-    return "\n\n---\n\n".join(parts)
+COUNTRY_KEYWORDS = {
+    "UAE": ["united arab emirates", "uae", "dubai", "abu dhabi", "sharjah"],
+    "Qatar": ["qatar", "doha"],
+    "Saudi Arabia": ["saudi arabia", "saudi", "riyadh", "jeddah", "ksa"],
+    "Kuwait": ["kuwait", "kuwait city"],
+    "Oman": ["oman", "muscat"],
+    "Malaysia": ["malaysia", "kuala lumpur", "kl"],
+    "Nepal": ["nepal", "kathmandu"],
+    "Philippines": ["philippines", "philippine", "manila", "poea"],
+}
 
 
-def _load_corpus() -> None:
-    global _corpus_cache
-    corpus_dir = Path(__file__).parent / "legal_corpus"
-    if not corpus_dir.exists():
-        logger.warning(f"[corpus] Directory not found: {corpus_dir}")
-        return
-    for pdf_path in corpus_dir.glob("*.pdf"):
-        try:
-            doc = fitz.open(str(pdf_path))
-            text = ""
-            for page in doc:
-                text += page.get_text()
-            doc.close()
-            key = pdf_path.stem
-            _corpus_cache[key] = text[:3000]
-            logger.info(f"[corpus] Loaded: {pdf_path.name} ({len(_corpus_cache[key])} chars)")
-        except Exception as e:
-            logger.warning(f"[corpus] Failed to load {pdf_path.name}: {e}")
-    logger.info(f"[corpus] Total loaded: {list(_corpus_cache.keys())}")
+def _detect_country(text: str) -> str | None:
+    lower = text[:3000].lower()
+    for country, keywords in COUNTRY_KEYWORDS.items():
+        if any(kw in lower for kw in keywords):
+            return country
+    return None
 
-_load_corpus()
 
 # =============================================================
 # ANALYSIS PROMPT
@@ -137,13 +123,12 @@ Required JSON structure:
       "flag_type": "string",
       "severity": "critical | warning | info",
       "title": "string",
-      "description": "string",
+      "description": "string — MANDATORY sentence count depends on severity: critical=2 sentences, warning=2 sentences, info=1 sentence. Each ending in '.', '!', or '?', concatenated as ONE string. When 2 sentences required: sentence 1 = what the clause literally says, sentence 2 = why it is legally/practically risky. Sentences must NOT be near-duplicates of each other or of mitigation_steps/recommendation. Fewer sentences than required for that severity, or 2+ sentences saying the same thing in different words, is a FAILURE.",
       "clause_text": "string or null",
-      "recommendation": "string",
+      "recommendation": "string — a single-line summary distinct in wording and content from 'description'. Do not restate description sentences.",
       "mitigation_steps": [
         "Step 1 as plain string",
-        "Step 2 as plain string",
-        "Step 3 as plain string"
+        "Step 2 as plain string (omit if info severity — only 1 required)"
       ],
       "legal_references": [
         "ILO Convention No. 29 (Forced Labour), Article 2",
@@ -154,10 +139,13 @@ Required JSON structure:
 }
 
 Rules for mitigation_steps:
-- Provide 2-4 concrete, actionable steps in plain language
-- Written directly to the worker (use "You should...", "Request...", "Contact...")
+- MANDATORY count depends on severity: critical=2 items, warning=2 items, info=1 item. Fewer than required for that severity is NOT acceptable — if short, split one idea into concrete sub-steps.
+- Each item is one short, complete, actionable sentence in plain language
+- Every item MUST be an action the WORKER personally takes — start with an imperative verb aimed at the worker: "Ask...", "Request...", "Contact...", "Keep...", "Report...", "Refuse...", "Document...".
+- NEVER phrase a step as a rule, prohibition, or description of what the employer should/must/must not do (e.g. "Employer must not confiscate passport", "Deductions should not exceed X%") — that belongs in 'description', not here. If you catch yourself writing "should not" or "must not" about the employer, rewrite it as something the worker can go do instead.
 - No legal jargon
-
+- Fewer items than required for the flag's severity is a failure
+- CRITICAL: mitigation_steps and recommendation must NOT repeat or rephrase any sentence already used in description. description = what/why the clause is risky. mitigation_steps = what to DO about it. Different content, not paraphrase of same fact.
 Rules for legal_references — MANDATORY:
 - You MUST populate legal_references for EVERY flag. Empty array is NOT acceptable.
 - Legal corpus is appended below the contract text. Read it. Cite from it.
@@ -197,6 +185,7 @@ INFO:
 If no flags found, return empty array for flags.
 Be thorough. Migrant workers depend on accurate detection."""
 
+
 # =============================================================
 # RISK SCORE CALCULATION
 # =============================================================
@@ -205,8 +194,8 @@ def _calculate_risk_score(flags: list[dict]) -> int:
         return 5
 
     critical = sum(1 for f in flags if f.get("severity", "").lower() == "critical")
-    warning  = sum(1 for f in flags if f.get("severity", "").lower() == "warning")
-    info     = sum(1 for f in flags if f.get("severity", "").lower() == "info")
+    warning = sum(1 for f in flags if f.get("severity", "").lower() == "warning")
+    info = sum(1 for f in flags if f.get("severity", "").lower() == "info")
 
     score = (critical * 18) + (warning * 7) + (info * 2)
 
@@ -217,74 +206,278 @@ def _calculate_risk_score(flags: list[dict]) -> int:
 
     return min(score, 100)
 
-# =============================================================
-# GROQ ANALYSIS
-# =============================================================
 
-async def _analyse_with_groq(file_bytes: bytes, mime_type: str, country_hint: str | None = None, language: str = "en") -> dict:
-    # Extract text from PDF
-    logger.info(f"[worker] _analyse_with_groq called: country_hint={country_hint!r}")
+import numpy as np
+
+
+def _cosine_sim(a: list[float], b: list[float]) -> float:
+    a, b = np.array(a), np.array(b)
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
+    return float(np.dot(a, b) / denom) if denom else 0.0
+
+
+def _min_points_for_severity(severity: str) -> int:
+    sev = (severity or "").lower()
+    if sev == "critical":
+        return 2
+    if sev == "warning":
+        return 2
+    return 1  # info
+
+
+def _validate_flag(flag: dict, sim_threshold: float = 0.90) -> list[str]:
+    """Return list of problems found. Empty list = flag passes."""
+    problems = []
+    min_points = _min_points_for_severity(flag.get("severity"))
+
+    description = (flag.get("description") or "").strip()
+    sentences = [
+        s.strip() for s in re.split(r"(?<=[.!?।])\s+", description) if s.strip()
+    ]
+    if len(sentences) < min_points:
+        problems.append(f"description_needs_{min_points}_sentences")
+
+    steps = flag.get("mitigation_steps") or []
+    if not isinstance(steps, list):
+        steps = [steps]
+    if len(steps) < min_points:
+        problems.append(f"mitigation_steps_needs_{min_points}_items")
+
+    if sentences and steps and not problems:
+        desc_embeds = _embedding_model.encode(sentences).tolist()
+        step_embeds = _embedding_model.encode(steps).tolist()
+        for i, d_emb in enumerate(desc_embeds):
+            for j, s_emb in enumerate(step_embeds):
+                if _cosine_sim(d_emb, s_emb) >= sim_threshold:
+                    problems.append(f"overlap_desc{i}_step{j}")
+
+    return problems
+
+
+# =============================================================
+# TEXT EXTRACTION ROUTER
+# =============================================================
+import pytesseract
+from PIL import Image
+from pdf2image import convert_from_bytes
+
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+POPPLER_PATH = r"C:\poppler\poppler-26.02.0\Library\bin"
+
+
+def extract_text(file_bytes: bytes, mime_type: str) -> str:
     if mime_type == "application/pdf":
+        return _extract_from_pdf(file_bytes)
+    elif mime_type in ("image/png", "image/jpeg", "image/webp"):
+        return _extract_from_image(file_bytes)
+    else:
+        raise ValueError(f"Unsupported mime type: {mime_type}")
+
+
+def _extract_from_pdf(file_bytes: bytes) -> str:
+    # Try fitz first (fast, text-based PDF)
+    try:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         text = ""
         for page in doc:
             text += page.get_text()
         doc.close()
-    else:
-        doc = fitz.open(stream=file_bytes, filetype=mime_type.split("/")[1])
+        if text.strip():
+            logger.info("[extract] fitz text extraction succeeded")
+            return text
+    except Exception as e:
+        logger.warning(f"[extract] fitz failed: {e}")
+
+    # Fallback: scanned PDF → OCR
+    logger.info("[extract] fitz returned empty — falling back to OCR")
+    try:
+        images = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH)
         text = ""
-        for page in doc:
-            text += page.get_text()
-        doc.close()
+        for i, img in enumerate(images):
+            page_text = pytesseract.image_to_string(img, lang="eng+ara+nep")
+            text += page_text
+            logger.info(f"[extract] OCR page {i+1}: {len(page_text)} chars")
+        return text
+    except Exception as e:
+        logger.error(f"[extract] OCR fallback failed: {e}")
+        raise ValueError(f"PDF extraction failed (both fitz and OCR): {e}")
 
+
+def _extract_from_image(file_bytes: bytes) -> str:
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        text = pytesseract.image_to_string(img, lang="eng+ara+nep")
+        logger.info(f"[extract] image OCR: {len(text)} chars")
+        return text
+    except Exception as e:
+        logger.error(f"[extract] image OCR failed: {e}")
+        raise ValueError(f"Image extraction failed: {e}")
+
+
+# =============================================================
+# GROQ ANALYSIS (single pass with RAG)
+# =============================================================
+async def _analyse_with_groq(
+    file_bytes: bytes, mime_type: str, language: str = "en"
+) -> dict:
+    text = extract_text(file_bytes, mime_type)
     if not text.strip():
-        raise ValueError("Could not extract text from document. File may be scanned image without OCR.")
+        raise ValueError(
+            "Could not extract text from document. File may be empty or unreadable."
+        )
+    return await _analyse_with_groq_text(text=text, language=language)
 
-    # Truncate contract text to 5000 chars (leave room for corpus)
-    contract_text = text[:5000]
 
-    # Get relevant legal corpus
-    corpus_text = _get_corpus_for_country(country_hint)
-    logger.info(f"[DEBUG] corpus_text len={len(corpus_text)} bool={bool(corpus_text)} first50={corpus_text[:50]!r}")
+async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
+    """Same as _analyse_with_groq but accepts pre-extracted text directly."""
+    if not text.strip():
+        raise ValueError("Empty text passed to analyser.")
 
-    # Build full prompt
-    language_instruction = f"\n\nIMPORTANT: Generate ALL text fields (title, description, recommendation, mitigation_steps, legal_references) in language code: '{language}'. Do not use English if a different language is specified."
+    contract_text = text[:3000]
+    country = _detect_country(contract_text)
+    logger.info(f"[worker] Country detected: {country}")
+
+    filter_countries = [country, "ILO"] if country else ["ILO"]
+    corpus_text = retrieve_legal_context(
+        contract_text=contract_text,
+        filter_countries=filter_countries,
+        top_k=5,
+    )
+
+    LANGUAGE_NAMES = {
+        "ne": "Nepali (Devanagari script)",
+        "ar": "Arabic",
+        "fil": "Filipino (Tagalog)",
+        "en": "English",
+    }
+
+    language_full_name = LANGUAGE_NAMES.get(language, language)
+
+    language_instruction = (
+        f"CRITICAL LANGUAGE REQUIREMENT: You MUST write the 'title', 'description', "
+        f"'recommendation', and every 'mitigation_steps' item entirely in {language_full_name}. "
+        f"Do not use Arabic, English, or any other language in these fields unless {language_full_name} IS English. "
+        f"Empty strings or wrong-language text in these fields is a failure.\n\n"
+    )
     if corpus_text:
         full_prompt = (
-            f"{ANALYSIS_PROMPT}{language_instruction}\n\n"
+            f"{language_instruction}{ANALYSIS_PROMPT}\n\n"
             f"CONTRACT TEXT:\n{contract_text}\n\n"
             f"=== LEGAL CORPUS (use for citations) ===\n{corpus_text}"
         )
     else:
-        full_prompt = f"{ANALYSIS_PROMPT}{language_instruction}\n\nCONTRACT TEXT:\n{contract_text}"
+        full_prompt = f"{language_instruction}{ANALYSIS_PROMPT}\n\nCONTRACT TEXT:\n{contract_text}"
 
     logger.info(f"[worker] Prompt size: {len(full_prompt)} chars")
 
     response = _groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": full_prompt}],
-        temperature=0.1,
-        max_tokens=6000,
+        temperature=0.4,
+        max_tokens=2500,
+    )
+
+    logger.info(
+        f"[worker] finish_reason={response.choices[0].finish_reason} | raw_len={len(response.choices[0].message.content)}"
     )
 
     raw_text = response.choices[0].message.content.strip()
-    logger.info(f"[DEBUG] Groq raw: {raw_text[:800]}")
-    logger.info(f"[DEBUG] Groq raw output: {raw_text[:500]}")
+    logger.info(f"[worker] RAW SAMPLE: {raw_text[:1500]}")
     raw_text = re.sub(r"^```json\s*", "", raw_text)
     raw_text = re.sub(r"^```\s*", "", raw_text)
     raw_text = re.sub(r"\s*```$", "", raw_text)
-
-    # Sanitize invalid unicode escapes before parsing
     raw_text = raw_text.encode("utf-8", errors="replace").decode("utf-8")
-    raw_text = re.sub(r'\\u[0-9a-fA-F]{0,3}(?![0-9a-fA-F])', '', raw_text)
 
     try:
         parsed = json.loads(raw_text)
     except json.JSONDecodeError as e:
-        logger.error(f"[worker] Groq JSON parse failed: {e}\nRaw: {raw_text[:500]}")
+        logger.error(f"[worker] JSON parse failed: {e}\nRaw: {raw_text[:500]}")
         raise ValueError(f"Groq returned invalid JSON: {e}")
 
+    if not parsed.get("country") and country:
+        parsed["country"] = country
+
+    # -------- validation + single corrective retry --------
+    flags = parsed.get("flags", [])
+    bad_flags = [(i, _validate_flag(f)) for i, f in enumerate(flags)]
+    bad_flags = [(i, p) for i, p in bad_flags if p]
+
+    max_retries = 3
+    attempt = 0
+    while bad_flags and attempt < max_retries:
+        attempt += 1
+        logger.warning(
+            f"[worker] Attempt {attempt}: validation failed for {len(bad_flags)} flag(s): {bad_flags}"
+        )
+
+        problem_lines = []
+        for i, problems in bad_flags:
+            title = flags[i].get("title", f"flag {i}")
+            sev = flags[i].get("severity", "info")
+            min_pts = _min_points_for_severity(sev)
+            issues = []
+            if any(p.startswith("description_needs_") for p in problems):
+                issues.append(
+                    f"'description' needs at least {min_pts} distinct sentence(s) — severity is '{sev}'"
+                )
+            if any(p.startswith("mitigation_steps_needs_") for p in problems):
+                issues.append(
+                    f"'mitigation_steps' needs at least {min_pts} distinct item(s) — severity is '{sev}'"
+                )
+            if any(p.startswith("overlap_") for p in problems):
+                issues.append(
+                    "a mitigation_step repeats the same idea as a description sentence — rewrite that step"
+                )
+            problem_lines.append(
+                f'- Flag "{title}" (severity: {sev}): {"; ".join(issues)}'
+            )
+
+        correction_note = (
+            "\n\nCORRECTION REQUIRED — specific problems found:\n"
+            + "\n".join(problem_lines)
+            + "\n\nRegenerate the FULL JSON. Point count required per flag depends on severity: "
+            "info = at least 1, warning = at least 2, critical = at least 3 — for BOTH 'description' "
+            "sentences AND 'mitigation_steps' items. Each point must be a genuinely distinct idea, "
+            "not a rephrase. Never fall short of the minimum for that flag's severity."
+        )
+
+        retry_response = _groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": full_prompt + correction_note}],
+            temperature=0.4,
+            max_tokens=2500,
+        )
+        retry_raw = retry_response.choices[0].message.content.strip()
+        retry_raw = re.sub(r"^```json\s*", "", retry_raw)
+        retry_raw = re.sub(r"^```\s*", "", retry_raw)
+        retry_raw = re.sub(r"\s*```$", "", retry_raw)
+        retry_raw = retry_raw.encode("utf-8", errors="replace").decode("utf-8")
+
+        try:
+            retry_parsed = json.loads(retry_raw)
+            if not retry_parsed.get("country") and country:
+                retry_parsed["country"] = country
+            parsed = retry_parsed
+            flags = parsed.get("flags", [])
+            bad_flags = [(i, _validate_flag(f)) for i, f in enumerate(flags)]
+            bad_flags = [(i, p) for i, p in bad_flags if p]
+        except json.JSONDecodeError as e:
+            logger.error(
+                f"[worker] Retry {attempt} JSON parse failed: {e} — stopping retries"
+            )
+            break
+
+    if bad_flags:
+        logger.warning(
+            f"[worker] Gave up after {attempt} retries — {len(bad_flags)} flag(s) still fail validation"
+        )
+    else:
+        logger.info(
+            f"[worker] All flags pass validation after {attempt} retr{'y' if attempt==1 else 'ies'}"
+        )
+
     return parsed
+
 
 # =============================================================
 # MAIN JOB: process_contract
@@ -293,63 +486,63 @@ async def process_contract(ctx, contract_id: str):
     logger.info(f"[worker] Starting analysis: contract_id={contract_id}")
     supabase = _get_supabase()
 
-    # Mark as processing
     try:
-        supabase.table("contracts").update({
-            "status": "processing",
-        }).eq("contract_id", contract_id).execute()
+        supabase.table("contracts").update(
+            {
+                "status": "processing",
+            }
+        ).eq("contract_id", contract_id).execute()
     except Exception as e:
         logger.error(f"[worker] Status update to processing failed: {e}")
         return
 
     try:
-        # Fetch contract row
-        result = supabase.table("contracts").select(
-            "contract_id, file_path, mime_type, language"
-        ).eq("contract_id", contract_id).single().execute()
+        result = (
+            supabase.table("contracts")
+            .select("contract_id, file_path, mime_type, language, extracted_text")
+            .eq("contract_id", contract_id)
+            .single()
+            .execute()
+        )
 
         if not result.data:
             raise ValueError("Contract record not found in DB.")
 
-        contract  = result.data
+        contract = result.data
         file_path = contract["file_path"]
         mime_type = contract["mime_type"]
         report_language = contract.get("language", "en")
 
+        extracted_text = contract.get("extracted_text")
 
-        # Download file from Supabase Storage
-        logger.info(f"[worker] Downloading file: {file_path}")
-        try:
-            file_bytes = supabase.storage.from_(SUPABASE_BUCKET).download(file_path)
-        except Exception as e:
-            raise ValueError(f"Storage download failed: {e}")
+        if extracted_text:
+            logger.info(f"[worker] Using cached extracted_text for {contract_id}")
+            analysis = await _analyse_with_groq_text(
+                text=extracted_text,
+                language=report_language,
+            )
+        else:
+            logger.info(f"[worker] Downloading file: {file_path}")
+            try:
+                file_bytes = supabase.storage.from_(SUPABASE_BUCKET).download(file_path)
+            except Exception as e:
+                raise ValueError(f"Storage download failed: {e}")
+            if not file_bytes:
+                raise ValueError("Downloaded file is empty.")
+            analysis = await _analyse_with_groq(
+                file_bytes=file_bytes,
+                mime_type=mime_type,
+                language=report_language,
+            )
 
-        if not file_bytes:
-            raise ValueError("Downloaded file is empty.")
-
-        # First pass — quick country extraction for corpus selection
-        # (reuse text extracted in _analyse_with_groq — pass None for country_hint first)
-        logger.info(f"[worker] Sending to Groq: mime_type={mime_type}")
-        analysis = await _analyse_with_groq(file_bytes, mime_type, country_hint=None, language=report_language)
-
-        country = analysis.get("country")
-
-        # If country detected, re-run with corpus injected
-        if country and _corpus_cache:
-            logger.info(f"[worker] Country detected: {country}. Re-running with corpus.")
-            analysis = await _analyse_with_groq(file_bytes, mime_type, country_hint=country, language=report_language)
-
-        # Extract fields
-        flags         = analysis.get("flags", [])
-        worker_name   = analysis.get("worker_name")
+        flags = analysis.get("flags", [])
+        worker_name = analysis.get("worker_name")
         employer_name = analysis.get("employer_name")
-        country       = analysis.get("country")
-
-        # Risk score
+        country = analysis.get("country")
         risk_score = _calculate_risk_score(flags)
+
         logger.info(f"[worker] Risk score: {risk_score}, Flags: {len(flags)}")
 
-        # Insert flags
         if flags:
             flag_rows = []
             for flag in flags:
@@ -357,75 +550,161 @@ async def process_contract(ctx, contract_id: str):
                 if severity not in ("critical", "warning", "info"):
                     severity = "info"
 
-                # Ensure mitigation_steps is a list
                 mitigation_steps = flag.get("mitigation_steps", [])
                 if not isinstance(mitigation_steps, list):
                     mitigation_steps = [str(mitigation_steps)]
 
-                # Ensure legal_references is a list
                 legal_references = flag.get("legal_references", [])
                 if not isinstance(legal_references, list):
                     legal_references = [str(legal_references)]
 
-                flag_rows.append({
-                    "contract_id":      contract_id,
-                    "flag_type":        flag.get("flag_type", "unknown"),
-                    "severity":         severity,
-                    "title":            flag.get("title", "Untitled Flag"),
-                    "description":      flag.get("description", ""),
-                    "clause_text":      flag.get("clause_text"),
-                    "recommendation":   flag.get("recommendation", ""),
-                    "mitigation_steps": mitigation_steps,
-                    "legal_references": legal_references,
-                })
+                # Derive legal_status from severity
+                legal_status_map = {
+                    "critical": "ILLEGAL",
+                    "warning": "RESTRICTED",
+                    "info": "UNKNOWN",
+                }
+                legal_status = legal_status_map.get(severity, "UNKNOWN")
+                law_citation = legal_references[0] if legal_references else None
+
+                flag_rows.append(
+                    {
+                        "contract_id": contract_id,
+                        "flag_type": flag.get("flag_type", "unknown"),
+                        "severity": severity,
+                        "title": flag.get("title", "Untitled Flag"),
+                        "description": flag.get("description", ""),
+                        "clause_text": flag.get("clause_text"),
+                        "recommendation": flag.get("recommendation", ""),
+                        "mitigation_steps": mitigation_steps,
+                        "legal_references": legal_references,
+                        "legal_status": legal_status,
+                        "law_citation": law_citation,
+                    }
+                )
 
             supabase.table("contract_flags").insert(flag_rows).execute()
-            # Queue for human review if high risk
+
         critical_count = sum(1 for f in flags if f.get("severity") == "critical")
         if risk_score >= 50 or critical_count >= 1:
             try:
-                supabase.table("human_review_queue").insert({
-                    "contract_id": contract_id,
-                    "reason": f"Risk score {risk_score}, critical flags: {critical_count}",
-                    "status": "pending",
-                }).execute()
-                logger.info(f"[worker] Queued for human review: contract_id={contract_id}")
+                supabase.table("human_review_queue").insert(
+                    {
+                        "contract_id": contract_id,
+                        "reason": f"Risk score {risk_score}, critical flags: {critical_count}",
+                        "status": "pending",
+                    }
+                ).execute()
+                logger.info(
+                    f"[worker] Queued for human review: contract_id={contract_id}"
+                )
             except Exception as e:
                 logger.warning(f"[worker] Failed to insert review queue: {e}")
 
-        # Update contract row
-        supabase.table("contracts").update({
-            "status":        "completed",
-            "risk_score":    risk_score,
-            "worker_name":   worker_name,
-            "employer_name": employer_name,
-            "country":       country,
-            "analyzed_at":   datetime.now(timezone.utc).isoformat(),
-            "error_reason":  None,
-        }).eq("contract_id", contract_id).execute()
+        supabase.table("contracts").update(
+            {
+                "status": "completed",
+                "risk_score": risk_score,
+                "worker_name": worker_name,
+                "employer_name": employer_name,
+                "country": country,
+                "analyzed_at": datetime.now(timezone.utc).isoformat(),
+                "error_reason": None,
+            }
+        ).eq("contract_id", contract_id).execute()
 
         logger.info(f"[worker] Completed: contract_id={contract_id}")
 
     except Exception as e:
         error_msg = str(e)
-        logger.error(f"[worker] Analysis failed: contract_id={contract_id} error={error_msg}")
+        logger.error(
+            f"[worker] Analysis failed: contract_id={contract_id} error={error_msg}"
+        )
         try:
-            supabase.table("contracts").update({
-                "status":       "failed",
-                "error_reason": error_msg[:500],
-            }).eq("contract_id", contract_id).execute()
+            supabase.table("contracts").update(
+                {
+                    "status": "failed",
+                    "error_reason": error_msg[:500],
+                }
+            ).eq("contract_id", contract_id).execute()
         except Exception as db_err:
             logger.error(f"[worker] Failed to write error status: {db_err}")
+
+
+# =============================================================
+# UPLOAD JOB: process_upload
+# Extracts text + computes embedding, stores in contracts row
+# Then enqueues process_contract
+# =============================================================
+async def process_upload(ctx, contract_id: str):
+    logger.info(f"[worker] process_upload start: {contract_id}")
+    supabase = _get_supabase()
+
+    try:
+        result = (
+            supabase.table("contracts")
+            .select("contract_id, file_path, mime_type")
+            .eq("contract_id", contract_id)
+            .single()
+            .execute()
+        )
+        if not result.data:
+            raise ValueError("Contract not found.")
+
+        contract = result.data
+        file_bytes = supabase.storage.from_(SUPABASE_BUCKET).download(
+            contract["file_path"]
+        )
+        if not file_bytes:
+            raise ValueError("Downloaded file empty.")
+
+        # Extract text
+        text = extract_text(file_bytes, contract["mime_type"])
+        if not text.strip():
+            raise ValueError("Text extraction returned empty.")
+
+        # Compute embedding
+        embedding = _embedding_model.encode(text[:3000]).tolist()
+
+        # Store both
+        supabase.table("contracts").update(
+            {
+                "extracted_text": text,
+                "embedding_computed": True,
+            }
+        ).eq("contract_id", contract_id).execute()
+
+        logger.info(
+            f"[worker] process_upload done: {contract_id}, text={len(text)} chars"
+        )
+
+    except Exception as e:
+        logger.error(f"[worker] process_upload failed: {contract_id} {e}")
+        supabase.table("contracts").update(
+            {
+                "status": "failed",
+                "error_reason": f"Upload processing failed: {str(e)[:400]}",
+            }
+        ).eq("contract_id", contract_id).execute()
+        return
+
+    # Enqueue analysis — reuse arq's own pool, don't spin up a second one
+    await ctx["redis"].enqueue_job("process_contract", contract_id)
+    logger.info(
+        f"[worker] process_contract enqueued from process_upload: {contract_id}"
+    )
+
 
 # =============================================================
 # ARQ WORKER SETTINGS
 # =============================================================
 class WorkerSettings:
-    functions      = [process_contract]
+    functions = [process_contract, process_upload]
     redis_settings = REDIS_SETTINGS
-    max_jobs       = 5
-    job_timeout    = 180     # 3 min — corpus re-run needs more time
-    keep_result    = 3600
+    max_jobs = 5
+    job_timeout = 180
+    keep_result = 3600
+
 
 # =============================================================
 # ENQUEUE HELPERS
@@ -436,6 +715,21 @@ async def enqueue_contract(contract_id: str):
     await pool.close()
     logger.info(f"[enqueue] Job queued: contract_id={contract_id}")
 
+
 def enqueue_contract_sync(contract_id: str):
     import asyncio
+
     asyncio.run(enqueue_contract(contract_id))
+
+
+async def enqueue_upload(contract_id: str):
+    pool = await create_pool(REDIS_SETTINGS)
+    await pool.enqueue_job("process_upload", contract_id)
+    await pool.close()
+    logger.info(f"[enqueue] Upload job queued: {contract_id}")
+
+
+def enqueue_upload_sync(contract_id: str):
+    import asyncio
+
+    asyncio.run(enqueue_upload(contract_id))

@@ -1,9 +1,8 @@
 """
 One-time corpus ingestion script.
-Reads PDFs from legal_corpus/, chunks text, embeds via sentence-transformers,
-upserts into Supabase pgvector table legal_chunks.
+Reads PDFs from legal_corpus/, chunks text,
+upserts into Supabase legal_chunks table (tsvector-based RAG, no embeddings).
 
-Run AFTER Step 3 (pgvector enabled + legal_chunks table created).
 Run from: E:/migrantshield/backend/
 Command: python ingest_corpus.py
 """
@@ -11,37 +10,56 @@ Command: python ingest_corpus.py
 import os
 import sys
 import uuid
-import fitz  # PyMuPDF
+import fitz
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 CORPUS_DIR = Path(__file__).parent / "legal_corpus"
-CHUNK_SIZE = 500       # tokens approx (chars / 4)
-CHUNK_OVERLAP = 50     # token overlap between chunks
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 50
 CHARS_PER_TOKEN = 4
-BATCH_SIZE = 50        # upsert rows per Supabase call
+BATCH_SIZE = 50
 
 CHUNK_CHARS = CHUNK_SIZE * CHARS_PER_TOKEN
 OVERLAP_CHARS = CHUNK_OVERLAP * CHARS_PER_TOKEN
 
-# Source label map — filename stem → human label stored in DB
 SOURCE_LABELS = {
-    "ilo_c029":                      "ILO Convention 29 — Forced Labour",
-    "ilo_c105":                      "ILO Convention 105 — Abolition of Forced Labour",
-    "ilo_c143":                      "ILO Convention 143 — Migrant Workers",
-    "ilo_c189":                      "ILO Convention 189 — Domestic Workers",
-    "uae_labour_law_2021":           "UAE Labour Law 2021",
-    "saudi_labour_law":              "Saudi Labour Law",
-    "qatar_labour_law":         "Qatar Labour Law 2004",
+    "ilo_c029": "ILO Convention 29 — Forced Labour",
+    "ilo_c105": "ILO Convention 105 — Abolition of Forced Labour",
+    "ilo_c143": "ILO Convention 143 — Migrant Workers",
+    "ilo_c189_domestic_workers_convention_2011": "ILO Convention 189 — Domestic Workers",
+    "uae_labour_law_2021": "UAE Labour Law 2021",
+    "saudi_labour_law": "Saudi Labour Law",
+    "qatar_labour_law": "Qatar Labour Law 2004",
     "qatar_labour_law_2017_amendment": "Qatar Labour Law 2017 Amendment",
-    "poea_standard_contract":        "POEA Standard Employment Contract",
-    "poea_rules_full":               "POEA Rules and Regulations",
+    "poea_standard_contract": "POEA Standard Employment Contract",
+    "poea_rules_full": "POEA Rules and Regulations",
+    "kuwait_labour_law_2010": "Kuwait Labour Law No. 6/2010",
+    "malaysia_employment_act_1955": "Malaysia Employment Act 1955",
+    "nepal_foreign_employment_act_2007": "Nepal Foreign Employment Act 2007",
+    "oman_labour_law_2003": "Oman Labour Law Royal Decree 35/2003",
+}
+
+COUNTRY_MAP = {
+    "ilo_c029": "ILO",
+    "ilo_c105": "ILO",
+    "ilo_c143": "ILO",
+    "ilo_c189_domestic_workers_convention_2011": "ILO",
+    "uae_labour_law_2021": "UAE",
+    "saudi_labour_law": "Saudi Arabia",
+    "qatar_labour_law": "Qatar",
+    "qatar_labour_law_2017_amendment": "Qatar",
+    "poea_standard_contract": "Philippines",
+    "poea_rules_full": "Philippines",
+    "kuwait_labour_law_2010": "Kuwait",
+    "malaysia_employment_act_1955": "Malaysia",
+    "nepal_foreign_employment_act_2007": "Nepal",
+    "oman_labour_law_2003": "Oman",
 }
 
 
@@ -57,34 +75,19 @@ def extract_text(pdf_path: Path) -> str:
 
 
 def chunk_text(text: str, source: str) -> list[dict]:
-    """Sliding window chunk. Returns list of {source, chunk_index, text}."""
     chunks = []
     start = 0
     idx = 0
     text_len = len(text)
-
     while start < text_len:
         end = min(start + CHUNK_CHARS, text_len)
         chunk = text[start:end].strip()
         if chunk:
-            chunks.append({
-                "source": source,
-                "chunk_index": idx,
-                "chunk_text": chunk,
-            })
+            chunks.append({"source": source, "chunk_index": idx, "chunk_text": chunk})
             idx += 1
         if end == text_len:
             break
-        start = end - OVERLAP_CHARS  # slide back by overlap
-
-    return chunks
-
-
-def embed_chunks(model: SentenceTransformer, chunks: list[dict]) -> list[dict]:
-    texts = [c["chunk_text"] for c in chunks]
-    embeddings = model.encode(texts, show_progress_bar=True, batch_size=32)
-    for chunk, emb in zip(chunks, embeddings):
-        chunk["embedding"] = emb.tolist()
+        start = end - OVERLAP_CHARS
     return chunks
 
 
@@ -95,11 +98,11 @@ def upsert_chunks(supabase: Client, chunks: list[dict]) -> None:
             "source": c["source"],
             "chunk_index": c["chunk_index"],
             "chunk_text": c["chunk_text"],
-            "embedding": c["embedding"],
+            "country": c.get("country", "Unknown"),
+            "law_title": c.get("law_title", c["source"]),
         }
         for c in chunks
     ]
-
     for i in range(0, len(rows), BATCH_SIZE):
         batch = rows[i : i + BATCH_SIZE]
         supabase.table("legal_chunks").insert(batch).execute()
@@ -123,10 +126,6 @@ def main() -> None:
         sys.exit(1)
 
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
-    print("Loading embedding model (all-MiniLM-L6-v2)...")
-    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    print("Model loaded.\n")
 
     pdfs = list(CORPUS_DIR.glob("*.pdf"))
     if not pdfs:
@@ -152,11 +151,12 @@ def main() -> None:
         print(f"  Extracted {len(text)} chars.")
 
         print(f"  Chunking (size={CHUNK_SIZE}tok, overlap={CHUNK_OVERLAP}tok)...")
+        country = COUNTRY_MAP.get(stem, "Unknown")
         chunks = chunk_text(text, source_label)
+        for c in chunks:
+            c["country"] = country
+            c["law_title"] = source_label
         print(f"  {len(chunks)} chunks.")
-
-        print(f"  Embedding...")
-        chunks = embed_chunks(model, chunks)
 
         print(f"  Upserting to Supabase...")
         upsert_chunks(supabase, chunks)

@@ -20,11 +20,11 @@ function formatBytes(bytes: number): string {
 
 const LANGUAGES = [
   { code: "en", label: "English" },
-  { code: "ne", label: "नेपाली (Nepali)" },
-  { code: "hi", label: "हिन्दी (Hindi)" },
-  { code: "ar", label: "العربية (Arabic)" },
-  { code: "tl", label: "Filipino (Tagalog)" },
-  { code: "bn", label: "বাংলা (Bengali)" },
+  { code: "ne", label: "नेपाली" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "ar", label: "العربية" },
+  { code: "tl", label: "Filipino" },
+  { code: "bn", label: "বাংলা" },
 ];
 
 export default function PreviewPage() {
@@ -47,8 +47,6 @@ export default function PreviewPage() {
     window.addEventListener("langchange", sync);
     return () => window.removeEventListener("langchange", sync);
   }, []);
-
-  // Guest allowed — no redirect
 
   useEffect(() => {
     const data = sessionStorage.getItem("upload_file_data");
@@ -139,12 +137,12 @@ export default function PreviewPage() {
   const isPDF = preview.type === "application/pdf";
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-lg mx-auto px-4 py-12">
-        <div className="mb-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <main className="max-w-lg mx-auto px-4 py-8">
+        <div className="mb-4">
           <button
             onClick={() => router.replace("/upload")}
-            className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm font-medium mb-4 transition-colors"
+            className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 text-sm font-medium mb-3 transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -161,12 +159,12 @@ export default function PreviewPage() {
             </svg>
             {uiLang === "ne" ? "फिर्ता" : "Back"}
           </button>
-          <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
             {uiLang === "ne"
               ? "समीक्षा र पुष्टि गर्नुहोस्"
               : "Review & Confirm"}
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {uiLang === "ne"
               ? "विश्लेषणका लागि पेश गर्नु अघि सम्झौता पुष्टि गर्नुहोस्।"
               : "Confirm your contract before submitting for analysis."}
@@ -174,95 +172,131 @@ export default function PreviewPage() {
         </div>
 
         {/* Preview card */}
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
           {!isPDF && (
-            <div className="w-full bg-slate-100 flex items-center justify-center p-4">
+            <div className="w-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center p-4">
               <img
                 src={preview.data}
                 alt="Contract preview"
-                className="max-h-72 object-contain rounded-lg shadow-sm"
+                className="max-h-48 object-contain rounded-lg shadow-sm"
               />
             </div>
           )}
-
-          {isPDF && (
-            <div className="w-full bg-slate-100 flex flex-col items-center justify-center py-12 px-6 gap-3">
-              <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                <svg
-                  className="w-8 h-8 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                  />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-slate-700 text-center break-all">
+          <div className="px-4 py-3 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-teal-50 dark:bg-teal-900/30 border border-teal-100 dark:border-teal-800 flex items-center justify-center shrink-0">
+              <svg
+                className="w-5 h-5 text-teal-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
                 {preview.name}
               </p>
-              <p className="text-xs text-slate-400">
-                {uiLang === "ne" ? "PDF कागजात" : "PDF Document"}
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                {formatBytes(preview.size)} ·{" "}
+                {isPDF ? "PDF" : preview.type.split("/")[1].toUpperCase()}
               </p>
             </div>
-          )}
-
-          <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-700 truncate max-w-[200px]">
-                {preview.name}
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {formatBytes(preview.size)}
-              </p>
-            </div>
-            <span className="text-xs font-semibold uppercase tracking-wide text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-full">
-              {isPDF ? "PDF" : preview.type.split("/")[1].toUpperCase()}
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full shrink-0">
+              ✓ Ready
             </span>
           </div>
         </div>
 
         {/* Language selector */}
-        <div className="mt-4 bg-white border border-slate-200 rounded-xl px-5 py-4">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            {uiLang === "ne" ? "रिपोर्ट भाषा" : "Report Language"}
-          </label>
-          <p className="text-xs text-slate-400 mb-3">
-            {uiLang === "ne"
-              ? "तपाईंको जोखिम रिपोर्ट यस भाषामा तयार हुनेछ।"
-              : "Your risk report will be generated in this language."}
-          </p>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            disabled={uploading}
-            className="w-full text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50"
-          >
+        <div className="mt-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+              {uiLang === "ne" ? "रिपोर्ट भाषा" : "Report Language"}
+            </p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              {uiLang === "ne"
+                ? "छानेको भाषामा रिपोर्ट तयार हुनेछ"
+                : "Report generated in selected language"}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code}>
+              <button
+                key={lang.code}
+                onClick={() => setLanguage(lang.code)}
+                disabled={uploading}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  language === lang.code
+                    ? "bg-teal-600 text-white border-teal-600"
+                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-teal-400 hover:text-teal-600"
+                }`}
+              >
                 {lang.label}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         {/* Error state */}
         {error && (
-          <div className="mt-4 p-4 rounded-lg bg-red-50 border border-red-200">
-            <p className="text-sm text-red-700 font-medium">{error}</p>
+          <div className="mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+              {error}
+            </p>
           </div>
         )}
 
-        {/* Actions */}
-        <div className="mt-6 flex flex-col gap-3">
+        {/* What happens next */}
+        <div className="mt-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+            {uiLang === "ne" ? "के हुन्छ अर्को?" : "What happens next?"}
+          </p>
+          <div className="flex items-start justify-between">
+            {[
+              {
+                step: "1",
+                label: uiLang === "ne" ? "स्क्यान" : "Scan contract",
+                icon: "📄",
+              },
+              {
+                step: "2",
+                label: uiLang === "ne" ? "जोखिम पहिचान" : "Detect risks",
+                icon: "⚠️",
+              },
+              {
+                step: "3",
+                label: uiLang === "ne" ? "रिपोर्ट पाउनुस्" : "Get report",
+                icon: "🛡",
+              },
+            ].map((item, i, arr) => (
+              <div key={item.step} className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-base">
+                    {item.icon}
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium text-center leading-tight">
+                    {item.label}
+                  </span>
+                </div>
+                {i < arr.length - 1 && (
+                  <div className="w-10 h-px bg-slate-200 dark:bg-slate-700 mb-4 mx-1" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2">
           <button
             onClick={handleSubmit}
             disabled={uploading}
-            className="w-full py-3.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-teal-300 text-white text-sm font-semibold transition-colors"
+            className="w-full py-3.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-teal-300 dark:disabled:bg-teal-900 text-white text-sm font-semibold transition-colors"
           >
             {uploading
               ? uiLang === "ne"
@@ -272,11 +306,10 @@ export default function PreviewPage() {
                 ? "पुष्टि गरी पेश गर्नुहोस्"
                 : "Confirm & Submit"}
           </button>
-
           <button
             onClick={handleClear}
             disabled={uploading}
-            className="w-full py-3.5 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-50 text-slate-600 text-sm font-semibold border border-slate-200 transition-colors"
+            className="w-full py-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-50 text-xs font-medium transition-colors"
           >
             {uiLang === "ne" ? "पुनः प्रयास / हटाउनुहोस्" : "Retry / Clear"}
           </button>

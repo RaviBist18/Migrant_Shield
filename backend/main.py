@@ -13,12 +13,24 @@ from typing import Optional
 import httpx
 import jwt
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, BackgroundTasks, Depends
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    BackgroundTasks,
+    Depends,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import Client, create_client
 from fastapi.responses import StreamingResponse
 from io import BytesIO
+from retriever import retrieve_legal_context
+from worker import _detect_country
+from groq_utils import groq_chat_with_retry
 
 load_dotenv(override=True)
 
@@ -31,19 +43,22 @@ logger = logging.getLogger("migrantshield")
 # =============================================================
 # ENV
 # =============================================================
-SUPABASE_URL         = os.environ["SUPABASE_URL"]
+SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-SUPABASE_BUCKET      = os.environ.get("SUPABASE_BUCKET", "migrantshield-contracts")
-FRONTEND_URL         = os.environ.get("FRONTEND_URL", "http://localhost:3000")
-JWKS_URL             = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
-ADMIN_USER_ID        = os.environ.get("ADMIN_USER_ID", "")
-GROQ_API_KEY         = os.environ["GROQ_API_KEY"]
+SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "migrantshield-contracts")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+JWKS_URL = f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+ADMIN_USER_ID = os.environ.get("ADMIN_USER_ID", "")
+GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+CHAT_GROQ_API_KEY = os.environ.get("CHAT_GROQ_API_KEY", GROQ_API_KEY)
+
 
 # =============================================================
 # SUPABASE CLIENT
 # =============================================================
 def _get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
 
 # =============================================================
 # FASTAPI APP
@@ -54,6 +69,12 @@ app = FastAPI(
     description="AI-powered employment contract risk analysis for migrant workers.",
 )
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL, "http://localhost:3000"],
@@ -62,9 +83,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.options("/{rest_of_path:path}")
 async def preflight_handler(rest_of_path: str):
     return JSONResponse(status_code=200, content={})
+
 
 @app.on_event("startup")
 async def recover_stuck_contracts():
@@ -72,10 +95,18 @@ async def recover_stuck_contracts():
     try:
         supabase = _get_supabase()
         cutoff = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
-        result = supabase.table("contracts").update({
-            "status":       "failed",
-            "error_reason": "Processing timeout — auto-recovered on restart.",
-        }).eq("status", "processing").lt("upload_date", cutoff).execute()
+        result = (
+            supabase.table("contracts")
+            .update(
+                {
+                    "status": "failed",
+                    "error_reason": "Processing timeout — auto-recovered on restart.",
+                }
+            )
+            .eq("status", "processing")
+            .lt("upload_date", cutoff)
+            .execute()
+        )
         count = len(result.data) if result.data else 0
         if count:
             logger.info(f"[startup] Recovered {count} stuck contracts.")
@@ -84,12 +115,14 @@ async def recover_stuck_contracts():
     except Exception as e:
         logger.warning(f"[startup] Stuck contract recovery failed: {e}")
 
+
 # =============================================================
 # JWKS — ES256 TOKEN VALIDATION
 # =============================================================
 _jwks_cache: dict = {}
 _jwks_cached_at: float = 0
 JWKS_CACHE_TTL = 3600  # seconds
+
 
 def _get_jwks() -> dict:
     global _jwks_cache, _jwks_cached_at
@@ -101,6 +134,7 @@ def _get_jwks() -> dict:
     _jwks_cache = resp.json()
     _jwks_cached_at = now
     return _jwks_cache
+
 
 def _validate_jwt(token: str) -> dict:
     try:
@@ -130,11 +164,13 @@ def _validate_jwt(token: str) -> dict:
     except jwt.InvalidTokenError as e:
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
 
+
 def _extract_token(request: Request) -> str:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=403, detail="Missing Bearer token.")
     return auth.split(" ", 1)[1]
+
 
 def _get_optional_user(request: Request) -> dict | None:
     auth = request.headers.get("Authorization", "")
@@ -145,34 +181,52 @@ def _get_optional_user(request: Request) -> dict | None:
     except HTTPException:
         return None
 
+
 def _check_guest_rate_limit(ip: str, supabase) -> None:
     try:
-        row = supabase.table("guest_rate_limits").select("*").eq("ip", ip).single().execute()
+        row = (
+            supabase.table("guest_rate_limits")
+            .select("*")
+            .eq("ip", ip)
+            .single()
+            .execute()
+        )
         data = row.data
-        window_start = datetime.fromisoformat(data["window_start"].replace("Z", "+00:00"))
+        window_start = datetime.fromisoformat(
+            data["window_start"].replace("Z", "+00:00")
+        )
         if datetime.now(timezone.utc) - window_start > timedelta(hours=24):
-            supabase.table("guest_rate_limits").update({
-                "analysis_count": 1,
-                "window_start": datetime.now(timezone.utc).isoformat()
-            }).eq("ip", ip).execute()
+            supabase.table("guest_rate_limits").update(
+                {
+                    "analysis_count": 1,
+                    "window_start": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("ip", ip).execute()
         elif data["analysis_count"] >= 5:
-            raise HTTPException(status_code=429, detail="Guest limit reached. Sign up for unlimited access.")
+            raise HTTPException(
+                status_code=429,
+                detail="Guest limit reached. Sign up for unlimited access.",
+            )
         else:
-            supabase.table("guest_rate_limits").update({
-                "analysis_count": data["analysis_count"] + 1
-            }).eq("ip", ip).execute()
+            supabase.table("guest_rate_limits").update(
+                {"analysis_count": data["analysis_count"] + 1}
+            ).eq("ip", ip).execute()
     except HTTPException:
         raise
     except Exception:
-        supabase.table("guest_rate_limits").insert({
-            "ip": ip,
-            "analysis_count": 1,
-            "window_start": datetime.now(timezone.utc).isoformat()
-        }).execute()
+        supabase.table("guest_rate_limits").insert(
+            {
+                "ip": ip,
+                "analysis_count": 1,
+                "window_start": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+
 
 def _get_current_user(request: Request) -> dict:
     token = _extract_token(request)
     return _validate_jwt(token)
+
 
 # =============================================================
 # ALLOWED MIME TYPES
@@ -186,19 +240,24 @@ ALLOWED_MIME_TYPES = {
 
 ALLOWED_LANGUAGES = {"en", "ne", "hi", "ar", "tl", "bn"}
 
-MAX_FILE_SIZE_MB    = 10
+MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 # =============================================================
 # ROUTES
 # =============================================================
 
+
 # --------------------------------------------------------------
 # HEALTH CHECK
 # --------------------------------------------------------------
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "6.2.0", "timestamp": datetime.now(timezone.utc).isoformat()}
+    return {
+        "status": "ok",
+        "version": "6.2.0",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 # --------------------------------------------------------------
@@ -217,20 +276,19 @@ async def upload_contract(
     if language not in ALLOWED_LANGUAGES:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported language: {language}. Allowed: {', '.join(sorted(ALLOWED_LANGUAGES))}"
+            detail=f"Unsupported language: {language}. Allowed: {', '.join(sorted(ALLOWED_LANGUAGES))}",
         )
 
     if file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=415,
-            detail=f"Unsupported file type: {file.content_type}. Allowed: PDF, PNG, JPG, WEBP."
+            detail=f"Unsupported file type: {file.content_type}. Allowed: PDF, PNG, JPG, WEBP.",
         )
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_FILE_SIZE_BYTES:
         raise HTTPException(
-            status_code=413,
-            detail=f"File exceeds {MAX_FILE_SIZE_MB}MB limit."
+            status_code=413, detail=f"File exceeds {MAX_FILE_SIZE_MB}MB limit."
         )
 
     user = _get_optional_user(request)
@@ -245,22 +303,30 @@ async def upload_contract(
 
     # Insert contracts row
     try:
-        expires = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat() if not user_id else None
-        supabase.table("contracts").insert({
-            "contract_id":           contract_id,
-            "user_id":               user_id,
-            "guest_id":              guest_id,
-            "file_path":             object_path,
-            "mime_type":             file.content_type,
-            "original_filename":     file.filename,
-            "status":                "queued",
-            "legal_review_required": False,
-            "language":              language,
-            "upload_date":           datetime.now(timezone.utc).isoformat(),
-            "expires_at":            expires,
-        }).execute()
+        expires = (
+            (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
+            if not user_id
+            else None
+        )
+        supabase.table("contracts").insert(
+            {
+                "contract_id": contract_id,
+                "user_id": user_id,
+                "guest_id": guest_id,
+                "file_path": object_path,
+                "mime_type": file.content_type,
+                "original_filename": file.filename,
+                "status": "queued",
+                "legal_review_required": False,
+                "language": language,
+                "upload_date": datetime.now(timezone.utc).isoformat(),
+                "expires_at": expires,
+            }
+        ).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create contract record: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create contract record: {str(e)}"
+        )
 
     # Upload to storage
     try:
@@ -273,11 +339,10 @@ async def upload_contract(
         logger.error(f"Storage upload failed: {e}")
         raise HTTPException(status_code=500, detail="File storage failed.")
 
-    
-
     # Enqueue via ARQ
-    from worker import enqueue_contract_sync
-    background_tasks.add_task(enqueue_contract_sync, contract_id)
+    from worker import enqueue_upload_sync
+
+    background_tasks.add_task(enqueue_upload_sync, contract_id)
 
     logger.info(f"Contract queued: {contract_id} user={user_id} language={language}")
     return {"contract_id": contract_id, "status": "queued", "language": language}
@@ -299,9 +364,13 @@ async def get_status(contract_id: str, request: Request):
     supabase = _get_supabase()
 
     try:
-        query = supabase.table("contracts").select(
-            "contract_id, status, risk_score, error_reason, analyzed_at, upload_date, language"
-        ).eq("contract_id", contract_id)
+        query = (
+            supabase.table("contracts")
+            .select(
+                "contract_id, status, risk_score, error_reason, analyzed_at, upload_date, language"
+            )
+            .eq("contract_id", contract_id)
+        )
         if user_id:
             query = query.eq("user_id", user_id)
         else:
@@ -319,26 +388,30 @@ async def get_status(contract_id: str, request: Request):
     report_url = None
     if contract["status"] == "completed":
         try:
-            report_result = supabase.table("reports").select(
-                "report_id, pdf_url, generated_at"
-            ).eq("contract_id", contract_id).order(
-                "generated_at", desc=True
-            ).limit(1).execute()
+            report_result = (
+                supabase.table("reports")
+                .select("report_id, pdf_url, generated_at")
+                .eq("contract_id", contract_id)
+                .order("generated_at", desc=True)
+                .limit(1)
+                .execute()
+            )
             if report_result.data:
                 report_url = report_result.data[0].get("pdf_url")
         except Exception:
             pass
 
     return {
-        "contract_id":  contract["contract_id"],
-        "status":       contract["status"],
-        "risk_score":   contract.get("risk_score"),
-        "error":        contract.get("error_reason"),
-        "analyzed_at":  contract.get("analyzed_at"),
-        "upload_date":  contract.get("upload_date"),
-        "language":     contract.get("language", "en"),
+        "contract_id": contract["contract_id"],
+        "status": contract["status"],
+        "risk_score": contract.get("risk_score"),
+        "error": contract.get("error_reason"),
+        "analyzed_at": contract.get("analyzed_at"),
+        "upload_date": contract.get("upload_date"),
+        "language": contract.get("language", "en"),
         "report_ready": report_url is not None,
     }
+
 
 # --------------------------------------------------------------
 # GET /report/{contract_id}
@@ -356,10 +429,14 @@ async def get_report(contract_id: str, request: Request):
 
     # Verify ownership + fetch contract
     try:
-        query = supabase.table("contracts").select(
-            "contract_id, status, risk_score, worker_name, employer_name, "
-            "country, original_filename, upload_date, analyzed_at, language, error_reason"
-        ).eq("contract_id", contract_id)
+        query = (
+            supabase.table("contracts")
+            .select(
+                "contract_id, status, risk_score, worker_name, employer_name, "
+                "country, original_filename, upload_date, analyzed_at, language, error_reason"
+            )
+            .eq("contract_id", contract_id)
+        )
         if user_id:
             query = query.eq("user_id", user_id)
         result = query.single().execute()
@@ -374,35 +451,42 @@ async def get_report(contract_id: str, request: Request):
     if contract["status"] != "completed":
         raise HTTPException(
             status_code=425,
-            detail=f"Analysis not complete. Current status: {contract['status']}"
+            detail=f"Analysis not complete. Current status: {contract['status']}",
         )
 
     # Fetch flags
     try:
-        flags_result = supabase.table("contract_flags").select(
-            "flag_id, flag_type, severity, title, description, clause_text, recommendation, mitigation_steps, legal_references, created_at"
-        ).eq("contract_id", contract_id).order("severity").execute()
+        flags_result = (
+            supabase.table("contract_flags")
+            .select(
+                "flag_id, flag_type, severity, title, description, clause_text, recommendation, mitigation_steps, legal_references, created_at"
+            )
+            .eq("contract_id", contract_id)
+            .order("severity")
+            .execute()
+        )
         flags = flags_result.data or []
     except Exception as e:
         logger.error(f"Flags fetch failed: {e}")
         flags = []
 
     return {
-        "contract_id":     contract["contract_id"],
-        "worker_name":     contract.get("worker_name"),
-        "employer_name":   contract.get("employer_name"),
-        "country":         contract.get("country"),
+        "contract_id": contract["contract_id"],
+        "worker_name": contract.get("worker_name"),
+        "employer_name": contract.get("employer_name"),
+        "country": contract.get("country"),
         "original_filename": contract.get("original_filename"),
-        "upload_date":     contract.get("upload_date"),
-        "analyzed_at":     contract.get("analyzed_at"),
-        "language":        contract.get("language", "en"),
-        "risk_score":      contract.get("risk_score"),
-        "flags":           flags,
-        "flags_count":     len(flags),
-        "critical_count":  sum(1 for f in flags if f["severity"] == "critical"),
-        "warning_count":   sum(1 for f in flags if f["severity"] == "warning"),
-        "info_count":      sum(1 for f in flags if f["severity"] == "info"),
+        "upload_date": contract.get("upload_date"),
+        "analyzed_at": contract.get("analyzed_at"),
+        "language": contract.get("language", "en"),
+        "risk_score": contract.get("risk_score"),
+        "flags": flags,
+        "flags_count": len(flags),
+        "critical_count": sum(1 for f in flags if f["severity"] == "critical"),
+        "warning_count": sum(1 for f in flags if f["severity"] == "warning"),
+        "info_count": sum(1 for f in flags if f["severity"] == "info"),
     }
+
 
 # --------------------------------------------------------------
 # GET /report/{report_id}/download
@@ -418,9 +502,13 @@ async def download_report(report_id: str, request: Request):
 
     # Fetch report
     try:
-        result = supabase.table("reports").select(
-            "report_id, contract_id, pdf_url, downloaded_count"
-        ).eq("report_id", report_id).single().execute()
+        result = (
+            supabase.table("reports")
+            .select("report_id, contract_id, pdf_url, downloaded_count")
+            .eq("report_id", report_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Report not found.")
 
@@ -432,9 +520,14 @@ async def download_report(report_id: str, request: Request):
 
     # Verify ownership
     try:
-        contract_result = supabase.table("contracts").select(
-            "contract_id"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        contract_result = (
+            supabase.table("contracts")
+            .select("contract_id")
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=403, detail="Access denied.")
 
@@ -456,17 +549,17 @@ async def download_report(report_id: str, request: Request):
 
     # Increment downloaded_count
     try:
-        supabase.table("reports").update({
-            "downloaded_count": report["downloaded_count"] + 1
-        }).eq("report_id", report_id).execute()
+        supabase.table("reports").update(
+            {"downloaded_count": report["downloaded_count"] + 1}
+        ).eq("report_id", report_id).execute()
     except Exception as e:
         logger.warning(f"downloaded_count increment failed: {e}")
 
     logger.info(f"Report downloaded: report_id={report_id} user={user_id}")
     return {
-        "signed_url":  signed_url,
-        "expires_in":  86400,
-        "report_id":   report_id,
+        "signed_url": signed_url,
+        "expires_in": 86400,
+        "report_id": report_id,
         "contract_id": contract_id,
     }
 
@@ -487,7 +580,7 @@ async def request_human_review(request: Request):
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
     contract_id = body.get("contract_id")
-    reason      = body.get("reason", "Worker requested human legal review.")
+    reason = body.get("reason", "Worker requested human legal review.")
 
     if not contract_id:
         raise HTTPException(status_code=400, detail="contract_id required.")
@@ -496,9 +589,14 @@ async def request_human_review(request: Request):
 
     # Verify ownership
     try:
-        contract_result = supabase.table("contracts").select(
-            "contract_id"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        contract_result = (
+            supabase.table("contracts")
+            .select("contract_id")
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -507,9 +605,13 @@ async def request_human_review(request: Request):
 
     # Check not already queued
     try:
-        existing = supabase.table("human_review_queue").select(
-            "review_id"
-        ).eq("contract_id", contract_id).eq("status", "pending").execute()
+        existing = (
+            supabase.table("human_review_queue")
+            .select("review_id")
+            .eq("contract_id", contract_id)
+            .eq("status", "pending")
+            .execute()
+        )
         if existing.data:
             return {"status": "already_queued", "contract_id": contract_id}
     except Exception:
@@ -517,21 +619,23 @@ async def request_human_review(request: Request):
 
     # Insert review request
     try:
-        supabase.table("human_review_queue").insert({
-            "contract_id": contract_id,
-            "reason":      reason,
-            "status":      "pending",
-            "created_at":  datetime.now(timezone.utc).isoformat(),
-        }).execute()
+        supabase.table("human_review_queue").insert(
+            {
+                "contract_id": contract_id,
+                "reason": reason,
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
     except Exception as e:
         logger.error(f"human_review_queue insert failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to submit review request.")
 
     logger.info(f"Human review requested: contract_id={contract_id} user={user_id}")
     return {
-        "status":      "queued",
+        "status": "queued",
         "contract_id": contract_id,
-        "message":     "Your contract has been flagged for human legal review.",
+        "message": "Your contract has been flagged for human legal review.",
     }
 
 
@@ -549,9 +653,14 @@ async def get_report_by_contract(contract_id: str, request: Request):
 
     # Verify ownership
     try:
-        contract_result = supabase.table("contracts").select(
-            "contract_id"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        contract_result = (
+            supabase.table("contracts")
+            .select("contract_id")
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -560,16 +669,21 @@ async def get_report_by_contract(contract_id: str, request: Request):
 
     # Fetch latest report
     try:
-        result = supabase.table("reports").select(
-            "report_id, pdf_url, generated_at, downloaded_count"
-        ).eq("contract_id", contract_id).order(
-            "generated_at", desc=True
-        ).limit(1).execute()
+        result = (
+            supabase.table("reports")
+            .select("report_id, pdf_url, generated_at, downloaded_count")
+            .eq("contract_id", contract_id)
+            .order("generated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail="Report fetch failed.")
 
     if not result.data:
-        raise HTTPException(status_code=404, detail="No report found for this contract.")
+        raise HTTPException(
+            status_code=404, detail="No report found for this contract."
+        )
 
     return result.data[0]
 
@@ -593,9 +707,14 @@ async def reanalyze_contract(
 
     # Verify ownership + fetch current status
     try:
-        result = supabase.table("contracts").select(
-            "contract_id, status"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        result = (
+            supabase.table("contracts")
+            .select("contract_id, status")
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -607,12 +726,14 @@ async def reanalyze_contract(
     if contract["status"] == "processing":
         raise HTTPException(
             status_code=409,
-            detail="Contract is currently being processed. Wait until complete."
+            detail="Contract is currently being processed. Wait until complete.",
         )
 
     # Delete existing flags
     try:
-        supabase.table("contract_flags").delete().eq("contract_id", contract_id).execute()
+        supabase.table("contract_flags").delete().eq(
+            "contract_id", contract_id
+        ).execute()
     except Exception as e:
         logger.error(f"Flag deletion failed for {contract_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to clear existing flags.")
@@ -625,32 +746,37 @@ async def reanalyze_contract(
 
     # Reset contract row
     try:
-        supabase.table("contracts").update({
-            "status":                "queued",
-            "risk_score":            None,
-            "error_reason":          None,
-            "jurisdiction":          None,
-            "legal_review_required": False,
-            "analyzed_at":           None,
-        }).eq("contract_id", contract_id).execute()
+        supabase.table("contracts").update(
+            {
+                "status": "queued",
+                "risk_score": None,
+                "error_reason": None,
+                "jurisdiction": None,
+                "legal_review_required": False,
+                "analyzed_at": None,
+            }
+        ).eq("contract_id", contract_id).execute()
     except Exception as e:
         logger.error(f"Contract reset failed for {contract_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to reset contract.")
 
     # Re-enqueue
     from worker import enqueue_contract_sync
+
     background_tasks.add_task(enqueue_contract_sync, contract_id)
 
     logger.info(f"Reanalysis queued: contract_id={contract_id} user={user_id}")
     return {
         "contract_id": contract_id,
-        "status":      "queued",
-        "message":     "Contract queued for re-analysis.",
+        "status": "queued",
+        "message": "Contract queued for re-analysis.",
     }
+
 
 # ADD this entire block before the line:
 # # =============================================================
 # # ADMIN — REVIEW QUEUE ENDPOINTS
+
 
 @app.get("/report/{contract_id}/pdf")
 async def download_report_pdf(contract_id: str, request: Request):
@@ -660,10 +786,17 @@ async def download_report_pdf(contract_id: str, request: Request):
     supabase = _get_supabase()
 
     try:
-        result = supabase.table("contracts").select(
-            "contract_id, status, risk_score, worker_name, employer_name, "
-            "country, original_filename, upload_date, analyzed_at, language"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        result = (
+            supabase.table("contracts")
+            .select(
+                "contract_id, status, risk_score, worker_name, employer_name, "
+                "country, original_filename, upload_date, analyzed_at, language"
+            )
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -676,15 +809,22 @@ async def download_report_pdf(contract_id: str, request: Request):
         raise HTTPException(status_code=425, detail="Analysis not complete.")
 
     try:
-        flags_result = supabase.table("contract_flags").select(
-            "flag_type, severity, title, description, clause_text, recommendation, legal_references"
-        ).eq("contract_id", contract_id).order("severity").execute()
+        flags_result = (
+            supabase.table("contract_flags")
+            .select(
+                "flag_type, severity, title, description, clause_text, recommendation, legal_references"
+            )
+            .eq("contract_id", contract_id)
+            .order("severity")
+            .execute()
+        )
         flags = flags_result.data or []
     except Exception:
         flags = []
 
     try:
         from pdf_generator import generate_pdf
+
         language = contract.get("language") or "en"
         pdf_bytes = generate_pdf(contract, flags, language)
     except Exception as e:
@@ -695,13 +835,15 @@ async def download_report_pdf(contract_id: str, request: Request):
     return StreamingResponse(
         BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
-
     # =============================================================
+
+
 # ADMIN — REVIEW QUEUE ENDPOINTS
 # =============================================================
+
 
 def _require_admin(request: Request) -> dict:
     user = _get_current_user(request)
@@ -716,9 +858,12 @@ async def get_review_queue(request: Request):
     _require_admin(request)
     supabase = _get_supabase()
     try:
-        result = supabase.table("human_review_queue").select(
-            "review_id, contract_id, reason, status, created_at"
-        ).order("created_at", desc=False).execute()
+        result = (
+            supabase.table("human_review_queue")
+            .select("review_id, contract_id, reason, status, created_at")
+            .order("created_at", desc=False)
+            .execute()
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch queue: {e}")
     return {"queue": result.data or []}
@@ -730,9 +875,13 @@ async def get_review_detail(review_id: str, request: Request):
     supabase = _get_supabase()
 
     try:
-        review = supabase.table("human_review_queue").select(
-            "review_id, contract_id, reason, status, created_at"
-        ).eq("review_id", review_id).single().execute()
+        review = (
+            supabase.table("human_review_queue")
+            .select("review_id, contract_id, reason, status, created_at")
+            .eq("review_id", review_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Review not found.")
 
@@ -742,23 +891,34 @@ async def get_review_detail(review_id: str, request: Request):
     contract_id = review.data["contract_id"]
 
     try:
-        contract = supabase.table("contracts").select(
-            "contract_id, status, risk_score, jurisdiction, language, upload_date, analyzed_at"
-        ).eq("contract_id", contract_id).single().execute()
+        contract = (
+            supabase.table("contracts")
+            .select(
+                "contract_id, status, risk_score, jurisdiction, language, upload_date, analyzed_at"
+            )
+            .eq("contract_id", contract_id)
+            .single()
+            .execute()
+        )
     except Exception:
         contract = None
 
     try:
-        flags = supabase.table("contract_flags").select(
-            "flag_id, severity, category, title, plain_language_explanation, ai_confidence"
-        ).eq("contract_id", contract_id).execute()
+        flags = (
+            supabase.table("contract_flags")
+            .select(
+                "flag_id, severity, category, title, plain_language_explanation, ai_confidence"
+            )
+            .eq("contract_id", contract_id)
+            .execute()
+        )
     except Exception:
         flags = None
 
     return {
-        "review":   review.data,
+        "review": review.data,
         "contract": contract.data if contract else None,
-        "flags":    flags.data if flags else [],
+        "flags": flags.data if flags else [],
     }
 
 
@@ -774,7 +934,10 @@ async def update_review_status(review_id: str, request: Request):
     admin_note = body.get("admin_note")
 
     if status not in ("pending", "reviewed", "rejected"):
-        raise HTTPException(status_code=400, detail="status must be 'pending', 'reviewed', or 'rejected'.")
+        raise HTTPException(
+            status_code=400,
+            detail="status must be 'pending', 'reviewed', or 'rejected'.",
+        )
 
     supabase = _get_supabase()
 
@@ -787,9 +950,12 @@ async def update_review_status(review_id: str, request: Request):
 
     try:
         logger.info(f"[admin] update_payload={update_payload} review_id={review_id}")
-        result = supabase.table("human_review_queue").update(
-            update_payload
-        ).eq("review_id", review_id).execute()
+        result = (
+            supabase.table("human_review_queue")
+            .update(update_payload)
+            .eq("review_id", review_id)
+            .execute()
+        )
         logger.info(f"[admin] update result={result.data}")
     except Exception as e:
         logger.error(f"[admin] update failed: {e}")
@@ -800,8 +966,9 @@ async def update_review_status(review_id: str, request: Request):
 
     return {"review_id": review_id, "status": status}
 
-
     # =============================================================
+
+
 # LEGAL Q&A CHAT ENDPOINT
 # =============================================================
 
@@ -844,6 +1011,7 @@ STEP 4 — ACTION: End every response with 2-3 concrete steps the worker can tak
 ## CRITICAL SAFETY RULE
 If the worker describes physical danger, document confiscation already happening, or being locked in — immediately tell them to contact local police, their embassy, or the ILO helpline BEFORE anything else. Safety first, legal explanation second."""
 
+
 @app.post("/report/{contract_id}/chat")
 async def chat_with_report(contract_id: str, request: Request):
     user = _get_current_user(request)
@@ -860,7 +1028,9 @@ async def chat_with_report(contract_id: str, request: Request):
     if not message:
         raise HTTPException(status_code=400, detail="message required.")
     if len(message) > 500:
-        raise HTTPException(status_code=400, detail="Message too long. Max 500 characters.")
+        raise HTTPException(
+            status_code=400, detail="Message too long. Max 500 characters."
+        )
     if len(history) > 20:
         history = history[-20:]
 
@@ -868,9 +1038,16 @@ async def chat_with_report(contract_id: str, request: Request):
 
     # Verify ownership
     try:
-        result = supabase.table("contracts").select(
-            "contract_id, status, risk_score, worker_name, employer_name, country, language"
-        ).eq("contract_id", contract_id).eq("user_id", user_id).single().execute()
+        result = (
+            supabase.table("contracts")
+            .select(
+                "contract_id, status, risk_score, worker_name, employer_name, country, language"
+            )
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -883,9 +1060,14 @@ async def chat_with_report(contract_id: str, request: Request):
 
     # Fetch flags
     try:
-        flags_result = supabase.table("contract_flags").select(
-            "flag_type, severity, title, description, recommendation, legal_references"
-        ).eq("contract_id", contract_id).execute()
+        flags_result = (
+            supabase.table("contract_flags")
+            .select(
+                "flag_type, severity, title, description, recommendation, legal_references"
+            )
+            .eq("contract_id", contract_id)
+            .execute()
+        )
         flags = flags_result.data or []
     except Exception:
         flags = []
@@ -913,7 +1095,10 @@ async def chat_with_report(contract_id: str, request: Request):
     # Build messages
     messages = [
         {"role": "user", "content": f"{CHAT_SYSTEM_PROMPT}\n\n{context}"},
-        {"role": "assistant", "content": "Understood. I have reviewed this contract's risk analysis. What would you like to know?"},
+        {
+            "role": "assistant",
+            "content": "Understood. I have reviewed this contract's risk analysis. What would you like to know?",
+        },
     ]
     for turn in history:
         role = turn.get("role")
@@ -925,7 +1110,8 @@ async def chat_with_report(contract_id: str, request: Request):
     # Call Groq
     try:
         from groq import Groq as GroqClient
-        groq = GroqClient(api_key=GROQ_API_KEY)
+
+        groq = GroqClient(api_key=CHAT_GROQ_API_KEY)
         response = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
@@ -935,18 +1121,175 @@ async def chat_with_report(contract_id: str, request: Request):
         answer = response.choices[0].message.content.strip()
     except Exception as e:
         logger.error(f"[chat] Groq error: {e}")
-        raise HTTPException(status_code=502, detail="AI service unavailable. Try again shortly.")
+        raise HTTPException(
+            status_code=502, detail="AI service unavailable. Try again shortly."
+        )
 
     logger.info(f"[chat] contract={contract_id} user={user_id} q_len={len(message)}")
     return {"answer": answer, "contract_id": contract_id}
 
     logger.info(f"[chat] contract={contract_id} user={user_id} q_len={len(message)}")
     return {"answer": answer, "contract_id": contract_id}
+
+    # =============================================================
+
+
+# COMPLIANCE REPORT GENERATOR
+# =============================================================
+from pydantic import BaseModel
+
+
+class ComplianceReportRequest(BaseModel):
+    origin: str
+    destination: str
+    job: str
+    lang: str
+    departure: Optional[str] = None
+
+
+_LANG_NAMES = {
+    "ne": "Nepali (Devanagari script)",
+    "hi": "Hindi (Devanagari script)",
+    "ar": "Arabic (RTL script)",
+    "tl": "Filipino/Tagalog",
+    "bn": "Bengali (Bangla script)",
+    "en": "English",
+}
+
+_DEST_NAMES = {
+    "KW": {
+        "en": "Kuwait",
+        "ne": "कुवेत",
+        "hi": "कुवैत",
+        "ar": "الكويت",
+        "tl": "Kuwait",
+        "bn": "কুয়েত",
+    },
+    "OM": {
+        "en": "Oman",
+        "ne": "ओमान",
+        "hi": "ओमान",
+        "ar": "عمان",
+        "tl": "Oman",
+        "bn": "ওমান",
+    },
+    "MY": {
+        "en": "Malaysia",
+        "ne": "मलेसिया",
+        "hi": "मलेशिया",
+        "ar": "ماليزيا",
+        "tl": "Malaysia",
+        "bn": "মালয়েশিয়া",
+    },
+    "AE": {
+        "en": "UAE",
+        "ne": "यूएई",
+        "hi": "यूएई",
+        "ar": "الإمارات",
+        "tl": "UAE",
+        "bn": "ইউএই",
+    },
+    "SA": {
+        "en": "Saudi Arabia",
+        "ne": "साउदी अरब",
+        "hi": "सऊदी अरब",
+        "ar": "السعودية",
+        "tl": "Saudi Arabia",
+        "bn": "সৌদি আরব",
+    },
+    "QA": {
+        "en": "Qatar",
+        "ne": "कतार",
+        "hi": "कतर",
+        "ar": "قطر",
+        "tl": "Qatar",
+        "bn": "কাতার",
+    },
+}
+
+
+@app.post("/api/compliance-report/generate")
+async def generate_compliance_report(req: ComplianceReportRequest):
+    from groq import Groq as GroqClient
+
+    groq = GroqClient(api_key=CHAT_GROQ_API_KEY)
+
+    coverage_map = {
+        "KW": "full",
+        "OM": "full",
+        "MY": "full",
+        "AE": "partial",
+        "SA": "partial",
+        "QA": "partial",
+    }
+    coverage = coverage_map.get(req.destination, "partial")
+
+    dest_name_native = _DEST_NAMES.get(req.destination, {}).get(
+        req.lang, req.destination
+    )
+    dest_name_en = _DEST_NAMES.get(req.destination, {}).get("en", req.destination)
+    example_source = (
+        f"{dest_name_native} श्रम कानून, धारा ४९"
+        if req.lang == "ne"
+        else f"{dest_name_native} labour law, Article 49"
+    )
+
+    system_prompt = f"""You are MigrantShield's legal expert AI. Generate a Pre-Departure Legal Shield report for migrant workers.
+
+DESTINATION COUNTRY: {dest_name_en} (code: {req.destination})
+Coverage status for {dest_name_en}: {("FULL - use specific law citations" if coverage == "full" else "PARTIAL - use ILO international standards primarily")}.
+
+RULES:
+- CRITICAL: Every single law citation in "source" MUST refer to {dest_name_en}'s own labour law, or a named ILO Convention. NEVER cite any other country's law. This report is ONLY for {dest_name_en} — citing any other country's law is a FAILURE.
+- ONLY cite article numbers you are certain exist
+- Each "source" must be specific and different — never repeat the same source for every item
+- For full coverage destinations, include actual article numbers naming {dest_name_en} explicitly (e.g. "{example_source}")
+- For partial coverage, name the specific ILO convention number
+- For partial coverage, say "refer to [law name] for details" instead of inventing article numbers
+- Keep points concise, actionable, plain language
+- Legal terms must be written in {_LANG_NAMES[req.lang]} first, followed by English in parentheses only if needed for clarity, e.g. "रोजगार अनुबंध (Employment Contract)" not "(Employment Contract) की शर्तों"
+- The "source" field must also be written in {_LANG_NAMES[req.lang]} — never leave source in English
+- User language: {req.lang}
+- Each "point" must be a unique, specific legal violation — do NOT repeat the same sentence pattern for every item
+- Write natural sentences, not templates
+
+Respond ONLY with valid JSON, no markdown, no preamble:
+{{
+  "illegal": [{{"point": "...", "source": "..."}}],
+  "rights": [{{"point": "...", "source": "..."}}],
+  "checklist": ["..."],
+  "warnings": ["..."]
+}}
+
+Destination: {dest_name_en}
+Origin: {req.origin}
+Job: {req.job}
+Provide 5-6 illegal items, 5-6 rights, 6-8 checklist items, 3 warnings.
+
+LANGUAGE RULE (MANDATORY):
+{"All output must be in English only." if req.lang == "en" else f"You MUST write ALL text in {_LANG_NAMES[req.lang]} script. Every 'point', 'source', checklist item, and warning MUST be in {_LANG_NAMES[req.lang]}. Legal terms may appear in English inside parentheses only. Writing in English is a failure. Example source: '{example_source}'."}"""
+    try:
+        result = groq_chat_with_retry(
+            groq=groq,
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": system_prompt}],
+            temperature=0.1,
+            max_tokens=2000,
+        )
+        import json
+
+        clean = result.replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(clean)
+        return {"data": parsed, "coverage": coverage}
+    except Exception as e:
+        logger.error(f"[compliance-report] generation failed: {e}")
+        raise HTTPException(status_code=502, detail="Report generation failed.")
 
 
 # =============================================================
 # SHARE ENDPOINTS
 # =============================================================
+
 
 @app.post("/report/{contract_id}/share")
 async def create_share_token(contract_id: str, request: Request):
@@ -957,9 +1300,14 @@ async def create_share_token(contract_id: str, request: Request):
 
     # Verify ownership
     try:
-        result = supabase.table("contracts").select("contract_id, status").eq(
-            "contract_id", contract_id
-        ).eq("user_id", user_id).single().execute()
+        result = (
+            supabase.table("contracts")
+            .select("contract_id, status")
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -971,9 +1319,13 @@ async def create_share_token(contract_id: str, request: Request):
 
     # Check existing active token
     try:
-        existing = supabase.table("contract_shares").select("share_token, expires_at").eq(
-            "contract_id", contract_id
-        ).eq("revoked", False).execute()
+        existing = (
+            supabase.table("contract_shares")
+            .select("share_token, expires_at")
+            .eq("contract_id", contract_id)
+            .eq("revoked", False)
+            .execute()
+        )
         if existing.data:
             token = existing.data[0]["share_token"]
             return {"share_token": token, "contract_id": contract_id}
@@ -982,11 +1334,19 @@ async def create_share_token(contract_id: str, request: Request):
 
     # Create new token
     try:
-        ins = supabase.table("contract_shares").insert({
-            "contract_id": contract_id,
-            "created_by":  user_id,
-            "expires_at":  (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
-        }).execute()
+        ins = (
+            supabase.table("contract_shares")
+            .insert(
+                {
+                    "contract_id": contract_id,
+                    "created_by": user_id,
+                    "expires_at": (
+                        datetime.now(timezone.utc) + timedelta(days=30)
+                    ).isoformat(),
+                }
+            )
+            .execute()
+        )
         token = ins.data[0]["share_token"]
     except Exception as e:
         logger.error(f"Share token creation failed: {e}")
@@ -1002,9 +1362,13 @@ async def get_shared_report(share_token: str):
 
     # Validate token
     try:
-        share = supabase.table("contract_shares").select(
-            "contract_id, expires_at, revoked"
-        ).eq("share_token", share_token).single().execute()
+        share = (
+            supabase.table("contract_shares")
+            .select("contract_id, expires_at, revoked")
+            .eq("share_token", share_token)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Share link not found.")
 
@@ -1015,17 +1379,25 @@ async def get_shared_report(share_token: str):
     if s["revoked"]:
         raise HTTPException(status_code=410, detail="Share link has been revoked.")
 
-    if datetime.fromisoformat(s["expires_at"].replace("Z", "+00:00")) < datetime.now(timezone.utc):
+    if datetime.fromisoformat(s["expires_at"].replace("Z", "+00:00")) < datetime.now(
+        timezone.utc
+    ):
         raise HTTPException(status_code=410, detail="Share link has expired.")
 
     contract_id = s["contract_id"]
 
     # Fetch contract
     try:
-        result = supabase.table("contracts").select(
-            "contract_id, status, risk_score, worker_name, employer_name, "
-            "country, original_filename, upload_date, analyzed_at, language"
-        ).eq("contract_id", contract_id).single().execute()
+        result = (
+            supabase.table("contracts")
+            .select(
+                "contract_id, status, risk_score, worker_name, employer_name, "
+                "country, original_filename, upload_date, analyzed_at, language"
+            )
+            .eq("contract_id", contract_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -1035,29 +1407,35 @@ async def get_shared_report(share_token: str):
 
     # Fetch flags
     try:
-        flags_result = supabase.table("contract_flags").select(
-            "flag_id, flag_type, severity, title, description, clause_text, "
-            "recommendation, mitigation_steps, legal_references, created_at"
-        ).eq("contract_id", contract_id).order("severity").execute()
+        flags_result = (
+            supabase.table("contract_flags")
+            .select(
+                "flag_id, flag_type, severity, title, description, clause_text, "
+                "recommendation, mitigation_steps, legal_references, created_at"
+            )
+            .eq("contract_id", contract_id)
+            .order("severity")
+            .execute()
+        )
         flags = flags_result.data or []
     except Exception:
         flags = []
 
     return {
-        "contract_id":       contract["contract_id"],
-        "worker_name":       contract.get("worker_name"),
-        "employer_name":     contract.get("employer_name"),
-        "country":           contract.get("country"),
+        "contract_id": contract["contract_id"],
+        "worker_name": contract.get("worker_name"),
+        "employer_name": contract.get("employer_name"),
+        "country": contract.get("country"),
         "original_filename": contract.get("original_filename"),
-        "upload_date":       contract.get("upload_date"),
-        "analyzed_at":       contract.get("analyzed_at"),
-        "language":          contract.get("language", "en"),
-        "risk_score":        contract.get("risk_score"),
-        "flags":             flags,
-        "flags_count":       len(flags),
-        "critical_count":    sum(1 for f in flags if f["severity"] == "critical"),
-        "warning_count":     sum(1 for f in flags if f["severity"] == "warning"),
-        "info_count":        sum(1 for f in flags if f["severity"] == "info"),
+        "upload_date": contract.get("upload_date"),
+        "analyzed_at": contract.get("analyzed_at"),
+        "language": contract.get("language", "en"),
+        "risk_score": contract.get("risk_score"),
+        "flags": flags,
+        "flags_count": len(flags),
+        "critical_count": sum(1 for f in flags if f["severity"] == "critical"),
+        "warning_count": sum(1 for f in flags if f["severity"] == "warning"),
+        "info_count": sum(1 for f in flags if f["severity"] == "info"),
     }
 
 
@@ -1070,9 +1448,14 @@ async def revoke_share_token(contract_id: str, request: Request):
 
     # Verify ownership
     try:
-        result = supabase.table("contracts").select("contract_id").eq(
-            "contract_id", contract_id
-        ).eq("user_id", user_id).single().execute()
+        result = (
+            supabase.table("contracts")
+            .select("contract_id")
+            .eq("contract_id", contract_id)
+            .eq("user_id", user_id)
+            .single()
+            .execute()
+        )
     except Exception:
         raise HTTPException(status_code=404, detail="Contract not found.")
 
@@ -1088,3 +1471,79 @@ async def revoke_share_token(contract_id: str, request: Request):
 
     logger.info(f"Share revoked: contract={contract_id} user={user_id}")
     return {"status": "revoked", "contract_id": contract_id}
+
+
+# =============================================================
+# CHAT ENDPOINT
+# =============================================================
+from pydantic import BaseModel
+from typing import List
+
+
+class ChatMessageItem(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessageItem]
+
+
+@app.post("/api/chat")
+async def chat_endpoint(req: ChatRequest):
+    try:
+        # Extract last user message for RAG
+        user_messages = [m for m in req.messages if m.role == "user"]
+        last_query = " ".join(m.content for m in req.messages if m.role == "user")
+
+        # Detect country from conversation
+
+        country = _detect_country(last_query)
+        filter_countries = [country, "ILO"] if country else ["ILO"]
+
+        # RAG retrieval
+
+        corpus_text = retrieve_legal_context(
+            contract_text=last_query,
+            filter_countries=filter_countries,
+            top_k=5,
+        )
+
+        # Inject RAG into system prompt
+        messages = [m.dict() for m in req.messages]
+        if corpus_text:
+            sys_msgs = [m for m in messages if m["role"] == "system"]
+            if sys_msgs:
+                sys_msgs[0][
+                    "content"
+                ] += f"\n\n=== VERIFIED LEGAL CORPUS ===\n{corpus_text}\n\nCite law_title and article numbers exactly."
+            else:
+                messages.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": f"=== VERIFIED LEGAL CORPUS ===\n{corpus_text}\n\nCite law_title and article numbers exactly.",
+                    },
+                )
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            res = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {CHAT_GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "max_tokens": 1024,
+                    "temperature": 0.7,
+                    "messages": messages,
+                },
+            )
+        res.raise_for_status()
+        data = res.json()
+        reply = data["choices"][0]["message"]["content"]
+        return {"reply": reply}
+    except Exception as e:
+        logger.error(f"Chat endpoint error: {e}")
+        raise HTTPException(status_code=500, detail="Chat service unavailable")

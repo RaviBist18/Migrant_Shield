@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient } from "@supabase/ssr";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -15,7 +15,7 @@ import {
   ChevronRight,
   FileText,
 } from "lucide-react";
-import React from 'react';
+import React from "react";
 
 // =============================================================
 // TYPES
@@ -31,6 +31,8 @@ interface ContractFlag {
   mitigation_steps: string[] | string;
   legal_references: string[] | string;
   ai_confidence: number;
+  legal_status: "ILLEGAL" | "RESTRICTED" | "ENFORCEABLE" | "UNKNOWN" | null;
+  law_citation: string | null;
 }
 
 // =============================================================
@@ -85,33 +87,38 @@ function toArray(val: string[] | string | null | undefined): string[] {
 // COMPONENT
 // =============================================================
 export default function FlagDetailPage() {
-  const params   = useParams();
-  const router   = useRouter();
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const params = useParams();
+  const router = useRouter();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
   const [session, setSession] = useState<any>(null);
 
-useEffect(() => {
-  supabase.auth.getSession().then(({ data }) => {
-    setSession(data.session);
-  });
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    setSession(session);
-  });
-  return () => subscription.unsubscribe();
-}, []);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   const contractId = params?.id as string;
-  const issueId    = params?.issue_id as string;
+  const issueId = params?.issue_id as string;
 
-  const [flag, setFlag]         = useState<ContractFlag | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [flag, setFlag] = useState<ContractFlag | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Flag as incorrect state
-  const [showFeedback, setShowFeedback]       = useState(false);
-  const [feedbackText, setFeedbackText]       = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
-  const [feedbackError, setFeedbackError]     = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   // =============================================================
   // HARDWARE BACK-BUTTON GUARD
@@ -141,7 +148,7 @@ useEffect(() => {
         .single();
 
       if (dbError) throw new Error("Flag not found or access denied.");
-      if (!data)   throw new Error("Flag not found.");
+      if (!data) throw new Error("Flag not found.");
       setFlag(data as ContractFlag);
     } catch (err: any) {
       setError(err.message || "Failed to load flag details.");
@@ -166,10 +173,10 @@ useEffect(() => {
       const { error: insertError } = await supabase
         .from("flag_feedback")
         .insert({
-          flag_id:     issueId,
+          flag_id: issueId,
           contract_id: contractId,
-          feedback:    feedbackText.trim(),
-          created_at:  new Date().toISOString(),
+          feedback: feedbackText.trim(),
+          created_at: new Date().toISOString(),
         });
 
       if (insertError) throw new Error(insertError.message);
@@ -208,7 +215,10 @@ useEffect(() => {
           <p className="text-slate-600 text-sm mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => { setLoading(true); fetchFlag(); }}
+              onClick={() => {
+                setLoading(true);
+                fetchFlag();
+              }}
               className="bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors inline-flex items-center gap-2"
             >
               <RefreshCw className="w-4 h-4" /> Retry
@@ -227,16 +237,15 @@ useEffect(() => {
 
   if (!flag) return null;
 
-  const ss              = severityStyles(flag.severity);
+  const ss = severityStyles(flag.severity);
   const mitigationSteps = toArray(flag.mitigation_steps);
-  const legalRefs       = toArray(flag.legal_references);
+  const legalRefs = toArray(flag.legal_references);
 
   // =============================================================
   // MAIN RENDER
   // =============================================================
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-
       {/* --------------------------------------------------------
           LEGAL BANNER — non-dismissible
       -------------------------------------------------------- */}
@@ -244,8 +253,8 @@ useEffect(() => {
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
           <p className="text-amber-800 text-xs">
-            <span className="font-bold">Not Legal Advice.</span>{" "}
-            AI-generated analysis only. Consult a legal professional.
+            <span className="font-bold">Not Legal Advice.</span> AI-generated
+            analysis only. Consult a legal professional.
           </p>
         </div>
       </div>
@@ -264,7 +273,6 @@ useEffect(() => {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
-
         {/* -------------------------------------------------------
             SEVERITY HEADER BLOCK
         ------------------------------------------------------- */}
@@ -273,10 +281,25 @@ useEffect(() => {
             <div className="flex-shrink-0 mt-0.5">{ss.icon}</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-2">
-                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${ss.badge}`}>
+                <span
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${ss.badge}`}
+                >
                   {flag.severity}
                 </span>
                 <span className="text-xs text-slate-500">{flag.category}</span>
+                {flag.legal_status && flag.legal_status !== "UNKNOWN" && (
+                  <span
+                    className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                      flag.legal_status === "ILLEGAL"
+                        ? "bg-red-100 text-red-700 border-red-200"
+                        : flag.legal_status === "RESTRICTED"
+                          ? "bg-amber-100 text-amber-700 border-amber-200"
+                          : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                    }`}
+                  >
+                    {flag.legal_status}
+                  </span>
+                )}
               </div>
               <h1 className={`text-base font-bold leading-snug ${ss.text}`}>
                 {flag.title}
@@ -287,7 +310,9 @@ useEffect(() => {
                 <div className="flex-1 bg-white rounded-full h-1.5 border border-slate-200 overflow-hidden">
                   <div
                     className={`h-full rounded-full ${ss.bar}`}
-                    style={{ width: `${Math.round(flag.ai_confidence * 100)}%` }}
+                    style={{
+                      width: `${Math.round(flag.ai_confidence * 100)}%`,
+                    }}
                   />
                 </div>
                 <span className="text-xs text-slate-400 flex-shrink-0">
@@ -351,7 +376,9 @@ useEffect(() => {
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center mt-0.5">
                     {idx + 1}
                   </span>
-                  <p className="text-slate-700 text-sm leading-relaxed">{step}</p>
+                  <p className="text-slate-700 text-sm leading-relaxed">
+                    {step}
+                  </p>
                 </li>
               ))}
             </ol>
@@ -375,14 +402,17 @@ useEffect(() => {
                   key={idx}
                   className="flex items-start gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2"
                 >
-                  <span className="text-slate-400 text-xs mt-0.5 flex-shrink-0">§</span>
+                  <span className="text-slate-400 text-xs mt-0.5 flex-shrink-0">
+                    §
+                  </span>
                   <p className="text-slate-700 text-sm leading-snug">{ref}</p>
                 </li>
               ))}
             </ul>
             <p className="text-slate-400 text-xs mt-3 leading-relaxed">
-              References are AI-generated and may not be complete or jurisdiction-specific.
-              Verify all citations with a qualified legal professional.
+              References are AI-generated and may not be complete or
+              jurisdiction-specific. Verify all citations with a qualified legal
+              professional.
             </p>
           </div>
         )}
@@ -419,8 +449,8 @@ useEffect(() => {
 
           {!feedbackSuccess && (
             <p className="text-slate-500 text-xs leading-relaxed">
-              If this flag appears incorrect or irrelevant, report it so our team
-              can improve the AI model.
+              If this flag appears incorrect or irrelevant, report it so our
+              team can improve the AI model.
             </p>
           )}
 
@@ -471,9 +501,9 @@ useEffect(() => {
             <span className="font-semibold text-slate-600">
               Automated Translation Aid Only — Not Legal Advice.
             </span>{" "}
-            This flag was identified by an AI model and may not reflect your specific
-            legal jurisdiction. Always seek qualified legal assistance before acting
-            on any finding in this report.
+            This flag was identified by an AI model and may not reflect your
+            specific legal jurisdiction. Always seek qualified legal assistance
+            before acting on any finding in this report.
           </p>
         </div>
 

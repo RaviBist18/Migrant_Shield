@@ -177,7 +177,7 @@ export default function GlobalHeader() {
   }).length;
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
+    <header className="sticky top-0 z-50 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* ── Brand ── */}
         <Link
@@ -205,13 +205,13 @@ export default function GlobalHeader() {
         </Link>
 
         {/* ── Right actions ── */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-4">
           {/* Upload CTA */}
           <button
             onClick={() => router.push("/upload")}
-            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-700 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-medium px-3 py-1.5 rounded-lg text-sm transition-colors"
+            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-700 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-medium px-4 py-1 rounded-lg text-sm transition-colors mr-2"
           >
-            <Upload size={14} />{" "}
+            <Upload size={16} />{" "}
             <span suppressHydrationWarning>
               {lang === "ne" ? "अपलोड" : "Upload"}
             </span>
@@ -221,7 +221,7 @@ export default function GlobalHeader() {
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full p-0.5 gap-0.5">
             <button
               onClick={() => toggleLang("en")}
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all ${
                 lang === "en"
                   ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-700"
@@ -231,7 +231,7 @@ export default function GlobalHeader() {
             </button>
             <button
               onClick={() => toggleLang("ne")}
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+              className={`px-2 py-1 rounded-full text-xs font-semibold transition-all ${
                 lang === "ne"
                   ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-700"
@@ -262,7 +262,7 @@ export default function GlobalHeader() {
               </button>
 
               {bellOpen && (
-                <div className="absolute right-0 top-11 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 overflow-hidden">
+                <div className="absolute right-0 top-11 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 overflow-hidden">
                   {/* Bell header */}
                   <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div>
@@ -395,9 +395,17 @@ export default function GlobalHeader() {
                 onClick={() => setOpen((prev) => !prev)}
                 className="flex items-center gap-1 pl-1 pr-1 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center text-sm font-semibold">
-                  {initials}
-                </div>
+                {user?.user_metadata?.avatar_url ? (
+                  <img
+                    src={user.user_metadata.avatar_url}
+                    alt={displayName}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center text-sm font-semibold">
+                    {initials}
+                  </div>
+                )}
                 <ChevronDown
                   size={13}
                   className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
