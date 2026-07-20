@@ -636,7 +636,7 @@ export default function DashboardPage() {
         ) : (
           <>
             {/* ── Greeting ── */}
-            <div className="mb-6 mt-5">
+            <div className="mb-5 mt-5">
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight mt-[-20px]">
                 {totalContracts === 0
                   ? `${t.welcomeMsg}${userName ? `, ${userName}` : ""}.`
@@ -699,7 +699,7 @@ export default function DashboardPage() {
               )}
 
             {/* ── Sample Report (always visible) ── */}
-            <div className="mb-5 mt-4">
+            <div className="mb-5 mt-5">
               <button
                 onClick={() =>
                   router.push(
@@ -724,7 +724,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ── Stat cards ── */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-5 mt-8">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-6 mt-6">
               {statCards.map((card) => {
                 const isActive = activeFilter === card.key;
                 const isFailed = card.key === "failed";
@@ -812,7 +812,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-5 mt-5">
                   {t.whatsNext}
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 mb-2">
                   {[
                     {
                       label: t.uploadNewContract,
