@@ -175,16 +175,16 @@ function getRiskCircleStyle(score: number, ui: (typeof UI_STRINGS)["en"]) {
     };
   if (score >= 40)
     return {
-      ring: "border-amber-400",
+      ring: "border-amber-500",
       text: "text-amber-600",
       label: "Caution",
-      labelColor: "text-amber-500",
+      labelColor: "text-amber-600",
     };
   return {
     ring: "border-emerald-500",
     text: "text-emerald-600",
     label: "Low Risk",
-    labelColor: "text-emerald-500",
+    labelColor: "text-emerald-600",
   };
 }
 
@@ -1583,7 +1583,7 @@ function CompactFlagCard({
 
   let explanationPoints: string[] = flag.description
     ? flag.description
-        .split(/(?<=[.!?])\s+/)
+        .split(/(?<=[.!?।])\s+/)
         .map((s) => s.trim())
         .filter(Boolean)
     : [];
@@ -1898,8 +1898,9 @@ function FullFlagCard({
           <div className="px-5 py-5 space-y-6">
             {flag.clause_text && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
-                  <FileText className="w-3.5 h-3.5" /> {ui.extractedClause}
+                <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-2">
+                  <FileText className="w-3.5 h-3.5 text-blue-500" />{" "}
+                  {ui.extractedClause}
                 </p>
                 <div
                   className={`border-l-2 ${sc.clauseBorder} bg-slate-50 dark:bg-slate-900/40 px-4 py-3.5 rounded-r-lg`}
@@ -1912,8 +1913,9 @@ function FullFlagCard({
             )}
 
             <div>
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
-                <BookOpen className="w-3.5 h-3.5" /> {ui.plainExplanation}
+              <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-2.5">
+                <BookOpen className="w-3.5 h-3.5 text-indigo-500" />{" "}
+                {ui.plainExplanation}
               </p>
               <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                 {flag.description}
@@ -1922,14 +1924,15 @@ function FullFlagCard({
 
             {steps.length > 0 && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-3">
-                  <ShieldCheck className="w-3.5 h-3.5" /> {ui.whatYouCanDo}
+                <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-3">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                  {ui.whatYouCanDo}
                 </p>
                 <div className="space-y-3">
                   {steps.map((step, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                        <Check className="w-4 h-4 text-slate-500 dark:text-slate-300" />
+                        <Check className="w-4 h-4 text-emerald-500" />
                       </span>
                       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                         {step}
@@ -1942,22 +1945,20 @@ function FullFlagCard({
 
             {refs.length > 0 && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
-                  <Scale className="w-3.5 h-3.5" /> {ui.legalReferences}
+                <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-2.5">
+                  <Scale className="w-3.5 h-3.5 text-amber-500" />{" "}
+                  {ui.legalReferences}
                 </p>
-                <div className="flex flex-wrap gap-2 mb-2.5">
+                <div className="flex flex-wrap gap-2">
                   {refs.map((ref, i) => (
                     <span
                       key={i}
-                      className="border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 py-1.5 px-3 rounded-lg text-xs font-medium"
+                      className="border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 py-1.5 px-3 rounded-lg text-xs font-medium"
                     >
                       {ref}
                     </span>
                   ))}
                 </div>
-                <p className="text-slate-400 dark:text-slate-500 text-[11px] leading-relaxed">
-                  {ui.referencesNote}
-                </p>
               </div>
             )}
           </div>
@@ -2128,25 +2129,32 @@ function FlagBulletItem({
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-3">
+        <div className="px-4 pb-4 space-y-5 border-t border-slate-100 dark:border-slate-800 pt-4">
           <div className="flex items-center gap-2">
             <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-slate-800 dark:bg-slate-300 rounded-full"
+                className={`h-full rounded-full ${
+                  flag.severity === "critical"
+                    ? "bg-red-500"
+                    : flag.severity === "warning"
+                      ? "bg-amber-500"
+                      : "bg-slate-500"
+                }`}
                 style={{ width: `${confidence}%` }}
               />
             </div>
-            <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
               {confidence}% {ui.aiConfidence}
             </span>
           </div>
 
           {flag.clause_text && (
             <div>
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2">
-                <FileText className="w-3.5 h-3.5" /> {ui.extractedClause}
+              <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-2">
+                <FileText className="w-3.5 h-3.5 text-blue-500" />{" "}
+                {ui.extractedClause}
               </p>
-              <div className="border-l-2 border-slate-300 bg-slate-50 dark:bg-slate-900/40 px-4 py-3 rounded-r-lg">
+              <div className="border-l-[3px] border-l-blue-400 bg-blue-50/50 dark:bg-blue-950/20 px-4 py-3 rounded-r-lg">
                 <p className="font-mono text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                   {flag.clause_text}
                 </p>
@@ -2155,14 +2163,15 @@ function FlagBulletItem({
           )}
 
           <div>
-            <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
-              <BookOpen className="w-3.5 h-3.5" /> {ui.plainExplanation}
+            <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-2.5">
+              <BookOpen className="w-3.5 h-3.5 text-indigo-500" />{" "}
+              {ui.plainExplanation}
             </p>
             <div className="space-y-2.5">
               {explanationPoints.map((point, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                    <ArrowRight className="w-4 h-4 text-slate-500 dark:text-slate-300" />
+                    <ArrowRight className="w-4 h-4 text-indigo-500" />
                   </span>
                   <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                     {point}
@@ -2174,14 +2183,15 @@ function FlagBulletItem({
 
           {steps.length > 0 && (
             <div>
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2.5">
-                <ShieldCheck className="w-3.5 h-3.5" /> {ui.whatYouCanDo}
+              <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-2.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                {ui.whatYouCanDo}
               </p>
               <div className="space-y-2.5">
                 {steps.map((step, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                      <Check className="w-4 h-4 text-slate-500 dark:text-slate-300" />
+                      <Check className="w-4 h-4 text-emerald-500" />
                     </span>
                     <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                       {step}
@@ -2194,22 +2204,20 @@ function FlagBulletItem({
 
           {refs.length > 0 && (
             <div>
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5 mb-2">
-                <Scale className="w-3.5 h-3.5" /> {ui.legalReferences}
+              <p className="text-[11.5px] uppercase tracking-wide font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-2">
+                <Scale className="w-3.5 h-3.5 text-amber-500" />{" "}
+                {ui.legalReferences}
               </p>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2">
                 {refs.map((ref, i) => (
                   <span
                     key={i}
-                    className="border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 py-1 px-3 rounded-lg text-xs"
+                    className="border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 py-1 px-3 rounded-lg text-xs font-medium"
                   >
                     {ref}
                   </span>
                 ))}
               </div>
-              <p className="text-slate-400 dark:text-slate-500 text-[11px]">
-                {ui.referencesNote}
-              </p>
             </div>
           )}
         </div>
@@ -2470,24 +2478,6 @@ function ReportPageInner() {
                       <Globe className="w-3 h-3" /> {langLabel}
                     </span>
                   )}
-                </div>
-
-                {/* PROGRESS */}
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-xs font-medium text-slate-500">
-                      {ui.riskScore}
-                    </p>
-                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {report.risk_score} / 100
-                    </p>
-                  </div>
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${progressColor}`}
-                      style={{ width: `${report.risk_score}%` }}
-                    />
-                  </div>
                 </div>
               </div>
 

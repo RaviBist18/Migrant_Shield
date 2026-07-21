@@ -15,6 +15,7 @@ interface ContractFlag {
   description: string;
   clause_text: string | null;
   recommendation: string;
+  mitigation_steps: string[];
   created_at: string;
 }
 
@@ -41,6 +42,257 @@ function resolveVerdict(score: number): { label: string; color: string } {
   if (score >= 70) return { label: "HIGH RISK", color: "#dc2626" };
   if (score >= 40) return { label: "REVIEW REQUIRED", color: "#d97706" };
   return { label: "LOW RISK", color: "#16a34a" };
+}
+
+const FLAG_TYPE_LABELS: Record<string, Record<string, string>> = {
+  passport_confiscation: {
+    en: "Passport Confiscation",
+    ne: "राहदानी जफत",
+    hi: "पासपोर्ट जब्ती",
+    ar: "مصادرة جواز السفر",
+    tl: "Pagkumpiska ng Pasaporte",
+    bn: "পাসপোর্ট বাজেয়াপ্ত",
+  },
+  recruitment_fee: {
+    en: "Recruitment Fee",
+    ne: "भर्ती शुल्क",
+    hi: "भर्ती शुल्क",
+    ar: "رسوم التوظيف",
+    tl: "Bayad sa Recruitment",
+    bn: "নিয়োগ ফি",
+  },
+  wage_deduction: {
+    en: "Wage Deduction",
+    ne: "ज्याला कटौती",
+    hi: "वेतन कटौती",
+    ar: "خصم الأجر",
+    tl: "Pagbabawas ng Sahod",
+    bn: "মজুরি কর্তন",
+  },
+  movement_restriction: {
+    en: "Movement Restriction",
+    ne: "आवागमन प्रतिबन्ध",
+    hi: "आवाजाही प्रतिबंध",
+    ar: "تقييد حرية التنقل",
+    tl: "Paghihigpit sa Kilusan",
+    bn: "চলাচলে বিধিনিষেধ",
+  },
+  no_termination_right: {
+    en: "No Termination Right",
+    ne: "अन्त्य गर्ने अधिकार छैन",
+    hi: "समाप्ति का अधिकार नहीं",
+    ar: "لا حق في إنهاء العقد",
+    tl: "Walang Karapatang Wakasan",
+    bn: "চুক্তি বাতিলের অধিকার নেই",
+  },
+  debt_bondage: {
+    en: "Debt Bondage",
+    ne: "ऋण बन्धन",
+    hi: "ऋण बंधन",
+    ar: "عبودية الديون",
+    tl: "Pagkaalipin sa Utang",
+    bn: "ঋণ দাসত্ব",
+  },
+  deportation_threat: {
+    en: "Deportation Threat",
+    ne: "निष्कासनको धम्की",
+    hi: "निर्वासन की धमकी",
+    ar: "التهديد بالترحيل",
+    tl: "Banta ng Deportasyon",
+    bn: "বহিষ্কারের হুমকি",
+  },
+  excessive_working_hours: {
+    en: "Excessive Working Hours",
+    ne: "अत्यधिक काम घण्टा",
+    hi: "अत्यधिक कार्य घंटे",
+    ar: "ساعات عمل مفرطة",
+    tl: "Labis na Oras ng Trabaho",
+    bn: "অতিরিক্ত কাজের সময়",
+  },
+  below_minimum_wage: {
+    en: "Below Minimum Wage",
+    ne: "न्यूनतम ज्यालाभन्दा कम",
+    hi: "न्यूनतम वेतन से कम",
+    ar: "أقل من الحد الأدنى للأجر",
+    tl: "Mababa sa Minimum Wage",
+    bn: "ন্যূনতম মজুরির নিচে",
+  },
+  excessive_probation: {
+    en: "Excessive Probation",
+    ne: "अत्यधिक परिवीक्षा अवधि",
+    hi: "अत्यधिक परिवीक्षा अवधि",
+    ar: "فترة تجربة مفرطة",
+    tl: "Labis na Probation",
+    bn: "অতিরিক্ত পরীক্ষামূলক সময়",
+  },
+  excessive_notice_period: {
+    en: "Excessive Notice Period",
+    ne: "अत्यधिक सूचना अवधि",
+    hi: "अत्यधिक नोटिस अवधि",
+    ar: "فترة إشعار مفرطة",
+    tl: "Labis na Notice Period",
+    bn: "অতিরিক্ত নোটিশ সময়",
+  },
+  one_sided_termination: {
+    en: "One-Sided Termination",
+    ne: "एकतर्फी समाप्ति",
+    hi: "एकतरफा समाप्ति",
+    ar: "إنهاء عقد أحادي الجانب",
+    tl: "Isang Panig na Pagwawakas",
+    bn: "একতরফা চুক্তি বাতিল",
+  },
+  no_rest_days: {
+    en: "No Rest Days",
+    ne: "बिदाको उल्लेख छैन",
+    hi: "आराम के दिन नहीं",
+    ar: "لا أيام راحة",
+    tl: "Walang Rest Days",
+    bn: "বিশ্রামের দিন নেই",
+  },
+  vague_salary: {
+    en: "Vague Salary Terms",
+    ne: "अस्पष्ट तलब शर्तहरू",
+    hi: "अस्पष्ट वेतन शर्तें",
+    ar: "شروط راتب غامضة",
+    tl: "Malabong Kondisyon ng Sahod",
+    bn: "অস্পষ্ট বেতনের শর্ত",
+  },
+  auto_renewal: {
+    en: "Automatic Renewal",
+    ne: "स्वचालित नवीकरण",
+    hi: "स्वचालित नवीनीकरण",
+    ar: "تجديد تلقائي",
+    tl: "Awtomatikong Renewal",
+    bn: "স্বয়ংক্রিয় নবায়ন",
+  },
+  resignation_penalty: {
+    en: "Resignation Penalty",
+    ne: "राजीनामा जरिवाना",
+    hi: "इस्तीफा दंड",
+    ar: "غرامة الاستقالة",
+    tl: "Parusa sa Pagbibitiw",
+    bn: "পদত্যাগের জরিমানা",
+  },
+  language_barrier: {
+    en: "Language Barrier",
+    ne: "भाषा बाधा",
+    hi: "भाषा बाधा",
+    ar: "حاجز اللغة",
+    tl: "Hadlang sa Wika",
+    bn: "ভাষার বাধা",
+  },
+  no_dispute_resolution: {
+    en: "No Dispute Resolution",
+    ne: "विवाद समाधान छैन",
+    hi: "विवाद समाधान नहीं",
+    ar: "لا آلية لحل النزاعات",
+    tl: "Walang Dispute Resolution",
+    bn: "বিরোধ নিষ্পত্তির ব্যবস্থা নেই",
+  },
+  missing_employer_details: {
+    en: "Missing Employer Details",
+    ne: "नियोक्ताको विवरण छैन",
+    hi: "नियोक्ता विवरण अनुपस्थित",
+    ar: "بيانات صاحب العمل مفقودة",
+    tl: "Kulang na Detalye ng Employer",
+    bn: "নিয়োগকর্তার তথ্য অনুপস্থিত",
+  },
+  no_health_insurance: {
+    en: "No Health Insurance",
+    ne: "स्वास्थ्य बीमा छैन",
+    hi: "स्वास्थ्य बीमा नहीं",
+    ar: "لا تأمين صحي",
+    tl: "Walang Health Insurance",
+    bn: "স্বাস্থ্য বীমা নেই",
+  },
+  no_jurisdiction: {
+    en: "No Jurisdiction Specified",
+    ne: "न्यायक्षेत्र उल्लेख छैन",
+    hi: "क्षेत्राधिकार निर्दिष्ट नहीं",
+    ar: "لا ولاية قضائية محددة",
+    tl: "Walang Tinukoy na Jurisdiction",
+    bn: "কোনো এখতিয়ার নির্দিষ্ট নেই",
+  },
+};
+
+const DESTINATION_SUPPORT: Record<
+  string,
+  { name: string; detail: string; contact: string }[]
+> = {
+  "united arab emirates": [
+    {
+      name: "UAE Ministry of Human Resources & Emiratisation (MOHRE)",
+      detail: "Labor complaints, contract disputes, wage issues",
+      contact: "Hotline: 800-60 (toll-free, UAE)",
+    },
+    {
+      name: "Embassy of Nepal, Abu Dhabi",
+      detail: "Consular support, repatriation assistance for Nepali workers",
+      contact: "Phone: +971-2-4432500",
+    },
+  ],
+  qatar: [
+    {
+      name: "Qatar Ministry of Labour",
+      detail: "Labor complaints, wage protection system inquiries",
+      contact: "Hotline: 16008 (toll-free, Qatar)",
+    },
+    {
+      name: "Embassy of Nepal, Doha",
+      detail: "Consular support, repatriation assistance for Nepali workers",
+      contact: "Phone: +974-4468-1188",
+    },
+  ],
+  "saudi arabia": [
+    {
+      name: "Saudi Ministry of Human Resources & Social Development",
+      detail: "Labor complaints, contract disputes",
+      contact: "Hotline: 19911 (toll-free, Saudi Arabia)",
+    },
+    {
+      name: "Embassy of Nepal, Riyadh",
+      detail: "Consular support, repatriation assistance for Nepali workers",
+      contact: "Phone: +966-11-4880427",
+    },
+  ],
+  malaysia: [
+    {
+      name: "Malaysia Department of Labour",
+      detail: "Labor complaints, contract disputes",
+      contact: "Hotline: 03-8000-8000",
+    },
+    {
+      name: "Embassy of Nepal, Kuala Lumpur",
+      detail: "Consular support, repatriation assistance for Nepali workers",
+      contact: "Phone: +60-3-4256-3037",
+    },
+  ],
+  kuwait: [
+    {
+      name: "Kuwait Public Authority of Manpower",
+      detail: "Labor complaints, contract disputes",
+      contact: "Hotline: 128",
+    },
+    {
+      name: "Embassy of Nepal, Kuwait City",
+      detail: "Consular support, repatriation assistance for Nepali workers",
+      contact: "Phone: +965-2532-5735",
+    },
+  ],
+};
+
+function getDestinationSupport(country: string | null) {
+  if (!country) return [];
+  return DESTINATION_SUPPORT[country.trim().toLowerCase()] ?? [];
+}
+
+function resolveFlagTypeLabel(flagType: string, lang: string): string {
+  const key = flagType?.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+  return (
+    FLAG_TYPE_LABELS[key]?.[lang] ??
+    FLAG_TYPE_LABELS[key]?.["en"] ??
+    flagType?.replace(/_/g, " ")
+  );
 }
 
 function severityColor(severity: string): {
@@ -266,11 +518,11 @@ export default function PrintReportPage() {
         .disclaimer {
           margin-top: 28px;
           padding: 14px 16px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
           border-radius: 6px;
           font-size: 11px;
-          color: #64748b;
+          color: #1e40af;
           line-height: 1.6;
         }
         .print-btn {
@@ -492,7 +744,19 @@ export default function PrintReportPage() {
                     >
                       {flag.severity.toUpperCase()}
                     </span>
-                    <span className="flag-type">{flag.flag_type}</span>
+                    {(() => {
+                      const typeLabel = resolveFlagTypeLabel(
+                        flag.flag_type,
+                        report.language,
+                      );
+                      if (
+                        typeLabel?.trim().toLowerCase() ===
+                        flag.title?.trim().toLowerCase()
+                      ) {
+                        return null;
+                      }
+                      return <span className="flag-type">{typeLabel}</span>;
+                    })()}
                     <span
                       style={{
                         marginLeft: "auto",
@@ -513,19 +777,82 @@ export default function PrintReportPage() {
                   )}
 
                   <div className="field-label">Risk Explanation</div>
-                  <p className="rec-text">{flag.description}</p>
-
-                  {flag.recommendation && (
-                    <>
-                      <div className="field-label">Recommended Action</div>
-                      <p
-                        className="rec-text"
-                        style={{ color: "#0f172a", fontWeight: 500 }}
+                  {(() => {
+                    const points = flag.description
+                      ? flag.description
+                          .split(/(?<=[.!?।])\s+/)
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : [];
+                    if (points.length <= 1) {
+                      return <p className="rec-text">{flag.description}</p>;
+                    }
+                    return (
+                      <ul
+                        style={{
+                          margin: 0,
+                          paddingLeft: 18,
+                        }}
                       >
-                        {flag.recommendation}
-                      </p>
-                    </>
-                  )}
+                        {points.map((point, i) => (
+                          <li
+                            key={i}
+                            className="rec-text"
+                            style={{ marginBottom: 3 }}
+                          >
+                            {point}
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
+
+                  {(() => {
+                    const normalizeSteps = (
+                      raw: unknown,
+                      fallback: string,
+                    ): string[] => {
+                      if (Array.isArray(raw) && raw.length > 0)
+                        return raw as string[];
+                      if (typeof raw === "string" && raw.trim()) {
+                        try {
+                          const parsed = JSON.parse(raw);
+                          if (Array.isArray(parsed) && parsed.length > 0)
+                            return parsed;
+                        } catch {
+                          return [raw];
+                        }
+                      }
+                      return fallback ? [fallback] : [];
+                    };
+                    const steps: string[] = normalizeSteps(
+                      flag.mitigation_steps,
+                      flag.recommendation,
+                    );
+                    if (steps.length === 0) return null;
+                    return (
+                      <>
+                        <div className="field-label">Recommended Actions</div>
+                        <ol
+                          style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            color: "#0f172a",
+                          }}
+                        >
+                          {steps.map((step, i) => (
+                            <li
+                              key={i}
+                              className="rec-text"
+                              style={{ fontWeight: 500, marginBottom: 4 }}
+                            >
+                              {step}
+                            </li>
+                          ))}
+                        </ol>
+                      </>
+                    );
+                  })()}
                 </div>
               );
             })
@@ -544,6 +871,52 @@ export default function PrintReportPage() {
             your employment contract, contact these organizations immediately.
             All services are free.
           </p>
+          {(() => {
+            const destSupport = getDestinationSupport(report.country);
+            if (destSupport.length === 0) return null;
+            return (
+              <div
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 8,
+                  padding: "16px 20px",
+                  marginBottom: 12,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#94a3b8",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    marginBottom: 12,
+                  }}
+                >
+                  In {report.country}
+                </div>
+                {destSupport.map((org, i) => (
+                  <div
+                    key={i}
+                    className="org-row"
+                    style={
+                      i === destSupport.length - 1
+                        ? {
+                            marginBottom: 0,
+                            paddingBottom: 0,
+                            borderBottom: "none",
+                          }
+                        : {}
+                    }
+                  >
+                    <div className="org-name">{org.name}</div>
+                    <div className="org-detail">{org.contact}</div>
+                    <div className="org-detail">Focus: {org.detail}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           <div
             style={{
               border: "1px solid #e2e8f0",
@@ -551,6 +924,18 @@ export default function PrintReportPage() {
               padding: "16px 20px",
             }}
           >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 12,
+              }}
+            >
+              General &amp; Nepal-Based Support
+            </div>
             <div className="org-row">
               <div className="org-name">
                 International Labour Organization (ILO)
@@ -614,14 +999,14 @@ export default function PrintReportPage() {
 
         {/* ── DISCLAIMER ── */}
         <div className="disclaimer">
-          <strong>Disclaimer:</strong> This report is generated by
-          MigrantShield's AI analysis engine for informational purposes only. It
-          does not constitute legal advice. Risk scores and flag classifications
-          are AI-generated estimates and may not capture all legal nuances
-          specific to your jurisdiction. Always consult a qualified legal
-          professional before making decisions about your employment contract.
-          MigrantShield is a non-profit platform — this report is free to share
-          with advocates, NGOs, and legal aid providers.
+          <strong style={{ color: "#1e3a8a" }}>Disclaimer:</strong> This report
+          is generated by MigrantShield's AI analysis engine for informational
+          purposes only. It does not constitute legal advice. Risk scores and
+          flag classifications are AI-generated estimates and may not capture
+          all legal nuances specific to your jurisdiction. Always consult a
+          qualified legal professional before making decisions about your
+          employment contract. MigrantShield is a non-profit platform — this
+          report is free to share with advocates, NGOs, and legal aid providers.
         </div>
 
         <div style={{ height: 32 }} />

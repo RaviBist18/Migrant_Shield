@@ -229,6 +229,7 @@ export default function DashboardPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [hasSelection, setHasSelection] = useState(false);
   const [sortField, setSortField] = useState<SortField>("upload_date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
@@ -555,7 +556,9 @@ export default function DashboardPage() {
   };
 
   const handleFilterCard = (f: FilterType) => {
-    setActiveFilter((prev) => (prev === f ? "all" : f));
+    const isSameCard = hasSelection && activeFilter === f;
+    setActiveFilter(isSameCard ? "all" : f);
+    setHasSelection(!isSameCard);
     setPage(1);
     setSelectedIds(new Set());
   };
@@ -630,14 +633,24 @@ export default function DashboardPage() {
         />
       )}
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 md:pb-6">
+      <main
+        className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 md:pb-6"
+        onClick={() => {
+          if (hasSelection) {
+            setActiveFilter("all");
+            setHasSelection(false);
+            setPage(1);
+            setSelectedIds(new Set());
+          }
+        }}
+      >
         {isLoading ? (
           <Skeleton />
         ) : (
           <>
             {/* ── Greeting ── */}
-            <div className="mb-5 mt-5">
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight mt-[-20px]">
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
                 {totalContracts === 0
                   ? `${t.welcomeMsg}${userName ? `, ${userName}` : ""}.`
                   : `${t.onDuty}${userName ? `, ${userName}` : ""}.`}
@@ -699,7 +712,7 @@ export default function DashboardPage() {
               )}
 
             {/* ── Sample Report (always visible) ── */}
-            <div className="mb-5 mt-5">
+            <div className="mb-6">
               <button
                 onClick={() =>
                   router.push(
@@ -724,14 +737,15 @@ export default function DashboardPage() {
             </div>
 
             {/* ── Stat cards ── */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-6 mt-6">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-6">
               {statCards.map((card) => {
-                const isActive = activeFilter === card.key;
+                const isActive = hasSelection && activeFilter === card.key;
                 const isFailed = card.key === "failed";
                 return (
                   <button
                     key={card.key}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (clickTimer.current[card.key]) {
                         clearTimeout(clickTimer.current[card.key]);
                         delete clickTimer.current[card.key];
@@ -754,9 +768,7 @@ export default function DashboardPage() {
                               : card.key === "processing"
                                 ? "border-amber-400 dark:border-amber-600 ring-1 ring-amber-400 dark:ring-amber-600"
                                 : "border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100"
-                        : isFailed && failedCount > 0
-                          ? "border-red-200 dark:border-red-900"
-                          : "border-slate-200 dark:border-slate-800"
+                        : "border-slate-200 dark:border-slate-800"
                     }`}
                   >
                     <div
@@ -809,7 +821,7 @@ export default function DashboardPage() {
             {/* ── What's Next ── */}
             {totalContracts > 0 && (
               <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-5 mt-5">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-5">
                   {t.whatsNext}
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 mb-2">

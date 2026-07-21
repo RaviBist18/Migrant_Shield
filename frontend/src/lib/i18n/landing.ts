@@ -263,24 +263,19 @@ export interface LandingTranslations {
     disclaimerBody: string;
     confidence: string;
   };
-  settings: {
-    title: string;
-    signedInAs: string;
-    accountSection: string;
-    emailLabel: string;
-    resetPassword: string;
-    resetSent: string;
-    sending: string;
-    legalSection: string;
-    privacyPolicy: string;
-    terms: string;
-    partnerNGOs: string;
-    signOut: string;
-    dangerZone: string;
-    deleteAccount: string;
-    generalSection: string;
-    appearance: string;
-    language: string;
+  // Add to LandingTranslations interface:
+  about: {
+    sectionLabel: string;
+    heading: string;
+    intro: string;
+    missionHeading: string;
+    missionBody: string;
+    whyFreeHeading: string;
+    whyFreeBody: string;
+    privacyHeading: string;
+    privacyBody: string;
+    ctaHeading: string;
+    ctaButton: string;
   };
 }
 
@@ -301,7 +296,7 @@ export const translations: Record<Lang, LandingTranslations> = {
       subheadline:
         "MigrantShield uses AI to scan your employment contract for illegal clauses, hidden fees, passport confiscation, and exploitation — in minutes, for free.",
       trustPill:
-        "🔒 Safe, Free & Confidential — No account required to check your contract.",
+        "🔒 Safe, Free & Confidential — No account needed for a one-time contract check.",
       privacyNote:
         "🔒 Your privacy is protected. Zero data tracking. No information is ever shared with your employer or immigration authorities.",
       ctaPrimary: "Check My Contract",
@@ -430,9 +425,9 @@ export const translations: Record<Lang, LandingTranslations> = {
       links: [
         { label: "Privacy Policy", href: "/privacy" },
         { label: "Help", href: "/help" },
-        { label: "Settings", href: "/settings" },
+        { label: "About Us", href: "/about" },
       ],
-      copyright: `© ${new Date().getFullYear()} MigrantShield. Free, always.`,
+      copyright: `© ${new Date().getFullYear()} MigrantShield. All rights reserved. Free, always.`,
     },
     auth: {
       emailLabel: "Email Address",
@@ -652,24 +647,23 @@ export const translations: Record<Lang, LandingTranslations> = {
         "AI analysis may miss context, nuance, or jurisdiction-specific law. Results are indicative only. MigrantShield accepts no liability for actions taken based on this report.",
       confidence: "confidence",
     },
-    settings: {
-      title: "Settings",
-      signedInAs: "Signed in as",
-      accountSection: "Account",
-      emailLabel: "Email",
-      resetPassword: "Reset Password",
-      resetSent: "Reset link sent — check your inbox.",
-      sending: "Sending…",
-      legalSection: "Legal & Resources",
-      privacyPolicy: "Privacy Policy",
-      terms: "Terms of Service",
-      partnerNGOs: "Partner NGOs",
-      signOut: "Sign Out",
-      dangerZone: "Danger Zone",
-      deleteAccount: "Delete Account",
-      generalSection: "General",
-      appearance: "Appearance",
-      language: "Language",
+
+    about: {
+      sectionLabel: "About Us",
+      heading: "Built to protect, not to profit.",
+      intro:
+        "MigrantShield exists because too many migrant workers sign contracts they can't fully read, in languages they don't speak, under pressure to accept quickly — and find out too late what they agreed to.",
+      missionHeading: "Our Mission",
+      missionBody:
+        "We give migrant workers a fast, private way to check their employment contract for illegal clauses, hidden fees, and exploitative terms — before they sign, not after.",
+      whyFreeHeading: "Why It's Free",
+      whyFreeBody:
+        "MigrantShield is a non-profit platform. We don't charge workers, sell data, or take a cut from recruitment agencies. It exists solely to protect the people it serves.",
+      privacyHeading: "Your Privacy Comes First",
+      privacyBody:
+        "Your contract is never shared with your employer, your recruitment agency, or immigration authorities. All uploads are encrypted, and no account is required to check a contract.",
+      ctaHeading: "Ready to check your contract?",
+      ctaButton: "Check My Contract",
     },
   },
 
@@ -690,7 +684,7 @@ export const translations: Record<Lang, LandingTranslations> = {
       subheadline:
         "MigrantShield ले AI प्रयोग गरी तपाईंको रोजगार सम्झौतामा अवैध धाराहरू, लुकेका शुल्कहरू, राहदानी जफत र शोषण पत्ता लगाउँछ — मिनेटमा, निःशुल्क।",
       trustPill:
-        "🔒 सुरक्षित, निःशुल्क र गोपनीय — सम्झौता जाँच गर्न कुनै खाता आवश्यक छैन।",
+        "🔒 सुरक्षित, निःशुल्क र गोपनीय — एक पटकको सम्झौता जाँचका लागि खाता आवश्यक छैन।",
       privacyNote:
         "🔒 तपाईंको गोपनीयता सुरक्षित छ। कुनै डेटा ट्र्याकिङ छैन। तपाईंको जानकारी कहिल्यै नियोक्ता वा आप्रवासन अधिकारीहरूसँग साझा गरिँदैन।",
       ctaPrimary: "सम्झौता जाँच गर्नुहोस्",
@@ -819,9 +813,9 @@ export const translations: Record<Lang, LandingTranslations> = {
       links: [
         { label: "गोपनीयता नीति", href: "/privacy" },
         { label: "सहायता", href: "/help" },
-        { label: "सेटिङहरू", href: "/settings" },
+        { label: "हाम्रो बारेमा", href: "/about" },
       ],
-      copyright: `© ${new Date().getFullYear()} MigrantShield। सधैं निःशुल्क।`,
+      copyright: `© ${new Date().getFullYear()} MigrantShield। सर्वाधिकार सुरक्षित। सधैं निःशुल्क।`,
     },
     auth: {
       emailLabel: "इमेल ठेगाना",
@@ -1042,24 +1036,23 @@ export const translations: Record<Lang, LandingTranslations> = {
         "AI विश्लेषणले सन्दर्भ, बारीकता, वा क्षेत्राधिकार-विशिष्ट कानून छुटाउन सक्छ। परिणामहरू संकेतात्मक मात्र हुन्। MigrantShield यस रिपोर्टमा आधारित कार्यहरूको लागि कुनै दायित्व स्वीकार गर्दैन।",
       confidence: "विश्वास",
     },
-    settings: {
-      title: "सेटिङहरू",
-      signedInAs: "साइन इन भएको",
-      accountSection: "खाता",
-      emailLabel: "इमेल",
-      resetPassword: "पासवर्ड रिसेट गर्नुहोस्",
-      resetSent: "रिसेट लिङ्क पठाइयो — इनबक्स जाँच गर्नुहोस्।",
-      sending: "पठाउँदै…",
-      legalSection: "कानूनी र स्रोतहरू",
-      privacyPolicy: "गोपनीयता नीति",
-      terms: "सेवा सर्तहरू",
-      partnerNGOs: "साझेदार NGO हरू",
-      signOut: "साइन आउट",
-      dangerZone: "खतरा क्षेत्र",
-      deleteAccount: "खाता मेटाउनुहोस्",
-      generalSection: "सामान्य",
-      appearance: "रूप",
-      language: "भाषा",
+
+    about: {
+      sectionLabel: "हाम्रो बारेमा",
+      heading: "सुरक्षाका लागि निर्मित, नाफाका लागि होइन।",
+      intro:
+        "MigrantShield अस्तित्वमा छ किनभने धेरै प्रवासी कामदारहरूले नबुझ्ने भाषामा, राम्ररी पढ्न नसक्ने सम्झौतामा, चाँडो स्वीकार गर्नुपर्ने दबाबमा हस्ताक्षर गर्छन् — र पछि मात्र थाहा पाउँछन् उनीहरूले केमा सहमति जनाएका थिए।",
+      missionHeading: "हाम्रो लक्ष्य",
+      missionBody:
+        "हामी प्रवासी कामदारहरूलाई हस्ताक्षर गर्नु अघि नै आफ्नो रोजगार सम्झौतामा अवैध धाराहरू, लुकेका शुल्कहरू र शोषणकारी सर्तहरू जाँच गर्ने छिटो, निजी तरिका दिन्छौं।",
+      whyFreeHeading: "किन निःशुल्क छ",
+      whyFreeBody:
+        "MigrantShield एक गैर-नाफामुखी प्लेटफर्म हो। हामी कामदारहरूलाई शुल्क लिँदैनौं, डेटा बेच्दैनौं, वा भर्ती एजेन्सीहरूबाट कमिसन लिँदैनौं। यो केवल यसले सेवा गर्ने मानिसहरूको सुरक्षाका लागि अस्तित्वमा छ।",
+      privacyHeading: "तपाईंको गोपनीयता पहिलो हो",
+      privacyBody:
+        "तपाईंको सम्झौता कहिल्यै तपाईंको नियोक्ता, भर्ती एजेन्सी, वा आप्रवासन अधिकारीहरूसँग साझा गरिँदैन। सबै अपलोडहरू इन्क्रिप्ट गरिएका छन्, र सम्झौता जाँच गर्न कुनै खाता आवश्यक छैन।",
+      ctaHeading: "आफ्नो सम्झौता जाँच गर्न तयार हुनुहुन्छ?",
+      ctaButton: "सम्झौता जाँच गर्नुहोस्",
     },
   },
 };

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import type { Lang } from "@/lib/i18n/landing";
 import BottomNav from "@/components/BottomNav";
 
 type FaqItem = {
   emoji: string;
   question: string;
-  answer: React.ReactNode;
+  answer: ReactNode;
 };
 
 const faqsEn: FaqItem[] = [
@@ -75,7 +76,7 @@ const faqsEn: FaqItem[] = [
         Email us at{" "}
         <a
           href="mailto:ravibist103@gmail.com"
-          className="text-teal-500 underline hover:text-teal-400"
+          className="text-teal-600 underline hover:text-teal-700"
         >
           ravibist103@gmail.com
         </a>
@@ -149,7 +150,7 @@ const faqsNe: FaqItem[] = [
         हामीलाई{" "}
         <a
           href="mailto:ravibist103@gmail.com"
-          className="text-teal-500 underline hover:text-teal-400"
+          className="text-teal-600 underline hover:text-teal-700"
         >
           ravibist103@gmail.com
         </a>{" "}
@@ -170,6 +171,7 @@ export default function HelpPage() {
 
   useEffect(() => {
     const sync = () => setLang((localStorage.getItem("lang") as Lang) ?? "en");
+
     window.addEventListener("langchange", sync);
     return () => window.removeEventListener("langchange", sync);
   }, []);
@@ -177,34 +179,57 @@ export default function HelpPage() {
   const faqs = lang === "ne" ? faqsNe : faqsEn;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-24 md:pb-0">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>{lang === "ne" ? "ड्यासबोर्ड" : "Dashboard"}</span>
+    <div className="min-h-screen bg-white text-slate-900 pb-24 md:pb-0">
+      <header className="sticky top-0 z-50 bg-white border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="stroke-slate-900 shrink-0"
+            >
+              <path d="M16 3L4 8v8c0 6 5.5 10.5 12 13 6.5-2.5 12-7 12-13V8L16 3z" />
+              <path d="M13 14h4M13 18h6" />
+              <path d="M19 10l-2-2-4 4" />
+            </svg>
+            <div className="flex flex-col leading-none">
+              <span className="font-semibold tracking-tight text-lg text-slate-900">
+                MigrantShield
+              </span>
+              <span className="text-xs text-slate-400 font-normal tracking-wide">
+                {lang === "ne"
+                  ? "कामदार सुरक्षा मञ्च"
+                  : "Worker Protection Platform"}
+              </span>
+            </div>
           </Link>
-          <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100 absolute left-1/2 -translate-x-1/2">
-            {lang === "ne" ? "सहायता र FAQ" : "Help & FAQ"}
-          </h1>
-          <div className="w-20" />
+
+          <Link
+            href="/"
+            className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors mr-20"
+          >
+            {lang === "ne" ? "← गृहपृष्ठमा फर्कनुहोस्" : "← Back"}
+          </Link>
         </div>
-      </div>
+      </header>
 
       {/* Body */}
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Hero */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+          <h2 className="text-2xl font-bold text-slate-900 mb-1">
             {lang === "ne"
               ? "हामी कसरी मद्दत गर्न सक्छौं?"
               : "How Can We Help?"}
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+
+          <p className="text-sm text-slate-500">
             {lang === "ne"
               ? "तपाईंका अधिकार र MigrantShield कसरी काम गर्छ भन्ने सामान्य प्रश्नहरू।"
               : "Common questions about your rights and how MigrantShield works."}
@@ -216,15 +241,17 @@ export default function HelpPage() {
           {faqs.map((faq, i) => (
             <div
               key={i}
-              className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-5 py-4"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-4"
             >
               <div className="flex items-start gap-4">
                 <span className="text-2xl mt-0.5 shrink-0">{faq.emoji}</span>
+
                 <div>
-                  <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-1">
+                  <p className="font-semibold text-slate-900 text-sm mb-1">
                     {faq.question}
                   </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {faq.answer}
                   </p>
                 </div>
@@ -234,11 +261,12 @@ export default function HelpPage() {
         </div>
 
         {/* Contact CTA */}
-        <div className="mt-8 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl px-5 py-5 text-center">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+        <div className="mt-8 bg-teal-50 border border-teal-200 rounded-xl px-5 py-5 text-center">
+          <p className="text-sm font-semibold text-slate-900 mb-1">
             {lang === "ne" ? "अझै सहायता चाहिन्छ?" : "Still need help?"}
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+
+          <p className="text-sm text-slate-500 mb-3">
             {lang === "ne"
               ? "हाम्रो टोली तपाईंका लागि यहाँ छ।"
               : "Our team is here for you."}
@@ -252,6 +280,7 @@ export default function HelpPage() {
           </a>
         </div>
       </div>
+
       <BottomNav />
     </div>
   );

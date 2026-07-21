@@ -1,15 +1,21 @@
-﻿'use client';
+﻿"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Shield, ChevronDown, ChevronUp, ArrowRight, Globe } from 'lucide-react';
-import { createBrowserClient } from '@supabase/ssr';
-import { translations, type Lang } from '@/lib/i18n/landing';
-import ContractScanIllustration from '@/components/ContractScanIllustration';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+  Globe,
+} from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
+import { translations, type Lang } from "@/lib/i18n/landing";
+import ContractScanIllustration from "@/components/ContractScanIllustration";
 
 export default function LandingPage() {
-  const [lang, setLang] = useState<Lang>('en');
+  const [lang, setLang] = useState<Lang>("en");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
@@ -18,73 +24,92 @@ export default function LandingPage() {
   useEffect(() => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     );
-    const storedLang = localStorage.getItem('lang');
-    if (storedLang === 'ne') setLang('ne');
+    const storedLang = localStorage.getItem("lang");
+    if (storedLang === "ne") setLang("ne");
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         setIsLoggedIn(true);
-        router.replace('/dashboard');
+        router.replace("/dashboard");
       }
     });
   }, []);
 
   const handleQuickExit = () => {
     sessionStorage.clear();
-    window.location.replace('https://www.google.com');
+    window.location.replace("https://www.google.com");
   };
 
   const handleCTA = () => {
     if (isLoggedIn) {
-      router.push('/upload');
+      router.push("/upload");
     } else {
-      router.push('/auth/phone');
+      router.push("/auth/phone");
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-
       {/* NAVBAR */}
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200">
-      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           {/* Brand */}
           <div className="flex items-center gap-2.5">
-          <svg width="28" height="28" viewBox="0 0 32 32" fill="none"
-  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
-  strokeLinejoin="round" className="stroke-slate-900 shrink-0">
-  <path d="M16 3L4 8v8c0 6 5.5 10.5 12 13 6.5-2.5 12-7 12-13V8L16 3z" />
-  <path d="M13 14h4M13 18h6" />
-  <path d="M19 10l-2-2-4 4" />
-</svg>
-<div className="flex flex-col leading-none">
-  <span className="font-semibold tracking-tight text-lg text-slate-900">
-    {t.nav.brand}
-  </span>
-  <span className="text-xs text-slate-400 font-normal tracking-wide">
-    {lang === 'en' ? 'Worker Protection Platform' : 'कामदार सुरक्षा मञ्च'}
-  </span>
-</div>
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="stroke-slate-900 shrink-0"
+            >
+              <path d="M16 3L4 8v8c0 6 5.5 10.5 12 13 6.5-2.5 12-7 12-13V8L16 3z" />
+              <path d="M13 14h4M13 18h6" />
+              <path d="M19 10l-2-2-4 4" />
+            </svg>
+            <div className="flex flex-col leading-none">
+              <span className="font-semibold tracking-tight text-lg text-slate-900">
+                {t.nav.brand}
+              </span>
+              <span className="text-xs text-slate-400 font-normal tracking-wide">
+                {lang === "en"
+                  ? "Worker Protection Platform"
+                  : "कामदार सुरक्षा मञ्च"}
+              </span>
+            </div>
           </div>
 
           {/* Right actions — desktop */}
           <div className="hidden sm:flex items-center gap-3">
-          <div className="bg-slate-100/80 border border-slate-200/60 rounded-full p-1 flex items-center gap-1">
+            <div className="bg-slate-100/80 border border-slate-200/60 rounded-full p-1 flex items-center gap-1">
               <Globe className="text-slate-400 w-4 h-4 ml-1 shrink-0" />
               <button
-                onClick={() => { setLang('en'); localStorage.setItem('lang', 'en'); }}
-                className={lang === 'en'
-                  ? 'bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all'
-                  : 'text-slate-500 hover:text-slate-900 px-2.5 py-1 rounded-full text-xs font-medium transition-colors'}
+                onClick={() => {
+                  setLang("en");
+                  localStorage.setItem("lang", "en");
+                }}
+                className={
+                  lang === "en"
+                    ? "bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all"
+                    : "text-slate-500 hover:text-slate-900 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                }
               >
                 EN
               </button>
               <button
-                onClick={() => { setLang('ne'); localStorage.setItem('lang', 'ne'); }}
-                className={lang === 'ne'
-                  ? 'bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all'
-                  : 'text-slate-500 hover:text-slate-900 px-2.5 py-1 rounded-full text-xs font-medium transition-colors'}
+                onClick={() => {
+                  setLang("ne");
+                  localStorage.setItem("lang", "ne");
+                }}
+                className={
+                  lang === "ne"
+                    ? "bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all"
+                    : "text-slate-500 hover:text-slate-900 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
+                }
               >
                 नेपाली
               </button>
@@ -105,20 +130,30 @@ export default function LandingPage() {
 
           {/* Right actions — mobile */}
           <div className="flex sm:hidden items-center gap-2">
-          <div className="bg-slate-100/80 border border-slate-200/60 rounded-full p-0.5 flex items-center">
+            <div className="bg-slate-100/80 border border-slate-200/60 rounded-full p-0.5 flex items-center">
               <button
-               onClick={() => { setLang('en'); localStorage.setItem('lang', 'en'); }}
-               className={lang === 'en'
-                 ? 'bg-white text-slate-900 font-medium px-2 py-0.5 rounded-full text-xs shadow-sm transition-all'
-                  : 'text-slate-500 px-2 py-0.5 rounded-full text-xs font-medium transition-colors'}
+                onClick={() => {
+                  setLang("en");
+                  localStorage.setItem("lang", "en");
+                }}
+                className={
+                  lang === "en"
+                    ? "bg-white text-slate-900 font-medium px-2 py-0.5 rounded-full text-xs shadow-sm transition-all"
+                    : "text-slate-500 px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
+                }
               >
                 EN
               </button>
               <button
-                onClick={() => { setLang('ne'); localStorage.setItem('lang', 'ne'); }}
-                className={lang === 'ne'
-                  ? 'bg-white text-slate-900 font-medium px-2 py-0.5 rounded-full text-xs shadow-sm transition-all'
-                  : 'text-slate-500 px-2 py-0.5 rounded-full text-xs font-medium transition-colors'}
+                onClick={() => {
+                  setLang("ne");
+                  localStorage.setItem("lang", "ne");
+                }}
+                className={
+                  lang === "ne"
+                    ? "bg-white text-slate-900 font-medium px-2 py-0.5 rounded-full text-xs shadow-sm transition-all"
+                    : "text-slate-500 px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
+                }
               >
                 नेपाली
               </button>
@@ -133,7 +168,7 @@ export default function LandingPage() {
               onClick={handleCTA}
               className="text-xs font-semibold bg-slate-900 text-white rounded px-3 py-1"
             >
-              {lang === 'en' ? 'Check' : 'जाँच'}
+              {lang === "en" ? "Check" : "जाँच"}
             </button>
           </div>
         </div>
@@ -142,43 +177,42 @@ export default function LandingPage() {
       {/* HERO */}
       <section className="max-w-5xl mx-auto px-4 py-16 sm:py-24">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-10">
-        <div className="max-w-xl w-full">
-          <span className="inline-block text-xs font-semibold uppercase tracking-widest text-slate-500 border border-slate-300 rounded px-3 py-1 mb-6">
-            {t.hero.badge}
-          </span>
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 leading-tight mb-6">
-            {t.hero.headline}
-          </h1>
-          <p className="text-base sm:text-lg text-slate-600 leading-relaxed mb-8">
-            {t.hero.subheadline}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 mb-8">
-           <button
-             onClick={handleCTA}
-             className="inline-flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-slate-800 font-semibold text-base px-6 py-3 rounded-lg transition-colors"
-  >
-            {t.hero.ctaPrimary}
-             <ArrowRight size={16} />
-           </button>
+          <div className="max-w-xl w-full">
+            <span className="inline-block text-xs font-semibold uppercase tracking-widest text-slate-500 border border-slate-300 rounded px-3 py-1 mb-6">
+              {t.hero.badge}
+            </span>
+            <h1 className="text-3xl sm:text-5xl font-black text-slate-900 leading-tight mb-6">
+              {t.hero.headline}
+            </h1>
+            <p className="text-base sm:text-lg text-slate-600 leading-relaxed mb-8">
+              {t.hero.subheadline}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <button
+                onClick={handleCTA}
+                className="inline-flex items-center justify-center gap-2 bg-slate-900 text-white hover:bg-slate-800 font-semibold text-base px-6 py-3 rounded-lg transition-colors"
+              >
+                {t.hero.ctaPrimary}
+                <ArrowRight size={16} />
+              </button>
 
-           <a
-             href="#how-it-works"
-             className="inline-flex items-center justify-center gap-2 bg-white text-slate-700 hover:bg-slate-100 font-semibold text-base px-6 py-3 rounded-lg border border-slate-200 transition-colors"
-           >
-            {t.hero.ctaSecondary}
-           </a>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-slate-500">{t.hero.trustPill}</p>
-            <p className="text-sm text-slate-500">{t.hero.privacyNote}</p>
-          </div>
+              <a
+                href="#how-it-works"
+                className="inline-flex items-center justify-center gap-2 bg-white text-slate-700 hover:bg-slate-100 font-semibold text-base px-6 py-3 rounded-lg border border-slate-200 transition-colors"
+              >
+                {t.hero.ctaSecondary}
+              </a>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-slate-500">{t.hero.trustPill}</p>
+              <p className="text-sm text-slate-500">{t.hero.privacyNote}</p>
+            </div>
           </div>
           <div className="hidden sm:flex items-center justify-end shrink-0 self-stretch pr-4">
-          <ContractScanIllustration />
-        </div>
+            <ContractScanIllustration />
+          </div>
         </div>
       </section>
-
 
       {/* CAPABILITIES BAR */}
       <section className="border-y border-slate-200 bg-white">
@@ -190,7 +224,9 @@ export default function LandingPage() {
             {t.capabilities.items.map((item, i) => (
               <div key={i}>
                 <p className="text-xl mb-1">{item.icon}</p>
-                <p className="text-base font-bold text-slate-900">{item.value}</p>
+                <p className="text-base font-bold text-slate-900">
+                  {item.value}
+                </p>
                 <p className="text-sm text-slate-500 mt-0.5">{item.desc}</p>
               </div>
             ))}
@@ -207,15 +243,21 @@ export default function LandingPage() {
           {t.howItWorks.heading}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-        {t.howItWorks.steps.map((step, i) => (
+          {t.howItWorks.steps.map((step, i) => (
             <div key={i} className="flex flex-col gap-4">
               <div className="w-10 h-10 rounded-full border-2 border-slate-900 flex items-center justify-center">
-                <span className="text-sm font-black text-slate-900">{step.number}</span>
+                <span className="text-sm font-black text-slate-900">
+                  {step.number}
+                </span>
               </div>
-             
+
               <div>
-                <h3 className="text-base font-bold text-slate-900 mb-2">{step.title}</h3>
-                <p className="text-base text-slate-600 leading-relaxed">{step.desc}</p>
+                <h3 className="text-base font-bold text-slate-900 mb-2">
+                  {step.title}
+                </h3>
+                <p className="text-base text-slate-600 leading-relaxed">
+                  {step.desc}
+                </p>
               </div>
             </div>
           ))}
@@ -240,8 +282,12 @@ export default function LandingPage() {
                 key={i}
                 className="bg-slate-50 border border-slate-200 rounded-lg p-5"
               >
-                <h3 className="text-base font-bold text-slate-900 mb-2">{item.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{item.desc}</p>
+                <h3 className="text-base font-bold text-slate-900 mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  {item.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -293,7 +339,10 @@ export default function LandingPage() {
                   {openFaq === i ? (
                     <ChevronUp size={18} className="text-slate-400 shrink-0" />
                   ) : (
-                    <ChevronDown size={18} className="text-slate-400 shrink-0" />
+                    <ChevronDown
+                      size={18}
+                      className="text-slate-400 shrink-0"
+                    />
                   )}
                 </button>
                 {openFaq === i && (
@@ -310,8 +359,12 @@ export default function LandingPage() {
       {/* NGO CTA */}
       <section className="max-w-5xl mx-auto px-4 py-16">
         <div className="bg-white border border-slate-200 rounded-lg p-8 sm:p-10 max-w-2xl">
-          <h2 className="text-xl font-black text-slate-900 mb-3">{t.ngo.heading}</h2>
-          <p className="text-base text-slate-600 mb-6 leading-relaxed">{t.ngo.desc}</p>
+          <h2 className="text-xl font-black text-slate-900 mb-3">
+            {t.ngo.heading}
+          </h2>
+          <p className="text-base text-slate-600 mb-6 leading-relaxed">
+            {t.ngo.desc}
+          </p>
           <Link
             href="/auth/phone"
             className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-lg px-5 py-2.5 transition-colors"
@@ -325,16 +378,20 @@ export default function LandingPage() {
       {/* BOTTOM CTA STRIP */}
       <section className="bg-slate-900">
         <div className="max-w-5xl mx-auto px-4 py-14 text-center">
-          <Shield size={28} className="text-slate-400 mx-auto mb-4" strokeWidth={1.5} />
+          <Shield
+            size={28}
+            className="text-slate-400 mx-auto mb-4"
+            strokeWidth={1.5}
+          />
           <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">
-            {lang === 'en'
-              ? 'Your contract. Your rights. Your protection.'
-              : 'तपाईंको सम्झौता। तपाईंका अधिकार। तपाईंको सुरक्षा।'}
+            {lang === "en"
+              ? "Your contract. Your rights. Your protection."
+              : "तपाईंको सम्झौता। तपाईंका अधिकार। तपाईंको सुरक्षा।"}
           </h2>
           <p className="text-base text-slate-400 mb-8 max-w-md mx-auto">
-            {lang === 'en'
-              ? 'Check your employment contract before you sign. It takes under 2 minutes and costs nothing.'
-              : 'हस्ताक्षर गर्नु अघि आफ्नो रोजगार सम्झौता जाँच गर्नुहोस्। यसमा २ मिनेटभन्दा कम समय लाग्छ र कुनै खर्च छैन।'}
+            {lang === "en"
+              ? "Check your employment contract before you sign. It takes under 2 minutes and costs nothing."
+              : "हस्ताक्षर गर्नु अघि आफ्नो रोजगार सम्झौता जाँच गर्नुहोस्। यसमा २ मिनेटभन्दा कम समय लाग्छ र कुनै खर्च छैन।"}
           </p>
           <button
             onClick={handleCTA}
@@ -348,26 +405,66 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="bg-white border-t border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 py-10">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield size={16} className="text-slate-400" strokeWidth={2} />
-            <span className="text-sm font-bold text-slate-500">MigrantShield</span>
+        <div className="max-w-5xl mx-auto px-4 py-16 sm:py-20">
+          {/* Top: brand + mission (left) / nav links (right) */}
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-12 sm:gap-10 pb-14">
+            {/* Left: brand */}
+            <div className="flex flex-col gap-5 sm:max-w-xs">
+              <div className="flex items-center gap-2.5">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="stroke-slate-900 shrink-0"
+                >
+                  <path d="M16 3L4 8v8c0 6 5.5 10.5 12 13 6.5-2.5 12-7 12-13V8L16 3z" />
+                  <path d="M13 14h4M13 18h6" />
+                  <path d="M19 10l-2-2-4 4" />
+                </svg>
+                <span
+                  className="text-base font-bold text-slate-900 cursor-pointer"
+                  onClick={() =>
+                    window.scrollTo({ top: 0, behavior: "smooth" })
+                  }
+                >
+                  MigrantShield
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                {t.footer.disclaimer}
+              </p>
+            </div>
+
+            {/* Right: nav-style links */}
+            <div className="flex flex-col gap-4 sm:items-end">
+              {t.footer.links.map((link, i) => (
+                <Link
+                  key={i}
+                  href={link.href}
+                  className="text-lg font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           </div>
-          <p className="text-sm text-slate-500 leading-relaxed max-w-2xl mb-6">
-            {t.footer.disclaimer}
-          </p>
-          <div className="flex flex-wrap gap-4 mb-6">
-            {t.footer.links.map((link, i) => (
-              <Link
-                key={i}
-                href={link.href}
-                className="text-sm text-slate-500 hover:text-slate-900 transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
+
+          {/* Divider */}
+          <div className="border-t border-slate-200 pt-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <p className="text-xs text-slate-400">{t.footer.copyright}</p>
+              <p className="text-xs text-slate-400">
+                {lang === "en"
+                  ? "Worker Protection Platform"
+                  : "कामदार सुरक्षा मञ्च"}
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-slate-400">{t.footer.copyright}</p>
         </div>
       </footer>
     </div>

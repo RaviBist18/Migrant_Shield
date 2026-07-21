@@ -540,12 +540,24 @@ export default function ComplianceReportPage() {
   });
 
   useEffect(() => {
-    const stored = localStorage.getItem("lang") as Lang | null;
     const validLangs: Lang[] = ["en", "ne", "hi", "ar", "tl", "bn"];
-    if (stored && validLangs.includes(stored)) {
-      setAnswers((a) => ({ ...a, lang: stored }));
-    }
+
+    const readLang = () => {
+      const stored = localStorage.getItem("lang") as Lang | null;
+      if (stored && validLangs.includes(stored)) {
+        setAnswers((a) => ({ ...a, lang: stored }));
+      }
+    };
+
+    readLang();
     setMounted(true);
+
+    window.addEventListener("storage", readLang);
+    window.addEventListener("langchange", readLang);
+    return () => {
+      window.removeEventListener("storage", readLang);
+      window.removeEventListener("langchange", readLang);
+    };
   }, []);
 
   const [report, setReport] = useState<ReportData | null>(null);

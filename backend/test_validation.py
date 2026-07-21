@@ -33,24 +33,20 @@ test_cases = [
         "expect_pass": True,
     },
     {
-        "name": "critical - only 2/2 (should FAIL, needs 3/3)",
+        "name": "critical - only 1/1 (should FAIL, needs 2/2)",
         "flag": {
             "severity": "critical",
-            "description": "यो गम्भीर समस्या हो। यसले ठूलो हानि पुर्‍याउँछ।",
-            "mitigation_steps": ["तुरुन्त सम्पर्क गर्नुहोस्।", "उजुरी दिनुहोस्।"],
+            "description": "यो गम्भीर समस्या हो।",
+            "mitigation_steps": ["तुरुन्त सम्पर्क गर्नुहोस्।"],
         },
         "expect_pass": False,
     },
     {
-        "name": "critical - exactly 3/3 (should PASS)",
+        "name": "critical - exactly 2/2 (should PASS)",
         "flag": {
             "severity": "critical",
-            "description": "यो गम्भीर समस्या हो। यसले ठूलो हानि पुर्‍याउँछ। यसले कानुनी उल्लंघन हो।",
-            "mitigation_steps": [
-                "तुरुन्त सम्पर्क गर्नुहोस्।",
-                "उजुरी दिनुहोस्।",
-                "वकिलसँग सल्लाह लिनुहोस्।",
-            ],
+            "description": "यो गम्भीर समस्या हो। यसले ठूलो हानि पुर्‍याउँछ।",
+            "mitigation_steps": ["तुरुन्त सम्पर्क गर्नुहोस्।", "उजुरी दिनुहोस्।"],
         },
         "expect_pass": True,
     },

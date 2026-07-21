@@ -158,7 +158,10 @@ export default function GlobalHeader() {
     pathname === "/" ||
     pathname.startsWith("/auth") ||
     pathname === "/reset-password" ||
-    pathname.startsWith("/admin")
+    pathname.startsWith("/admin") ||
+    pathname === "/about" ||
+    pathname === "/privacy" ||
+    pathname === "/help"
   )
     return null;
 

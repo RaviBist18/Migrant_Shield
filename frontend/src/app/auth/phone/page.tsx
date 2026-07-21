@@ -47,36 +47,13 @@ export default function PhonePage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 py-12">
-      {/* Lang toggle */}
-      <div className="w-full max-w-md flex justify-end mb-3">
-        <div className="bg-slate-100 border border-slate-200 rounded-full p-0.5 flex items-center">
-          <button
-            onClick={() => {
-              setLang("en");
-              localStorage.setItem("lang", "en");
-            }}
-            className={
-              lang === "en"
-                ? "bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all"
-                : "text-slate-500 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-            }
-          >
-            EN
-          </button>
-          <button
-            onClick={() => {
-              setLang("ne");
-              localStorage.setItem("lang", "ne");
-            }}
-            className={
-              lang === "ne"
-                ? "bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all"
-                : "text-slate-500 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-            }
-          >
-            नेपाली
-          </button>
-        </div>
+      <div className="w-full max-w-md flex justify-center mb-3">
+        <button
+          onClick={() => router.push("/")}
+          className="mt-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+        >
+          {t.backToHome}
+        </button>
       </div>
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-8 shadow-sm space-y-6">
         {/* Brand emblem */}
@@ -176,14 +153,6 @@ export default function PhonePage() {
             : "Account required to save reports"}
         </p>
       </div>
-
-      {/* Back to home */}
-      <button
-        onClick={() => router.push("/")}
-        className="mt-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
-      >
-        {t.backToHome}
-      </button>
     </main>
   );
 }
