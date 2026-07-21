@@ -724,32 +724,82 @@ function ChatWidget({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [followupQuestions, setFollowupQuestions] = useState<string[]>([]);
 
-  const FOLLOWUP_POOL =
-    lang === "ne"
-      ? [
-          "यसबारे थप जानकारी दिनुहोस्",
-          "म यसको बारेमा के गर्न सक्छु?",
-          "के यो कानूनी छ?",
-          "मलाई कुन कागजात चाहिन्छ?",
-          "म कसलाई सम्पर्क गर्न सक्छु?",
-          "यसको सजाय के हो?",
-          "के म उजुरी दिन सक्छु?",
-          "यो कति सामान्य छ?",
-          "मेरो नियोक्ताले के गर्न सक्छ?",
-          "म आफूलाई कसरी जोगाउन सक्छु?",
-        ]
-      : [
-          "Can you explain that in more detail?",
-          "What should I do about this?",
-          "Is this legal in my destination country?",
-          "What documents do I need for this?",
-          "Who can I contact for help?",
-          "What are the penalties for this violation?",
-          "Can I file a complaint?",
-          "How common is this issue?",
-          "What can my employer legally do?",
-          "How can I protect myself?",
-        ];
+  const FOLLOWUP_POOL_MAP: Record<string, string[]> = {
+    en: [
+      "Can you explain that in more detail?",
+      "What should I do about this?",
+      "Is this legal in my destination country?",
+      "What documents do I need for this?",
+      "Who can I contact for help?",
+      "What are the penalties for this violation?",
+      "Can I file a complaint?",
+      "How common is this issue?",
+      "What can my employer legally do?",
+      "How can I protect myself?",
+    ],
+    ne: [
+      "यसबारे थप जानकारी दिनुहोस्",
+      "म यसको बारेमा के गर्न सक्छु?",
+      "के यो कानूनी छ?",
+      "मलाई कुन कागजात चाहिन्छ?",
+      "म कसलाई सम्पर्क गर्न सक्छु?",
+      "यसको सजाय के हो?",
+      "के म उजुरी दिन सक्छु?",
+      "यो कति सामान्य छ?",
+      "मेरो नियोक्ताले के गर्न सक्छ?",
+      "म आफूलाई कसरी जोगाउन सक्छु?",
+    ],
+    hi: [
+      "क्या आप इसे विस्तार से समझा सकते हैं?",
+      "मुझे इसके बारे में क्या करना चाहिए?",
+      "क्या यह मेरे गंतव्य देश में कानूनी है?",
+      "इसके लिए मुझे कौन से दस्तावेज़ चाहिए?",
+      "मदद के लिए मैं किससे संपर्क कर सकता हूँ?",
+      "इस उल्लंघन के लिए क्या दंड हैं?",
+      "क्या मैं शिकायत दर्ज कर सकता हूँ?",
+      "यह समस्या कितनी आम है?",
+      "मेरा नियोक्ता कानूनी रूप से क्या कर सकता है?",
+      "मैं खुद की सुरक्षा कैसे कर सकता हूँ?",
+    ],
+    ar: [
+      "هل يمكنك شرح ذلك بمزيد من التفصيل؟",
+      "ماذا يجب أن أفعل حيال هذا؟",
+      "هل هذا قانوني في بلد وجهتي؟",
+      "ما هي المستندات التي أحتاجها لهذا؟",
+      "من يمكنني الاتصال به للمساعدة؟",
+      "ما هي عقوبات هذا الانتهاك؟",
+      "هل يمكنني تقديم شكوى؟",
+      "ما مدى شيوع هذه المشكلة؟",
+      "ماذا يمكن لصاحب العمل أن يفعل قانونيًا؟",
+      "كيف يمكنني حماية نفسي؟",
+    ],
+    fil: [
+      "Maaari mo bang ipaliwanag nang mas detalyado?",
+      "Ano ang dapat kong gawin tungkol dito?",
+      "Legal ba ito sa bansang pupuntahan ko?",
+      "Anong mga dokumento ang kailangan ko para dito?",
+      "Sino ang maaari kong kontakin para sa tulong?",
+      "Ano ang mga parusa para sa paglabag na ito?",
+      "Maaari ba akong maghain ng reklamo?",
+      "Gaano karaniwan ang isyung ito?",
+      "Ano ang legal na maaaring gawin ng aking employer?",
+      "Paano ko mapoprotektahan ang aking sarili?",
+    ],
+    bn: [
+      "আপনি কি এটি আরও বিস্তারিতভাবে ব্যাখ্যা করতে পারেন?",
+      "আমার এই বিষয়ে কী করা উচিত?",
+      "এটি কি আমার গন্তব্য দেশে বৈধ?",
+      "এর জন্য আমার কোন কোন কাগজপত্র প্রয়োজন?",
+      "সাহায্যের জন্য আমি কার সাথে যোগাযোগ করতে পারি?",
+      "এই লঙ্ঘনের জন্য শাস্তি কী?",
+      "আমি কি অভিযোগ দায়ের করতে পারি?",
+      "এই সমস্যা কতটা সাধারণ?",
+      "আমার নিয়োগকর্তা আইনগতভাবে কী করতে পারেন?",
+      "আমি কীভাবে নিজেকে রক্ষা করতে পারি?",
+    ],
+  };
+  FOLLOWUP_POOL_MAP.tl = FOLLOWUP_POOL_MAP.fil;
+  const FOLLOWUP_POOL = FOLLOWUP_POOL_MAP[lang] || FOLLOWUP_POOL_MAP.en;
 
   function getFollowups(offset: number): string[] {
     const start = (offset * 3) % FOLLOWUP_POOL.length;
@@ -762,74 +812,116 @@ function ChatWidget({
 
   const isRTL = lang === "ar";
 
+  const Q_MAP: Record<string, Record<string, string>> = {
+    passport: {
+      en: "Can my employer legally keep my passport?",
+      ne: "के नियोक्ताले मेरो राहदानी राख्न सक्छ?",
+      hi: "क्या मेरा नियोक्ता कानूनी रूप से मेरा पासपोर्ट रख सकता है?",
+      ar: "هل يمكن لصاحب العمل الاحتفاظ بجواز سفري قانونيًا؟",
+      fil: "Legal bang panatilihin ng aking employer ang aking pasaporte?",
+      bn: "আমার নিয়োগকর্তা কি আইনগতভাবে আমার পাসপোর্ট রাখতে পারেন?",
+    },
+    recruitment: {
+      en: "Are recruitment fees legal?",
+      ne: "के भर्ती शुल्क तिर्नु कानूनी छ?",
+      hi: "क्या भर्ती शुल्क लेना कानूनी है?",
+      ar: "هل رسوم التوظيف قانونية؟",
+      fil: "Legal ba ang mga bayarin sa pangangalap?",
+      bn: "নিয়োগ ফি কি বৈধ?",
+    },
+    hours: {
+      en: "What can I do about excessive working hours?",
+      ne: "अत्यधिक काम घण्टाको बारेमा के गर्न सक्छु?",
+      hi: "अत्यधिक काम के घंटों के बारे में मैं क्या कर सकता हूँ?",
+      ar: "ماذا يمكنني أن أفعل حيال ساعات العمل المفرطة؟",
+      fil: "Ano ang magagawa ko tungkol sa sobrang oras ng trabaho?",
+      bn: "অতিরিক্ত কাজের সময় সম্পর্কে আমি কী করতে পারি?",
+    },
+    wage: {
+      en: "What are my rights regarding wage deductions?",
+      ne: "मेरो तलब कटौतीबारे के अधिकार छ?",
+      hi: "वेतन कटौती के संबंध में मेरे क्या अधिकार हैं?",
+      ar: "ما هي حقوقي فيما يتعلق باستقطاعات الأجور؟",
+      fil: "Ano ang aking mga karapatan tungkol sa mga pagbawas sa sahod?",
+      bn: "বেতন কর্তন সম্পর্কে আমার অধিকার কী?",
+    },
+    exit: {
+      en: "Can I legally exit this contract?",
+      ne: "के म सम्झौता तोड्न सक्छु?",
+      hi: "क्या मैं कानूनी रूप से इस अनुबंध से बाहर निकल सकता हूँ?",
+      ar: "هل يمكنني الخروج من هذا العقد قانونيًا؟",
+      fil: "Maaari ko bang legal na iwanan ang kontratang ito?",
+      bn: "আমি কি আইনগতভাবে এই চুক্তি থেকে বের হতে পারি?",
+    },
+    serious: {
+      en: "What is the most serious issue in my contract?",
+      ne: "मेरो सम्झौतामा सबैभन्दा गम्भीर समस्या के हो?",
+      hi: "मेरे अनुबंध में सबसे गंभीर समस्या क्या है?",
+      ar: "ما هي أخطر مشكلة في عقدي؟",
+      fil: "Ano ang pinakaseryosong isyu sa aking kontrata?",
+      bn: "আমার চুক্তিতে সবচেয়ে গুরুতর সমস্যা কী?",
+    },
+    safe: {
+      en: "Is my contract safe to sign?",
+      ne: "मेरो सम्झौता सुरक्षित छ?",
+      hi: "क्या मेरा अनुबंध हस्ताक्षर करने के लिए सुरक्षित है?",
+      ar: "هل عقدي آمن للتوقيع؟",
+      fil: "Ligtas bang pirmahan ang aking kontrata?",
+      bn: "আমার চুক্তি স্বাক্ষর করা কি নিরাপদ?",
+    },
+    safe2: {
+      en: "Is this contract safe to sign?",
+      ne: "के यो सम्झौता हस्ताक्षर गर्न सुरक्षित छ?",
+      hi: "क्या यह अनुबंध हस्ताक्षर करने के लिए सुरक्षित है?",
+      ar: "هل هذا العقد آمن للتوقيع؟",
+      fil: "Ligtas ba ang kontratang ito na pirmahan?",
+      bn: "এই চুক্তি স্বাক্ষর করা কি নিরাপদ?",
+    },
+    rights: {
+      en: "What are my legal rights here?",
+      ne: "मेरो कानूनी अधिकारहरू के हुन्?",
+      hi: "यहाँ मेरे कानूनी अधिकार क्या हैं?",
+      ar: "ما هي حقوقي القانونية هنا؟",
+      fil: "Ano ang aking mga legal na karapatan dito?",
+      bn: "এখানে আমার আইনি অধিকার কী?",
+    },
+    dispute: {
+      en: "What should I do if there is a dispute?",
+      ne: "म विवादको अवस्थामा के गर्न सक्छु?",
+      hi: "विवाद होने पर मुझे क्या करना चाहिए?",
+      ar: "ماذا يجب أن أفعل في حالة وجود نزاع؟",
+      fil: "Ano ang dapat kong gawin kung may hindi pagkakaunawaan?",
+      bn: "বিরোধ হলে আমার কী করা উচিত?",
+    },
+  };
+  for (const k of Object.keys(Q_MAP)) {
+    Q_MAP[k].tl = Q_MAP[k].fil;
+  }
+  const qt = (key: string) => Q_MAP[key][lang] || Q_MAP[key].en;
+
   const suggestedQuestions: string[] = (() => {
     const questions: string[] = [];
     const severities = flags.map((f) => f.severity);
     const types = flags.map((f) =>
       f.flag_type?.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_"),
     );
-    if (types.includes("passport_confiscation"))
-      questions.push(
-        lang === "ne"
-          ? "के नियोक्ताले मेरो राहदानी राख्न सक्छ?"
-          : "Can my employer legally keep my passport?",
-      );
-    if (types.includes("recruitment_fee"))
-      questions.push(
-        lang === "ne"
-          ? "के भर्ती शुल्क तिर्नु कानूनी छ?"
-          : "Are recruitment fees legal?",
-      );
-    if (types.includes("excessive_working_hours"))
-      questions.push(
-        lang === "ne"
-          ? "अत्यधिक काम घण्टाको बारेमा के गर्न सक्छु?"
-          : "What can I do about excessive working hours?",
-      );
+    if (types.includes("passport_confiscation")) questions.push(qt("passport"));
+    if (types.includes("recruitment_fee")) questions.push(qt("recruitment"));
+    if (types.includes("excessive_working_hours")) questions.push(qt("hours"));
     if (
       types.includes("wage_deduction") ||
       types.includes("below_minimum_wage")
     )
-      questions.push(
-        lang === "ne"
-          ? "मेरो तलब कटौतीबारे के अधिकार छ?"
-          : "What are my rights regarding wage deductions?",
-      );
+      questions.push(qt("wage"));
     if (
       types.includes("no_termination_right") ||
       types.includes("one_sided_termination")
     )
-      questions.push(
-        lang === "ne"
-          ? "के म सम्झौता तोड्न सक्छु?"
-          : "Can I legally exit this contract?",
-      );
-    if (severities.includes("critical"))
-      questions.push(
-        lang === "ne"
-          ? "मेरो सम्झौतामा सबैभन्दा गम्भीर समस्या के हो?"
-          : "What is the most serious issue in my contract?",
-      );
-    if (questions.length === 0)
-      questions.push(
-        lang === "ne"
-          ? "मेरो सम्झौता सुरक्षित छ?"
-          : "Is my contract safe to sign?",
-      );
-    const fallbacks =
-      lang === "ne"
-        ? [
-            "मेरो सम्झौतामा सबैभन्दा गम्भीर समस्या के हो?",
-            "के यो सम्झौता हस्ताक्षर गर्न सुरक्षित छ?",
-            "मेरो कानूनी अधिकारहरू के हुन्?",
-            "म विवादको अवस्थामा के गर्न सक्छु?",
-          ]
-        : [
-            "What is the most serious issue in my contract?",
-            "Is this contract safe to sign?",
-            "What are my legal rights here?",
-            "What should I do if there is a dispute?",
-          ];
+      questions.push(qt("exit"));
+    if (severities.includes("critical")) questions.push(qt("serious"));
+    if (questions.length === 0) questions.push(qt("safe"));
+
+    const fallbacks = [qt("serious"), qt("safe2"), qt("rights"), qt("dispute")];
     for (const f of fallbacks) {
       if (questions.length >= 3) break;
       if (!questions.includes(f)) questions.push(f);

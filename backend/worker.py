@@ -34,13 +34,35 @@ logger = logging.getLogger("migrantshield.worker")
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "migrantshield-contracts")
-GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 REDIS_URL = os.environ["REDIS_URL"]
+GROQ_KEYS = [
+    os.environ.get("GROQ_API_KEY_1"),
+    os.environ.get("GROQ_API_KEY_2"),
+    os.environ.get("GROQ_API_KEY_3"),
+]
+GROQ_KEYS = [k for k in GROQ_KEYS if k]
 
-# =============================================================
-# CLIENTS
-# =============================================================
-_groq_client = Groq(api_key=GROQ_API_KEY)
+if not GROQ_KEYS:
+    raise RuntimeError("No GROQ_API_KEY_1/2/3 found in environment.")
+
+_groq_clients = [Groq(api_key=k) for k in GROQ_KEYS]
+
+
+def _groq_create_with_rotation(**kwargs):
+    """Try each Groq key in order, fall through on rate limit / failure."""
+    last_err = None
+    for i, client in enumerate(_groq_clients):
+        try:
+            return client.chat.completions.create(**kwargs)
+        except Exception as e:
+            err_str = str(e).lower()
+            if "rate limit" in err_str or "429" in err_str:
+                logger.warning(f"[groq] key #{i+1} rate limited, trying next.")
+                last_err = e
+                continue
+            raise  # non-rate-limit error, fail immediately
+    raise RuntimeError(f"All Groq keys exhausted. Last error: {last_err}")
+
 
 from sentence_transformers import SentenceTransformer
 
@@ -346,6 +368,7 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
 
     LANGUAGE_NAMES = {
         "ne": "Nepali (Devanagari script)",
+        "hi": "Hindi (Devanagari script)",
         "ar": "Arabic",
         "fil": "Filipino (Tagalog)",
         "en": "English",
@@ -370,7 +393,7 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
 
     logger.info(f"[worker] Prompt size: {len(full_prompt)} chars")
 
-    response = _groq_client.chat.completions.create(
+    response = _groq_create_with_rotation(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": full_prompt}],
         temperature=0.4,
@@ -441,7 +464,7 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
             "not a rephrase. Never fall short of the minimum for that flag's severity."
         )
 
-        retry_response = _groq_client.chat.completions.create(
+        retry_response = _groq_create_with_rotation(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": full_prompt + correction_note}],
             temperature=0.4,
