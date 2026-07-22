@@ -277,6 +277,22 @@ export interface LandingTranslations {
     ctaHeading: string;
     ctaButton: string;
   };
+  settings: {
+    title: string;
+    signedInAs: string;
+    generalSection: string;
+    appearance: string;
+    accountSection: string;
+    emailLabel: string;
+    resetPassword: string;
+    resetSent: string;
+    legalSection: string;
+    privacyPolicy: string;
+    terms: string;
+    partnerNGOs: string;
+    dangerZone: string;
+    deleteAccount: string;
+  };
 }
 
 export const translations: Record<Lang, LandingTranslations> = {
@@ -664,6 +680,22 @@ export const translations: Record<Lang, LandingTranslations> = {
         "Your contract is never shared with your employer, your recruitment agency, or immigration authorities. All uploads are encrypted, and no account is required to check a contract.",
       ctaHeading: "Ready to check your contract?",
       ctaButton: "Check My Contract",
+    },
+    settings: {
+      title: "Settings",
+      signedInAs: "Signed in as",
+      generalSection: "General",
+      appearance: "Appearance",
+      accountSection: "Account",
+      emailLabel: "Email",
+      resetPassword: "Reset Password",
+      resetSent: "Reset link sent — check your inbox.",
+      legalSection: "Legal & Resources",
+      privacyPolicy: "Privacy Policy",
+      terms: "Terms of Service",
+      partnerNGOs: "Partner NGOs",
+      dangerZone: "Danger Zone",
+      deleteAccount: "Delete Account",
     },
   },
 
@@ -1053,6 +1085,22 @@ export const translations: Record<Lang, LandingTranslations> = {
         "तपाईंको सम्झौता कहिल्यै तपाईंको नियोक्ता, भर्ती एजेन्सी, वा आप्रवासन अधिकारीहरूसँग साझा गरिँदैन। सबै अपलोडहरू इन्क्रिप्ट गरिएका छन्, र सम्झौता जाँच गर्न कुनै खाता आवश्यक छैन।",
       ctaHeading: "आफ्नो सम्झौता जाँच गर्न तयार हुनुहुन्छ?",
       ctaButton: "सम्झौता जाँच गर्नुहोस्",
+    },
+    settings: {
+      title: "सेटिङहरू",
+      signedInAs: "यसरी साइन इन गरिएको",
+      generalSection: "सामान्य",
+      appearance: "देखावट",
+      accountSection: "खाता",
+      emailLabel: "इमेल",
+      resetPassword: "पासवर्ड रिसेट",
+      resetSent: "रिसेट लिङ्क पठाइयो — आफ्नो इनबक्स जाँच्नुहोस्।",
+      legalSection: "कानूनी र स्रोतहरू",
+      privacyPolicy: "गोपनीयता नीति",
+      terms: "सेवा सर्तहरू",
+      partnerNGOs: "साझेदार NGO हरू",
+      dangerZone: "खतरा क्षेत्र",
+      deleteAccount: "खाता मेटाउनुहोस्",
     },
   },
 };
