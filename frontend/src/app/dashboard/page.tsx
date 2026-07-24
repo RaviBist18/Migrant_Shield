@@ -597,7 +597,7 @@ export default function DashboardPage() {
       label: t.criticalFlags,
       value: criticalFlags,
       trend: criticalFlags > 0 ? "Needs attention" : null,
-      trendUp: false,
+      trendUp: criticalFlags > 0,
     },
     {
       key: "processing" as FilterType,
@@ -608,7 +608,7 @@ export default function DashboardPage() {
         stuckContracts.length > 0
           ? `${stuckContracts.length} stuck >10min`
           : null,
-      trendUp: false,
+      trendUp: stuckContracts.length > 0,
     },
     {
       key: "failed" as FilterType,
@@ -616,7 +616,7 @@ export default function DashboardPage() {
       label: t.statusFailed,
       value: failedCount,
       trend: thisWeekFailed > 0 ? `${thisWeekFailed} this week` : null,
-      trendUp: false,
+      trendUp: thisWeekFailed > 0,
     },
   ];
 
@@ -882,7 +882,7 @@ export default function DashboardPage() {
                     <button
                       key={item.label}
                       onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-7 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
+                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
                     >
                       <div
                         className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
@@ -933,7 +933,7 @@ export default function DashboardPage() {
                     <button
                       key={item.label}
                       onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-7 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
+                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
                     >
                       <div
                         className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}

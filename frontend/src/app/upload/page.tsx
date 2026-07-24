@@ -42,9 +42,8 @@ export default function UploadPage() {
 
   const t = translations[lang].upload;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processFile = (file: File | null | undefined) => {
     setError(null);
-    const file = e.target.files?.[0];
     if (!file) return;
 
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
@@ -60,7 +59,10 @@ export default function UploadPage() {
     const reader = new FileReader();
     reader.onload = () => {
       sessionStorage.setItem("upload_file_data", reader.result as string);
-      sessionStorage.setItem("upload_file_name", file.name);
+      sessionStorage.setItem(
+        "upload_file_name",
+        file.name || "pasted-image.png",
+      );
       sessionStorage.setItem("upload_file_size", String(file.size));
       sessionStorage.setItem("upload_file_type", file.type);
       router.push("/upload/preview");
@@ -68,12 +70,53 @@ export default function UploadPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    processFile(e.target.files?.[0]);
+  };
+
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    processFile(file);
+  };
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.kind === "file" && ALLOWED_MIME_TYPES.includes(item.type)) {
+          const file = item.getAsFile();
+          if (file) {
+            processFile(file);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [lang]);
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <main className="max-w-lg mx-auto px-4 pb-10">
         <Link
           href="/dashboard"
-          className="flex items-center gap-1.5 group text-slate-400 hover:text-slate-900 text-sm font-medium transition-colors duration-200 mb-6 mt-8"
+          className="flex items-center gap-1.5 group text-slate-400 hover:text-slate-900 text-sm font-medium transition-colors duration-200 mb-6 mt-6"
         >
           <svg
             className="w-4 h-4 transition-transform duration-200 ease-in-out group-hover:-translate-x-0.5"
@@ -88,17 +131,24 @@ export default function UploadPage() {
           </svg>
           {t.dashboardLink}
         </Link>
-        <div className="mb-2">
-          <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">
+        <div className="mb-4 text-center">
+          <h1 className="text-xl font-semibold text-slate-800 tracking-tight">
             {t.heading}
           </h1>
-          <p className="mt-2 text-sm text-slate-500">{t.subheading}</p>
+          <p className="mt-4 text-sm text-slate-500">{t.subheading}</p>
         </div>
 
         {/* Upload zone */}
         <div
-          className="mt-6 relative border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900 p-10 flex flex-col items-center justify-center gap-5 cursor-pointer group hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 transition-all duration-200"
+          className={`mt-4 relative border-2 border-dashed rounded-2xl bg-white dark:bg-slate-900 p-8 flex flex-col items-center justify-center text-center gap-3 cursor-pointer group transition-all duration-200 ${
+            isDragOver
+              ? "border-teal-500 bg-teal-50/50 dark:bg-teal-950/30 scale-[1.01]"
+              : "border-slate-200 dark:border-slate-700 hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-teal-950/20"
+          }`}
           onClick={() => inputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
           <div className="w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
             <svg
@@ -119,7 +169,14 @@ export default function UploadPage() {
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
               {t.tapToSelect}
             </p>
-            <p className="text-xs text-slate-400 mt-1">{t.tapSub}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
+              {t.tapSub}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-medium">
+              {lang === "ne"
+                ? "वा तान्नुहोस् · वा पेस्ट गर्नुहोस् (Ctrl+V)"
+                : "or drag & drop · or paste (Ctrl+V)"}
+            </p>
           </div>
           <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400">
             <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">

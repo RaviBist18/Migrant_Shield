@@ -8,8 +8,9 @@ import { createBrowserClient } from "@supabase/ssr";
 export const dynamic = "force-dynamic";
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 90000;
+const UPLOAD_TIMEOUT_MS = 60000;
 
-type PollingStatus = "polling" | "completed" | "failed" | "timeout";
+type Phase = "uploading" | "polling" | "completed" | "failed" | "timeout";
 
 interface StatusResponse {
   contract_id: string;
@@ -27,9 +28,12 @@ function ProcessingContent() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
-  const contractId = searchParams.get("id");
-
-  const [pollingStatus, setPollingStatus] = useState<PollingStatus>("polling");
+  const [contractId, setContractId] = useState<string | null>(
+    searchParams.get("id"),
+  );
+  const [phase, setPhase] = useState<Phase>(
+    searchParams.get("id") ? "polling" : "uploading",
+  );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uiLang, setUiLang] = useState<"en" | "ne">("en");
@@ -48,6 +52,7 @@ function ProcessingContent() {
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
+  const uploadStartedRef = useRef(false);
 
   const clearAllTimers = () => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -55,8 +60,109 @@ function ProcessingContent() {
     if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
   };
 
+  // --------------------------------------------------------------------------
+  // Elapsed timer — runs continuously across upload + polling phases
+  // --------------------------------------------------------------------------
   useEffect(() => {
-    if (!contractId) return;
+    elapsedIntervalRef.current = setInterval(
+      () => setElapsedSeconds((p) => p + 1),
+      1000,
+    );
+    return () => {
+      if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
+    };
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // Upload phase — runs the actual /upload request from here, staged UI plays
+  // for the real duration instead of a blank "Uploading..." button.
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (phase !== "uploading" || uploadStartedRef.current) return;
+    uploadStartedRef.current = true;
+
+    const data = sessionStorage.getItem("upload_file_data");
+    const name = sessionStorage.getItem("upload_file_name");
+    const type = sessionStorage.getItem("upload_file_type");
+    const language = sessionStorage.getItem("upload_language") || "en";
+
+    if (!data || !name || !type) {
+      router.replace("/upload");
+      return;
+    }
+
+    const doUpload = async () => {
+      try {
+        const controller = new AbortController();
+        const abortTimer = setTimeout(
+          () => controller.abort(),
+          UPLOAD_TIMEOUT_MS,
+        );
+
+        const res = await fetch(data);
+        const blob = await res.blob();
+        const file = new File([blob], name, { type });
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("language", language);
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        } else {
+          let guestId = localStorage.getItem("guest_id");
+          if (!guestId) {
+            guestId = crypto.randomUUID();
+            localStorage.setItem("guest_id", guestId);
+          }
+          headers["X-Guest-ID"] = guestId;
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/upload`,
+          {
+            method: "POST",
+            headers,
+            body: formData,
+            signal: controller.signal,
+          },
+        );
+        clearTimeout(abortTimer);
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.detail || "Upload failed. Please try again.");
+        }
+
+        sessionStorage.removeItem("upload_file_data");
+        sessionStorage.removeItem("upload_file_name");
+        sessionStorage.removeItem("upload_file_size");
+        sessionStorage.removeItem("upload_file_type");
+        sessionStorage.removeItem("upload_language");
+
+        // Backend already processed synchronously and returns completed state.
+        // Move straight into polling — first poll will immediately see "completed".
+        setContractId(result.contract_id);
+        setPhase("polling");
+      } catch (err: any) {
+        setErrorMessage(err.message || "Unexpected error. Please try again.");
+        setPhase("failed");
+      }
+    };
+
+    doUpload();
+  }, [phase]);
+
+  // --------------------------------------------------------------------------
+  // Polling phase
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (phase !== "polling" || !contractId) return;
     let isMounted = true;
 
     const pollStatus = async () => {
@@ -85,7 +191,7 @@ function ProcessingContent() {
 
         if (data.status === "completed") {
           clearAllTimers();
-          setPollingStatus("completed");
+          setPhase("completed");
           setTimeout(() => router.push(`/report/${contractId}`), 1200);
           return;
         }
@@ -94,7 +200,7 @@ function ProcessingContent() {
           setErrorMessage(
             data.error ?? "Analysis pipeline encountered an error.",
           );
-          setPollingStatus("failed");
+          setPhase("failed");
         }
       } catch (err) {
         console.warn("[MigrantShield] Poll network error:", err);
@@ -103,37 +209,32 @@ function ProcessingContent() {
 
     pollStatus();
     pollIntervalRef.current = setInterval(pollStatus, POLL_INTERVAL_MS);
-    elapsedIntervalRef.current = setInterval(
-      () => setElapsedSeconds((p) => p + 1),
-      1000,
-    );
     timeoutRef.current = setTimeout(() => {
       if (!isMounted) return;
       clearAllTimers();
-      setPollingStatus("timeout");
+      setPhase("timeout");
     }, POLL_TIMEOUT_MS);
 
     return () => {
       isMounted = false;
-      clearAllTimers();
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [contractId, user]);
+  }, [phase, contractId]);
+
+  useEffect(() => {
+    return () => clearAllTimers();
+  }, []);
 
   const progressPct = Math.min(
     Math.round((elapsedSeconds / (POLL_TIMEOUT_MS / 1000)) * 92),
     92,
   );
 
-  useEffect(() => {
-    if (!contractId) router.replace("/upload");
-  }, [contractId]);
-
-  if (!contractId) return null;
-
   // --------------------------------------------------------------------------
   // Timeout state
   // --------------------------------------------------------------------------
-  if (pollingStatus === "timeout") {
+  if (phase === "timeout") {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         <main className="max-w-lg mx-auto px-4 py-12">
@@ -216,7 +317,7 @@ function ProcessingContent() {
   // --------------------------------------------------------------------------
   // Failed state
   // --------------------------------------------------------------------------
-  if (pollingStatus === "failed") {
+  if (phase === "failed") {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         <main className="max-w-lg mx-auto px-4 py-12">
@@ -273,7 +374,7 @@ function ProcessingContent() {
             <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700">
               <p className="text-xs text-slate-400">Reference ID</p>
               <p className="text-xs font-mono text-slate-600 dark:text-slate-400 mt-1 break-all">
-                {contractId}
+                {contractId ?? "—"}
               </p>
             </div>
           </div>
@@ -298,7 +399,7 @@ function ProcessingContent() {
   }
 
   // --------------------------------------------------------------------------
-  // Active polling state
+  // Active state — uploading or polling, same staged UI throughout
   // --------------------------------------------------------------------------
   const steps = [
     {
@@ -356,7 +457,7 @@ function ProcessingContent() {
   ];
 
   const getStepState = (completeAt: number, nextCompleteAt?: number) => {
-    if (pollingStatus === "completed") return "done";
+    if (phase === "completed") return "done";
     if (progressPct >= completeAt) return "done";
     if (nextCompleteAt && progressPct >= completeAt - 10) return "active";
     if (progressPct >= completeAt - 15) return "active";
@@ -490,7 +591,7 @@ function ProcessingContent() {
         <div className="mt-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {pollingStatus === "completed"
+              {phase === "completed"
                 ? uiLang === "ne"
                   ? "विश्लेषण पूरा भयो"
                   : "Analysis complete — redirecting…"
@@ -506,22 +607,23 @@ function ProcessingContent() {
             <div
               className="h-1 bg-teal-500 rounded-full transition-all duration-1000 ease-in-out"
               style={{
-                width:
-                  pollingStatus === "completed" ? "100%" : `${progressPct}%`,
+                width: phase === "completed" ? "100%" : `${progressPct}%`,
               }}
             />
           </div>
         </div>
 
         {/* Reference ID */}
-        <div className="mt-3 flex items-center justify-between px-1">
-          <p className="text-xs text-slate-400">
-            {uiLang === "ne" ? "सन्दर्भ ID" : "Reference ID"}
-          </p>
-          <p className="text-xs font-mono text-slate-400 dark:text-slate-500 break-all ml-4 text-right">
-            {contractId}
-          </p>
-        </div>
+        {contractId && (
+          <div className="mt-3 flex items-center justify-between px-1">
+            <p className="text-xs text-slate-400">
+              {uiLang === "ne" ? "सन्दर्भ ID" : "Reference ID"}
+            </p>
+            <p className="text-xs font-mono text-slate-400 dark:text-slate-500 break-all ml-4 text-right">
+              {contractId}
+            </p>
+          </div>
+        )}
 
         {/* Disclaimer */}
         <p className="mt-4 text-xs text-teal-700/70 dark:text-teal-500/70 text-center leading-relaxed">

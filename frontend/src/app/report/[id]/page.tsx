@@ -713,6 +713,20 @@ function ChatWidget({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(autoOpen);
+  const [shouldPulse, setShouldPulse] = useState(false);
+
+  useEffect(() => {
+    if (open || autoOpen) return;
+    const seenKey = `chat_widget_used_${contractId}`;
+    if (sessionStorage.getItem(seenKey)) return;
+
+    const showTimer = setTimeout(() => setShouldPulse(true), 6000);
+    const hideTimer = setTimeout(() => setShouldPulse(false), 12000);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [contractId]);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: ui.chatWelcome },
   ]);
@@ -1184,14 +1198,29 @@ function ChatWidget({
             <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white dark:bg-slate-800 border-r border-b border-slate-200 dark:border-slate-700 rotate-45" />
           </div>
         )}
+        {shouldPulse && !open && (
+          <>
+            <span className="fixed bottom-16 right-5 z-[58] w-14 h-14 rounded-full bg-teal-400/50 animate-ping pointer-events-none" />
+            <span
+              className="fixed bottom-16 right-5 z-[58] w-14 h-14 rounded-full bg-teal-400/30 animate-ping pointer-events-none"
+              style={{ animationDelay: "0.6s" }}
+            />
+          </>
+        )}
         <button
-          onClick={() =>
+          onClick={() => {
+            setShouldPulse(false);
+            sessionStorage.setItem(`chat_widget_used_${contractId}`, "1");
             setOpen((o) => {
               if (o) setPanelPos(DEFAULT_POS);
               return !o;
-            })
-          }
-          className="fixed bottom-16 right-5 z-[60] w-14 h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 active:scale-95 ring-1 ring-slate-700"
+            });
+          }}
+          className={`fixed bottom-16 right-5 z-[60] w-14 h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 active:scale-95 ${
+            shouldPulse
+              ? "ring-4 ring-teal-400 shadow-teal-400/50 shadow-xl animate-[bounce_1.5s_ease-in-out_3]"
+              : "ring-1 ring-slate-700"
+          }`}
           aria-label="Open legal assistant"
         >
           {open ? (

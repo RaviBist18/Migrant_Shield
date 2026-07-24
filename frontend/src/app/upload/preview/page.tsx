@@ -72,64 +72,12 @@ export default function PreviewPage() {
 
   const submitRef = useRef(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!preview || submitRef.current) return;
     submitRef.current = true;
     setUploading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(preview.data);
-      const blob = await res.blob();
-      const file = new File([blob], preview.name, { type: preview.type });
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("language", language);
-
-      const supabase = createSupabaseBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const headers: Record<string, string> = {};
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      } else {
-        let guestId = localStorage.getItem("guest_id");
-        if (!guestId) {
-          guestId = crypto.randomUUID();
-          localStorage.setItem("guest_id", guestId);
-        }
-        headers["X-Guest-ID"] = guestId;
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/upload`,
-        {
-          method: "POST",
-          headers,
-          body: formData,
-        },
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.detail || "Upload failed. Please try again.");
-      }
-
-      sessionStorage.removeItem("upload_file_data");
-      sessionStorage.removeItem("upload_file_name");
-      sessionStorage.removeItem("upload_file_size");
-      sessionStorage.removeItem("upload_file_type");
-
-      router.push(`/upload/processing?id=${result.contract_id}`);
-    } catch (err: any) {
-      setError(err.message || "Unexpected error. Please try again.");
-      setUploading(false);
-      submitRef.current = false;
-    }
+    sessionStorage.setItem("upload_language", language);
+    router.push("/upload/processing");
   };
 
   if (!preview) return null;
@@ -251,46 +199,6 @@ export default function PreviewPage() {
             </p>
           </div>
         )}
-
-        {/* What happens next */}
-        <div className="mt-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
-            {uiLang === "ne" ? "के हुन्छ अर्को?" : "What happens next?"}
-          </p>
-          <div className="flex items-start justify-between">
-            {[
-              {
-                step: "1",
-                label: uiLang === "ne" ? "स्क्यान" : "Scan contract",
-                icon: "📄",
-              },
-              {
-                step: "2",
-                label: uiLang === "ne" ? "जोखिम पहिचान" : "Detect risks",
-                icon: "⚠️",
-              },
-              {
-                step: "3",
-                label: uiLang === "ne" ? "रिपोर्ट पाउनुस्" : "Get report",
-                icon: "🛡",
-              },
-            ].map((item, i, arr) => (
-              <div key={item.step} className="flex items-center gap-2">
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-base">
-                    {item.icon}
-                  </div>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium text-center leading-tight">
-                    {item.label}
-                  </span>
-                </div>
-                {i < arr.length - 1 && (
-                  <div className="w-10 h-px bg-slate-200 dark:bg-slate-700 mb-4 mx-1" />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
 
         <div className="mt-4 flex flex-col gap-2">
           <button
