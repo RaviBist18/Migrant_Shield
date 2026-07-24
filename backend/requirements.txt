@@ -11,7 +11,3 @@ python-dotenv==1.0.1
 arq==0.25.0
 redis==5.0.4
 reportlab
-psycopg2-binary==2.9.9
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.3.0
-sentence-transformers==2.7.0

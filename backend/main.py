@@ -28,9 +28,13 @@ from fastapi.responses import JSONResponse
 from supabase import Client, create_client
 from fastapi.responses import StreamingResponse
 from io import BytesIO
-from retriever import retrieve_legal_context
-from worker import _detect_country
 from groq_utils import groq_chat_with_retry
+from arq.worker import create_worker
+import asyncio
+from supabase.lib.client_options import ClientOptions
+
+# from retriever import retrieve_legal_context
+# from worker import _detect_country
 
 load_dotenv(override=True)
 
@@ -58,7 +62,14 @@ DEMO_CONTRACT_ID = os.environ.get("DEMO_CONTRACT_ID", "")
 # SUPABASE CLIENT
 # =============================================================
 def _get_supabase() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_KEY,
+        options=ClientOptions(
+            postgrest_client_timeout=30,
+            storage_client_timeout=30,
+        ),
+    )
 
 
 # =============================================================
@@ -88,6 +99,41 @@ app.add_middleware(
 @app.options("/{rest_of_path:path}")
 async def preflight_handler(rest_of_path: str):
     return JSONResponse(status_code=200, content={})
+
+
+async def _run_worker_forever():
+    from worker import WorkerSettings
+
+    while True:
+        worker = create_worker(WorkerSettings, handle_signals=False)
+        try:
+            await worker.async_run()
+        except Exception as e:
+            logger.error(f"[main] ARQ worker crashed: {e} — restarting in 3s")
+        await asyncio.sleep(3)
+
+
+@app.on_event("startup")
+async def start_arq_worker():
+    asyncio.create_task(_run_worker_forever())
+    logger.info("[main] ARQ worker watchdog started")
+
+
+@app.on_event("startup")
+async def start_persistent_redis_pool():
+    from worker import REDIS_SETTINGS
+    from arq import create_pool
+
+    app.state.arq_pool = await create_pool(REDIS_SETTINGS)
+    logger.info("[main] Persistent ARQ enqueue pool started")
+
+
+@app.on_event("shutdown")
+async def close_persistent_redis_pool():
+    pool = getattr(app.state, "arq_pool", None)
+    if pool:
+        await pool.close()
+        logger.info("[main] Persistent ARQ enqueue pool closed")
 
 
 @app.on_event("startup")
@@ -340,13 +386,40 @@ async def upload_contract(
         logger.error(f"Storage upload failed: {e}")
         raise HTTPException(status_code=500, detail="File storage failed.")
 
-    # Enqueue via ARQ
-    from worker import enqueue_upload_sync
+    # PDFs keep the 2-job async flow (tesseract fallback still needed for scanned PDFs).
+    if file.content_type == "application/pdf":
+        await app.state.arq_pool.enqueue_job("process_upload", contract_id)
+        logger.info(
+            f"Contract queued: {contract_id} user={user_id} language={language}"
+        )
+        return {"contract_id": contract_id, "status": "queued", "language": language}
 
-    background_tasks.add_task(enqueue_upload_sync, contract_id)
+    # Images: try fast-path inline processing first (no job queue, no polling).
+    # If it doesn't finish within 28s, fall back to the normal background job.
+    from worker import process_contract
 
-    logger.info(f"Contract queued: {contract_id} user={user_id} language={language}")
-    return {"contract_id": contract_id, "status": "queued", "language": language}
+    try:
+        await asyncio.wait_for(process_contract(None, contract_id), timeout=28)
+        status_check = (
+            supabase.table("contracts")
+            .select("status")
+            .eq("contract_id", contract_id)
+            .single()
+            .execute()
+        )
+        final_status = status_check.data["status"] if status_check.data else "failed"
+        logger.info(f"Contract fast-path finished: {contract_id} status={final_status}")
+        return {
+            "contract_id": contract_id,
+            "status": final_status,
+            "language": language,
+        }
+    except asyncio.TimeoutError:
+        logger.info(
+            f"Contract fast-path timed out, falling back to queue: {contract_id}"
+        )
+        await app.state.arq_pool.enqueue_job("process_contract", contract_id)
+        return {"contract_id": contract_id, "status": "queued", "language": language}
 
 
 # --------------------------------------------------------------
@@ -762,10 +835,8 @@ async def reanalyze_contract(
         logger.error(f"Contract reset failed for {contract_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to reset contract.")
 
-    # Re-enqueue
-    from worker import enqueue_contract_sync
-
-    background_tasks.add_task(enqueue_contract_sync, contract_id)
+    # Re-enqueue — reuse persistent pool
+    await app.state.arq_pool.enqueue_job("process_contract", contract_id)
 
     logger.info(f"Reanalysis queued: contract_id={contract_id} user={user_id}")
     return {
@@ -1491,42 +1562,50 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessageItem]
 
 
+# @app.post("/api/chat")
+# async def chat_endpoint(req: ChatRequest):
+#     try:
+#         # Extract last user message for RAG
+#         user_messages = [m for m in req.messages if m.role == "user"]
+#         last_query = " ".join(m.content for m in req.messages if m.role == "user")
+
+#         # Detect country from conversation
+
+#         country = _detect_country(last_query)
+#         filter_countries = [country, "ILO"] if country else ["ILO"]
+
+#         # RAG retrieval
+
+#         corpus_text = retrieve_legal_context(
+#             contract_text=last_query,
+#             filter_countries=filter_countries,
+#             top_k=5,
+#         )
+
+#         # Inject RAG into system prompt
+#         messages = [m.dict() for m in req.messages]
+#         if corpus_text:
+#             sys_msgs = [m for m in messages if m["role"] == "system"]
+#             if sys_msgs:
+#                 sys_msgs[0][
+#                     "content"
+#                 ] += f"\n\n=== VERIFIED LEGAL CORPUS ===\n{corpus_text}\n\nCite law_title and article numbers exactly."
+#             else:
+#                 messages.insert(
+#                     0,
+#                     {
+#                         "role": "system",
+#                         "content": f"=== VERIFIED LEGAL CORPUS ===\n{corpus_text}\n\nCite law_title and article numbers exactly.",
+#                     },
+#                 )
+
+#         async with httpx.AsyncClient(timeout=30) as client:
+
+
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest):
     try:
-        # Extract last user message for RAG
-        user_messages = [m for m in req.messages if m.role == "user"]
-        last_query = " ".join(m.content for m in req.messages if m.role == "user")
-
-        # Detect country from conversation
-
-        country = _detect_country(last_query)
-        filter_countries = [country, "ILO"] if country else ["ILO"]
-
-        # RAG retrieval
-
-        corpus_text = retrieve_legal_context(
-            contract_text=last_query,
-            filter_countries=filter_countries,
-            top_k=5,
-        )
-
-        # Inject RAG into system prompt
         messages = [m.dict() for m in req.messages]
-        if corpus_text:
-            sys_msgs = [m for m in messages if m["role"] == "system"]
-            if sys_msgs:
-                sys_msgs[0][
-                    "content"
-                ] += f"\n\n=== VERIFIED LEGAL CORPUS ===\n{corpus_text}\n\nCite law_title and article numbers exactly."
-            else:
-                messages.insert(
-                    0,
-                    {
-                        "role": "system",
-                        "content": f"=== VERIFIED LEGAL CORPUS ===\n{corpus_text}\n\nCite law_title and article numbers exactly.",
-                    },
-                )
 
         async with httpx.AsyncClient(timeout=30) as client:
             res = await client.post(

@@ -15,10 +15,11 @@ import fitz  # PyMuPDF
 from groq import Groq
 from arq import create_pool
 from arq.connections import RedisSettings
+from arq import cron
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
-from retriever import retrieve_legal_context
+# from retriever import retrieve_legal_context
 
 load_dotenv(override=True)
 
@@ -64,9 +65,9 @@ def _groq_create_with_rotation(**kwargs):
     raise RuntimeError(f"All Groq keys exhausted. Last error: {last_err}")
 
 
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
 
-_embedding_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+# _embedding_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 
 def _get_supabase() -> Client:
@@ -92,10 +93,12 @@ def _parse_redis_settings(url: str) -> RedisSettings:
         conn_timeout=10,
         conn_retries=10,
         conn_retry_delay=2,
+        retry_on_error=[ConnectionError, TimeoutError],
     )
 
 
 REDIS_SETTINGS = _parse_redis_settings(REDIS_URL)
+
 
 # =============================================================
 # COUNTRY DETECTION (fast keyword scan — no Groq call)
@@ -229,15 +232,6 @@ def _calculate_risk_score(flags: list[dict]) -> int:
     return min(score, 100)
 
 
-import numpy as np
-
-
-def _cosine_sim(a: list[float], b: list[float]) -> float:
-    a, b = np.array(a), np.array(b)
-    denom = np.linalg.norm(a) * np.linalg.norm(b)
-    return float(np.dot(a, b) / denom) if denom else 0.0
-
-
 def _min_points_for_severity(severity: str) -> int:
     sev = (severity or "").lower()
     if sev == "critical":
@@ -265,14 +259,6 @@ def _validate_flag(flag: dict, sim_threshold: float = 0.90) -> list[str]:
     if len(steps) < min_points:
         problems.append(f"mitigation_steps_needs_{min_points}_items")
 
-    if sentences and steps and not problems:
-        desc_embeds = _embedding_model.encode(sentences).tolist()
-        step_embeds = _embedding_model.encode(steps).tolist()
-        for i, d_emb in enumerate(desc_embeds):
-            for j, s_emb in enumerate(step_embeds):
-                if _cosine_sim(d_emb, s_emb) >= sim_threshold:
-                    problems.append(f"overlap_desc{i}_step{j}")
-
     return problems
 
 
@@ -291,7 +277,7 @@ def extract_text(file_bytes: bytes, mime_type: str) -> str:
     if mime_type == "application/pdf":
         return _extract_from_pdf(file_bytes)
     elif mime_type in ("image/png", "image/jpeg", "image/webp"):
-        return _extract_from_image(file_bytes)
+        return _extract_from_image_groq_vision(file_bytes, mime_type)
     else:
         raise ValueError(f"Unsupported mime type: {mime_type}")
 
@@ -327,13 +313,51 @@ def _extract_from_pdf(file_bytes: bytes) -> str:
 
 def _extract_from_image(file_bytes: bytes) -> str:
     try:
-        img = Image.open(io.BytesIO(file_bytes))
-        text = pytesseract.image_to_string(img, lang="eng+ara+nep")
+        img = Image.open(io.BytesIO(file_bytes)).convert("L")  # grayscale
+        max_dim = 2000
+        if max(img.size) > max_dim:
+            ratio = max_dim / max(img.size)
+            img = img.resize((int(img.width * ratio), int(img.height * ratio)))
+        text = pytesseract.image_to_string(img, lang="eng+nep")  # ← arabic dropped
         logger.info(f"[extract] image OCR: {len(text)} chars")
         return text
     except Exception as e:
         logger.error(f"[extract] image OCR failed: {e}")
         raise ValueError(f"Image extraction failed: {e}")
+
+
+def _extract_from_image_groq_vision(file_bytes: bytes, mime_type: str) -> str:
+    import base64
+
+    try:
+        b64_image = base64.b64encode(file_bytes).decode("utf-8")
+        response = _groq_create_with_rotation(
+            model="qwen/qwen3.6-27b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Extract all text from this document image exactly as written, preserving numbers, dates, and figures precisely. Output only the raw extracted text, no commentary, no formatting, no markdown.",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{b64_image}"
+                            },
+                        },
+                    ],
+                }
+            ],
+            temperature=0,
+        )
+        text = response.choices[0].message.content
+        logger.info(f"[extract] Groq vision OCR: {len(text)} chars")
+        return text
+    except Exception as e:
+        logger.error(f"[extract] Groq vision OCR failed: {e}")
+        raise ValueError(f"Groq vision extraction failed: {e}")
 
 
 # =============================================================
@@ -359,13 +383,6 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
     country = _detect_country(contract_text)
     logger.info(f"[worker] Country detected: {country}")
 
-    filter_countries = [country, "ILO"] if country else ["ILO"]
-    corpus_text = retrieve_legal_context(
-        contract_text=contract_text,
-        filter_countries=filter_countries,
-        top_k=5,
-    )
-
     LANGUAGE_NAMES = {
         "ne": "Nepali (Devanagari script)",
         "hi": "Hindi (Devanagari script)",
@@ -382,14 +399,18 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
         f"Do not use Arabic, English, or any other language in these fields unless {language_full_name} IS English. "
         f"Empty strings or wrong-language text in these fields is a failure.\n\n"
     )
-    if corpus_text:
-        full_prompt = (
-            f"{language_instruction}{ANALYSIS_PROMPT}\n\n"
-            f"CONTRACT TEXT:\n{contract_text}\n\n"
-            f"=== LEGAL CORPUS (use for citations) ===\n{corpus_text}"
-        )
-    else:
-        full_prompt = f"{language_instruction}{ANALYSIS_PROMPT}\n\nCONTRACT TEXT:\n{contract_text}"
+
+    # if corpus_text:
+    #     full_prompt = (
+    #         f"{language_instruction}{ANALYSIS_PROMPT}\n\n"
+    #         f"CONTRACT TEXT:\n{contract_text}\n\n"
+    #         f"=== LEGAL CORPUS (use for citations) ===\n{corpus_text}"
+    #     )
+    # else:
+
+    full_prompt = (
+        f"{language_instruction}{ANALYSIS_PROMPT}\n\nCONTRACT TEXT:\n{contract_text}"
+    )
 
     logger.info(f"[worker] Prompt size: {len(full_prompt)} chars")
 
@@ -397,7 +418,7 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": full_prompt}],
         temperature=0.4,
-        max_tokens=2500,
+        max_tokens=2000,
     )
 
     logger.info(
@@ -468,7 +489,7 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": full_prompt + correction_note}],
             temperature=0.4,
-            max_tokens=2500,
+            max_tokens=2000,
         )
         retry_raw = retry_response.choices[0].message.content.strip()
         retry_raw = re.sub(r"^```json\s*", "", retry_raw)
@@ -519,6 +540,13 @@ async def process_contract(ctx, contract_id: str):
         logger.error(f"[worker] Status update to processing failed: {e}")
         return
 
+    import asyncio
+
+    ping_task = (
+        asyncio.create_task(_keepalive_during_job(ctx))
+        if ctx and ctx.get("redis")
+        else None
+    )
     try:
         result = (
             supabase.table("contracts")
@@ -652,6 +680,9 @@ async def process_contract(ctx, contract_id: str):
             ).eq("contract_id", contract_id).execute()
         except Exception as db_err:
             logger.error(f"[worker] Failed to write error status: {db_err}")
+    finally:
+        if ping_task:
+            ping_task.cancel()
 
 
 # =============================================================
@@ -662,7 +693,9 @@ async def process_contract(ctx, contract_id: str):
 async def process_upload(ctx, contract_id: str):
     logger.info(f"[worker] process_upload start: {contract_id}")
     supabase = _get_supabase()
+    import asyncio
 
+    ping_task = asyncio.create_task(_keepalive_during_job(ctx))
     try:
         result = (
             supabase.table("contracts")
@@ -686,14 +719,10 @@ async def process_upload(ctx, contract_id: str):
         if not text.strip():
             raise ValueError("Text extraction returned empty.")
 
-        # Compute embedding
-        embedding = _embedding_model.encode(text[:3000]).tolist()
-
-        # Store both
+        # Store extracted text
         supabase.table("contracts").update(
             {
                 "extracted_text": text,
-                "embedding_computed": True,
             }
         ).eq("contract_id", contract_id).execute()
 
@@ -702,14 +731,19 @@ async def process_upload(ctx, contract_id: str):
         )
 
     except Exception as e:
-        logger.error(f"[worker] process_upload failed: {contract_id} {e}")
-        supabase.table("contracts").update(
-            {
-                "status": "failed",
-                "error_reason": f"Upload processing failed: {str(e)[:400]}",
-            }
-        ).eq("contract_id", contract_id).execute()
-        return
+        error_msg = str(e)[:400]
+        logger.error(f"[worker] process_upload failed: {contract_id} {error_msg}")
+        try:
+            supabase.table("contracts").update(
+                {
+                    "status": "failed",
+                    "error_reason": f"Upload processing failed: {error_msg}",
+                }
+            ).eq("contract_id", contract_id).execute()
+        except Exception as inner_e:
+            logger.error(f"[worker] Failed to write error status: {inner_e}")
+    finally:
+        ping_task.cancel()
 
     # Enqueue analysis — reuse arq's own pool, don't spin up a second one
     await ctx["redis"].enqueue_job("process_contract", contract_id)
@@ -718,11 +752,32 @@ async def process_upload(ctx, contract_id: str):
     )
 
 
+async def keep_redis_alive(ctx):
+    try:
+        await ctx["redis"].ping()
+        logger.info("[worker] Redis keepalive ping OK")
+    except Exception as e:
+        logger.warning(f"[worker] Redis keepalive ping failed: {e}")
+
+
+async def _keepalive_during_job(ctx, interval: int = 10):
+    """Ping redis every `interval` seconds while a long job (OCR/Groq) runs."""
+    import asyncio
+
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            await ctx["redis"].ping()
+        except Exception as e:
+            logger.warning(f"[worker] in-job keepalive ping failed: {e}")
+
+
 # =============================================================
 # ARQ WORKER SETTINGS
 # =============================================================
 class WorkerSettings:
     functions = [process_contract, process_upload]
+    cron_jobs = [cron(keep_redis_alive, second=set(range(0, 60, 30)))]
     redis_settings = REDIS_SETTINGS
     max_jobs = 5
     job_timeout = 180
