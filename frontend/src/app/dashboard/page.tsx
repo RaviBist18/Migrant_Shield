@@ -634,7 +634,7 @@ export default function DashboardPage() {
       )}
 
       <main
-        className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 md:pb-6"
+        className="flex-1 max-w-6xl mx-auto w-full px-4 pt-2 pb-24 md:pb-6"
         onClick={() => {
           if (hasSelection) {
             setActiveFilter("all");
@@ -737,7 +737,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ── Stat cards ── */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-6">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-4">
               {statCards.map((card) => {
                 const isActive = hasSelection && activeFilter === card.key;
                 const isFailed = card.key === "failed";
@@ -757,7 +757,7 @@ export default function DashboardPage() {
                         }, 250);
                       }
                     }}
-                    className={`bg-white dark:bg-slate-900 border rounded-xl shadow-sm px-4 py-3 flex flex-row items-center gap-3 text-left transition-all hover:shadow-md ${
+                    className={`bg-white dark:bg-slate-900 border rounded-xl shadow-sm px-4 py-2 flex flex-row items-center gap-3 text-left transition-all hover:shadow-md ${
                       isActive
                         ? card.key === "failed"
                           ? "border-red-400 dark:border-red-600 ring-1 ring-red-400 dark:ring-red-600"
@@ -767,7 +767,7 @@ export default function DashboardPage() {
                               ? "border-orange-400 dark:border-orange-600 ring-1 ring-orange-400 dark:ring-orange-600"
                               : card.key === "processing"
                                 ? "border-amber-400 dark:border-amber-600 ring-1 ring-amber-400 dark:ring-amber-600"
-                                : "border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100"
+                                : "border-blue-400 dark:border-blue-600 ring-1 ring-blue-400 dark:ring-blue-600"
                         : "border-slate-200 dark:border-slate-800"
                     }`}
                   >
@@ -781,7 +781,7 @@ export default function DashboardPage() {
                               ? "bg-amber-50 border-amber-100 text-amber-500"
                               : card.key === "completed"
                                 ? "bg-emerald-50 border-emerald-100 text-emerald-500"
-                                : "bg-slate-50 border-slate-100 text-slate-400"
+                                : "bg-blue-50 border-blue-100 text-blue-500"
                       }`}
                     >
                       {card.icon}
@@ -801,15 +801,34 @@ export default function DashboardPage() {
                       </p>
                       {card.trend && (
                         <p
-                          className={`text-[10px] mt-1 font-medium ${
-                            card.trendUp
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : isFailed || card.key === "critical"
-                                ? "text-red-500 dark:text-red-400"
-                                : "text-amber-600 dark:text-amber-400"
+                          className={`text-[10px] mt-1 font-medium flex items-center gap-0.5 ${
+                            card.key === "failed"
+                              ? "text-red-500 dark:text-red-400"
+                              : card.key === "critical"
+                                ? "text-orange-500 dark:text-orange-400"
+                                : card.key === "processing"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : card.key === "completed"
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-blue-500 dark:text-blue-400"
                           }`}
                         >
-                          {card.trendUp ? "↑" : "↗"} {card.trend}
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            className={card.trendUp ? "" : "rotate-90"}
+                          >
+                            <path
+                              d="M3 9L9 3M9 3H4M9 3V8"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          {card.trend}
                         </p>
                       )}
                     </div>
@@ -821,7 +840,7 @@ export default function DashboardPage() {
             {/* ── What's Next ── */}
             {totalContracts > 0 && (
               <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-5">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
                   {t.whatsNext}
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 mb-2">
@@ -863,7 +882,7 @@ export default function DashboardPage() {
                     <button
                       key={item.label}
                       onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
+                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-7 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
                     >
                       <div
                         className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
@@ -914,7 +933,7 @@ export default function DashboardPage() {
                     <button
                       key={item.label}
                       onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
+                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-7 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
                     >
                       <div
                         className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
@@ -940,7 +959,7 @@ export default function DashboardPage() {
             )}
 
             {/* ── Recent Activity ── */}
-            <div className="mb-6 mt-4">
+            <div className="mb-6 mt-2">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   {t.recentActivity}

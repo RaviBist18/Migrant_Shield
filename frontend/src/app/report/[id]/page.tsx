@@ -938,6 +938,19 @@ function ChatWidget({
   const resizing = useRef(false);
   const resizeStartY = useRef(0);
   const resizeStartH = useRef(0);
+  const [panelWidth, setPanelWidth] = useState(352);
+  const resizingW = useRef(false);
+  const resizeStartX = useRef(0);
+  const resizeStartW = useRef(0);
+  const resizingRight = useRef(false);
+  const resizeStartXR = useRef(0);
+  const resizeStartWR = useRef(0);
+  const resizeStartRightPos = useRef(0);
+
+  const resizingBottom = useRef(false);
+  const resizeStartYB = useRef(0);
+  const resizeStartHB = useRef(0);
+  const resizeStartBottomPos = useRef(0);
 
   useEffect(() => {
     const onMove = (e: MouseEvent | TouchEvent) => {
@@ -946,6 +959,46 @@ function ChatWidget({
         const delta = resizeStartY.current - clientY;
         const newH = Math.min(700, Math.max(320, resizeStartH.current + delta));
         setPanelHeight(newH);
+        return;
+      }
+      if (resizingW.current) {
+        const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+        const delta = resizeStartX.current - clientX;
+        const newW = Math.min(
+          Math.min(700, window.innerWidth - 32),
+          Math.max(300, resizeStartW.current + delta),
+        );
+        setPanelWidth(newW);
+        return;
+      }
+      if (resizingRight.current) {
+        const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+        const delta = clientX - resizeStartXR.current;
+        const newW = Math.min(
+          Math.min(700, window.innerWidth - 32),
+          Math.max(300, resizeStartWR.current + delta),
+        );
+        const widthDelta = newW - resizeStartWR.current;
+        setPanelWidth(newW);
+        setPanelPos((p) => ({
+          ...p,
+          right: Math.max(8, resizeStartRightPos.current - widthDelta),
+        }));
+        return;
+      }
+      if (resizingBottom.current) {
+        const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+        const delta = clientY - resizeStartYB.current;
+        const newH = Math.min(
+          700,
+          Math.max(320, resizeStartHB.current + delta),
+        );
+        const heightDelta = newH - resizeStartHB.current;
+        setPanelHeight(newH);
+        setPanelPos((p) => ({
+          ...p,
+          bottom: Math.max(8, resizeStartBottomPos.current - heightDelta),
+        }));
         return;
       }
       if (!dragging) return;
@@ -970,6 +1023,9 @@ function ChatWidget({
     const onUp = () => {
       setDragging(false);
       resizing.current = false;
+      resizingW.current = false;
+      resizingRight.current = false;
+      resizingBottom.current = false;
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("touchmove", onMove, { passive: true });
@@ -1000,6 +1056,30 @@ function ChatWidget({
     resizing.current = true;
     resizeStartY.current = e.clientY;
     resizeStartH.current = panelHeight;
+  };
+  const onResizeStartW = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingW.current = true;
+    resizeStartX.current = e.clientX;
+    resizeStartW.current = panelWidth;
+  };
+  const onResizeStartRight = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRight.current = true;
+    resizeStartXR.current = e.clientX;
+    resizeStartWR.current = panelWidth;
+    resizeStartRightPos.current = panelPos.right;
+  };
+
+  const onResizeStartBottom = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingBottom.current = true;
+    resizeStartYB.current = e.clientY;
+    resizeStartHB.current = panelHeight;
+    resizeStartBottomPos.current = panelPos.bottom;
   };
 
   useEffect(() => {
@@ -1142,9 +1222,10 @@ function ChatWidget({
       {open && (
         <div
           ref={panelRef}
-          className="fixed z-50 w-[352px] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          className="fixed z-50 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           style={{
             height: `${panelHeight}px`,
+            width: `${panelWidth}px`,
             right: panelPos.right,
             bottom: panelPos.bottom,
             transition: dragging ? "none" : "right 0.15s, bottom 0.15s",
@@ -1157,6 +1238,25 @@ function ChatWidget({
             onMouseDown={onResizeStart}
           >
             <div className="mx-auto mt-0.5 w-8 h-1 rounded-full bg-slate-200 dark:bg-slate-600 group-hover:bg-slate-300 dark:group-hover:bg-slate-500 transition-colors" />
+          </div>
+
+          <div
+            className="absolute top-0 bottom-0 left-0 w-1.5 cursor-ew-resize z-10 group"
+            onMouseDown={onResizeStartW}
+          >
+            <div className="my-auto mt-[50%] ml-0.5 w-1 h-8 rounded-full bg-slate-200 dark:bg-slate-600 group-hover:bg-slate-300 dark:group-hover:bg-slate-500 transition-colors" />
+          </div>
+          <div
+            className="absolute top-0 bottom-0 right-0 w-1.5 cursor-ew-resize z-10 group"
+            onMouseDown={onResizeStartRight}
+          >
+            <div className="my-auto mt-[50%] ml-auto mr-0.5 w-1 h-8 rounded-full bg-slate-200 dark:bg-slate-600 group-hover:bg-slate-300 dark:group-hover:bg-slate-500 transition-colors" />
+          </div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize z-10 group"
+            onMouseDown={onResizeStartBottom}
+          >
+            <div className="mx-auto mb-0.5 w-8 h-1 rounded-full bg-slate-200 dark:bg-slate-600 group-hover:bg-slate-300 dark:group-hover:bg-slate-500 transition-colors" />
           </div>
 
           {/* HEADER */}
@@ -2171,7 +2271,7 @@ function FlagBulletItem({
 
   let explanationPoints: string[] = flag.description
     ? flag.description
-        .split(/(?<=[.!?])\s+/)
+        .split(/(?<=[.!?।])\s+/)
         .map((s) => s.trim())
         .filter(Boolean)
     : [];
