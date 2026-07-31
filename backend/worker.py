@@ -101,7 +101,6 @@ def _parse_redis_settings(url: str) -> RedisSettings:
         conn_timeout=10,
         conn_retries=10,
         conn_retry_delay=2,
-        retry_on_error=[ConnectionError, TimeoutError],
     )
 
 
