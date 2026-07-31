@@ -11,3 +11,4 @@ python-dotenv==1.0.1
 arq==0.25.0
 redis==5.0.4
 reportlab
+groq==1.5.0
