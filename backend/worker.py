@@ -11,6 +11,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+import resource
+
 import fitz  # PyMuPDF
 from groq import Groq
 from arq import create_pool
@@ -28,6 +30,12 @@ load_dotenv(override=True)
 # =============================================================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("migrantshield.worker")
+
+
+def _log_memory(tag: str):
+    usage_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    logger.info(f"[mem] {tag}: {usage_kb / 1024:.1f} MB")
+
 
 # =============================================================
 # ENV
@@ -502,6 +510,7 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
 # =============================================================
 async def process_contract(ctx, contract_id: str):
     logger.info(f"[worker] Starting analysis: contract_id={contract_id}")
+    _log_memory("process_contract start")
     supabase = _get_supabase()
 
     try:
@@ -554,12 +563,14 @@ async def process_contract(ctx, contract_id: str):
                 raise ValueError(f"Storage download failed: {e}")
             if not file_bytes:
                 raise ValueError("Downloaded file is empty.")
+            _log_memory(f"after download, file_size={len(file_bytes)/1024:.0f}KB")
             analysis = await _analyse_with_groq(
                 file_bytes=file_bytes,
                 mime_type=mime_type,
                 language=report_language,
             )
 
+        _log_memory("after analysis")
         flags = analysis.get("flags", [])
         worker_name = analysis.get("worker_name")
         employer_name = analysis.get("employer_name")
