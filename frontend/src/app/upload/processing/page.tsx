@@ -226,8 +226,9 @@ function ProcessingContent() {
     return () => clearAllTimers();
   }, []);
 
+  const EXPECTED_DURATION_S = 18;
   const progressPct = Math.min(
-    Math.round((elapsedSeconds / (POLL_TIMEOUT_MS / 1000)) * 92),
+    Math.round((elapsedSeconds / EXPECTED_DURATION_S) * 92),
     92,
   );
 
@@ -410,7 +411,7 @@ function ProcessingContent() {
         uiLang === "ne"
           ? "PDF, स्क्यान वा तस्बिरबाट पाठ पढ्दैछ"
           : "Reads text from PDF, scanned image, or photographed contract",
-      completeAt: 15,
+      completeAt: 20,
     },
     {
       id: 2,
@@ -422,7 +423,7 @@ function ProcessingContent() {
         uiLang === "ne"
           ? "pgvector मा ५२९ कानुन खण्डहरू खोजिँदै"
           : "pgvector similarity search across 529 law chunks",
-      completeAt: 30,
+      completeAt: 40,
     },
     {
       id: 3,
@@ -434,7 +435,7 @@ function ProcessingContent() {
         uiLang === "ne"
           ? "खण्ड-दर-खण्ड जोखिम पहिचान"
           : "Clause-by-clause risk detection + legal grounding",
-      completeAt: 70,
+      completeAt: 75,
     },
     {
       id: 4,
@@ -443,7 +444,7 @@ function ProcessingContent() {
         uiLang === "ne"
           ? "नेपाली · हिन्दी · अरबी · फिलिपिनो · बंगाली"
           : "Nepali · Hindi · Arabic · Filipino · Bengali",
-      completeAt: 85,
+      completeAt: 88,
     },
     {
       id: 5,
@@ -498,7 +499,7 @@ function ProcessingContent() {
           <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
             {uiLang === "ne"
               ? "कृपया यो स्क्रिन खुला राख्नुहोस्।"
-              : "Keep this screen open — results arrive in 15–45 seconds."}
+              : "Keep this screen open — results usually arrive in under 20 seconds."}
           </p>
         </div>
 

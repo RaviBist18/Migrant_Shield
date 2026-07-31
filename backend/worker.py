@@ -11,7 +11,12 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-import resource
+import platform
+
+try:
+    import resource
+except ImportError:
+    resource = None
 
 import fitz  # PyMuPDF
 from groq import Groq
@@ -33,6 +38,8 @@ logger = logging.getLogger("migrantshield.worker")
 
 
 def _log_memory(tag: str):
+    if resource is None:
+        return  # not available on Windows (local dev)
     usage_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     logger.info(f"[mem] {tag}: {usage_kb / 1024:.1f} MB")
 
