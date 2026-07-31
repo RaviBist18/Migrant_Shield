@@ -265,12 +265,6 @@ def _validate_flag(flag: dict, sim_threshold: float = 0.90) -> list[str]:
 # =============================================================
 # TEXT EXTRACTION ROUTER
 # =============================================================
-import pytesseract
-from PIL import Image
-from pdf2image import convert_from_bytes
-
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-POPPLER_PATH = r"C:\poppler\poppler-26.02.0\Library\bin"
 
 
 def extract_text(file_bytes: bytes, mime_type: str) -> str:
@@ -297,33 +291,13 @@ def _extract_from_pdf(file_bytes: bytes) -> str:
         logger.warning(f"[extract] fitz failed: {e}")
 
     # Fallback: scanned PDF → OCR
-    logger.info("[extract] fitz returned empty — falling back to OCR")
-    try:
-        images = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH)
-        text = ""
-        for i, img in enumerate(images):
-            page_text = pytesseract.image_to_string(img, lang="eng+ara+nep")
-            text += page_text
-            logger.info(f"[extract] OCR page {i+1}: {len(page_text)} chars")
-        return text
-    except Exception as e:
-        logger.error(f"[extract] OCR fallback failed: {e}")
-        raise ValueError(f"PDF extraction failed (both fitz and OCR): {e}")
-
-
-def _extract_from_image(file_bytes: bytes) -> str:
-    try:
-        img = Image.open(io.BytesIO(file_bytes)).convert("L")  # grayscale
-        max_dim = 2000
-        if max(img.size) > max_dim:
-            ratio = max_dim / max(img.size)
-            img = img.resize((int(img.width * ratio), int(img.height * ratio)))
-        text = pytesseract.image_to_string(img, lang="eng+nep")  # ← arabic dropped
-        logger.info(f"[extract] image OCR: {len(text)} chars")
-        return text
-    except Exception as e:
-        logger.error(f"[extract] image OCR failed: {e}")
-        raise ValueError(f"Image extraction failed: {e}")
+    logger.warning(
+        "[extract] fitz returned empty — scanned/image-only PDF not supported"
+    )
+    raise ValueError(
+        "This PDF appears to be scanned or image-based with no extractable text. "
+        "Please upload a photo of the document instead, or a text-based PDF."
+    )
 
 
 def _extract_from_image_groq_vision(file_bytes: bytes, mime_type: str) -> str:
