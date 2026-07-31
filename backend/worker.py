@@ -763,7 +763,7 @@ class WorkerSettings:
     functions = [process_contract, process_upload]
     cron_jobs = [cron(keep_redis_alive, second=set(range(0, 60, 30)))]
     redis_settings = REDIS_SETTINGS
-    max_jobs = 5
+    max_jobs = 2
     job_timeout = 180
     keep_result = 3600
 
