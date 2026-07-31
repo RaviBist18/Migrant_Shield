@@ -228,20 +228,20 @@ export default function GlobalHeader() {
             <path d="M13 14h4M13 18h6" />
             <path d="M19 10l-2-2-4 4" />
           </svg>
-          <span className="text-slate-900 dark:text-slate-100 font-bold text-xl tracking-tight">
+          <span className="hidden sm:inline text-slate-900 dark:text-slate-100 font-bold text-lg sm:text-xl tracking-tight">
             MigrantShield
           </span>
         </Link>
 
         {/* ── Right actions ── */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-2 sm:gap-5">
           {/* Upload CTA */}
           <button
             onClick={() => router.push("/upload")}
-            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-700 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-medium px-4 py-1 rounded-lg text-sm transition-colors mr-2"
+            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-700 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-medium px-2.5 sm:px-4 py-1 rounded-lg text-sm transition-colors mr-1 sm:mr-2"
           >
             <Upload size={16} className="shrink-0" />
-            <span suppressHydrationWarning>
+            <span suppressHydrationWarning className="hidden sm:inline">
               {lang === "ne" ? "अपलोड" : "Upload"}
             </span>
           </button>
@@ -250,7 +250,7 @@ export default function GlobalHeader() {
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full p-0.5 gap-0.5">
             <button
               onClick={() => toggleLang("en")}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+              className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold transition-all ${
                 lang === "en"
                   ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-700"

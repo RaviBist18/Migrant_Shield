@@ -181,8 +181,8 @@ export default function HelpPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 pb-24 md:pb-0">
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
+          <Link href="/" className="flex items-center gap-2.5 min-w-0">
             <svg
               width="28"
               height="28"
@@ -198,11 +198,11 @@ export default function HelpPage() {
               <path d="M13 14h4M13 18h6" />
               <path d="M19 10l-2-2-4 4" />
             </svg>
-            <div className="flex flex-col leading-none">
-              <span className="font-semibold tracking-tight text-lg text-slate-900">
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="font-semibold tracking-tight text-base sm:text-lg text-slate-900 truncate">
                 MigrantShield
               </span>
-              <span className="text-xs text-slate-400 font-normal tracking-wide">
+              <span className="hidden sm:inline text-xs text-slate-400 font-normal tracking-wide truncate">
                 {lang === "ne"
                   ? "कामदार सुरक्षा मञ्च"
                   : "Worker Protection Platform"}
@@ -212,7 +212,7 @@ export default function HelpPage() {
 
           <Link
             href="/"
-            className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors mr-20"
+            className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors shrink-0 whitespace-nowrap"
           >
             {lang === "ne" ? "← गृहपृष्ठमा फर्कनुहोस्" : "← Back"}
           </Link>

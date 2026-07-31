@@ -772,7 +772,7 @@ export default function DashboardPage() {
                     }`}
                   >
                     <div
-                      className={`p-1.5 rounded-lg w-fit border ${
+                      className={`p-1.5 rounded-lg w-fit border shrink-0 ${
                         card.key === "failed" && failedCount > 0
                           ? "bg-red-50 border-red-100 text-red-500"
                           : card.key === "critical"
@@ -786,7 +786,7 @@ export default function DashboardPage() {
                     >
                       {card.icon}
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p
                         className={`text-xl font-bold ${
                           isFailed && failedCount > 0
@@ -796,12 +796,12 @@ export default function DashboardPage() {
                       >
                         {card.value}
                       </p>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-tight">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-tight truncate">
                         {card.label}
                       </p>
                       {card.trend && (
                         <p
-                          className={`text-[10px] mt-1 font-medium flex items-center gap-0.5 ${
+                          className={`text-[10px] mt-1 font-medium flex items-center gap-0.5 truncate ${
                             card.key === "failed"
                               ? "text-red-500 dark:text-red-400"
                               : card.key === "critical"

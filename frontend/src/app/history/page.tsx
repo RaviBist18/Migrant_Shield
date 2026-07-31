@@ -1287,20 +1287,20 @@ function HistoryContent() {
                       className={`p-4 space-y-3 ${isSelected ? "bg-slate-50 dark:bg-slate-800/40" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleSelect(contract.contract_id)}
-                            className="mt-1 rounded border-slate-300"
+                            className="mt-1 rounded border-slate-300 shrink-0"
                           />
-                          <div>
-                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                               {contract.worker_name ||
                                 contract.original_filename ||
                                 "—"}
                             </p>
-                            <p className="text-xs text-slate-500 mt-0.5">
+                            <p className="text-xs text-slate-500 mt-0.5 truncate">
                               {contract.employer_name || "—"} ·{" "}
                               {contract.country || "—"}
                             </p>
@@ -1420,13 +1420,13 @@ function HistoryContent() {
 
               {/* ── Pagination ── */}
               {totalPages > 1 && (
-                <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-                  <span>
+                <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs text-slate-500">
+                  <span className="truncate">
                     {(page - 1) * PAGE_SIZE + 1}–
                     {Math.min(page * PAGE_SIZE, sorted.length)} {t.of}{" "}
                     {sorted.length} {t.records}
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       disabled={page === 1}
                       onClick={() => setPage((p) => p - 1)}
@@ -1434,29 +1434,37 @@ function HistoryContent() {
                     >
                       <ChevronLeft size={14} />
                     </button>
-                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                      const pageNum =
-                        totalPages <= 7
-                          ? i + 1
-                          : page <= 4
-                            ? i + 1
-                            : page >= totalPages - 3
-                              ? totalPages - 6 + i
-                              : page - 3 + i;
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setPage(pageNum)}
-                          className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${
-                            page === pageNum
-                              ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
-                              : "border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500"
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
+                    <span className="sm:hidden px-1 font-medium text-slate-600">
+                      {page} / {totalPages}
+                    </span>
+                    <div className="hidden sm:flex items-center gap-1">
+                      {Array.from(
+                        { length: Math.min(totalPages, 7) },
+                        (_, i) => {
+                          const pageNum =
+                            totalPages <= 7
+                              ? i + 1
+                              : page <= 4
+                                ? i + 1
+                                : page >= totalPages - 3
+                                  ? totalPages - 6 + i
+                                  : page - 3 + i;
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setPage(pageNum)}
+                              className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${
+                                page === pageNum
+                                  ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
+                                  : "border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
                     <button
                       disabled={page === totalPages}
                       onClick={() => setPage((p) => p + 1)}

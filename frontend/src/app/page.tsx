@@ -72,10 +72,10 @@ export default function LandingPage() {
               <path d="M19 10l-2-2-4 4" />
             </svg>
             <div className="flex flex-col leading-none">
-              <span className="font-semibold tracking-tight text-lg text-slate-900">
+              <span className="font-semibold tracking-tight text-base sm:text-lg text-slate-900">
                 {t.nav.brand}
               </span>
-              <span className="text-xs text-slate-400 font-normal tracking-wide">
+              <span className="hidden sm:inline text-xs text-slate-400 font-normal tracking-wide">
                 {lang === "en"
                   ? "Worker Protection Platform"
                   : "कामदार सुरक्षा मञ्च"}
@@ -129,7 +129,7 @@ export default function LandingPage() {
           </div>
 
           {/* Right actions — mobile */}
-          <div className="flex sm:hidden items-center gap-2">
+          <div className="flex sm:hidden items-center gap-1.5">
             <div className="bg-slate-100/80 border border-slate-200/60 rounded-full p-0.5 flex items-center">
               <button
                 onClick={() => {

@@ -2995,25 +2995,31 @@ function ReportPageInner() {
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {report.worker_name && (
-                <div className="flex justify-between items-center px-5 py-3">
-                  <span className="text-sm text-slate-500">Worker</span>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <div className="flex justify-between items-center gap-3 px-5 py-3">
+                  <span className="text-sm text-slate-500 shrink-0">
+                    Worker
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate text-right">
                     {report.worker_name}
                   </span>
                 </div>
               )}
               {report.employer_name && (
-                <div className="flex justify-between items-center px-5 py-3">
-                  <span className="text-sm text-slate-500">Employer</span>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <div className="flex justify-between items-center gap-3 px-5 py-3">
+                  <span className="text-sm text-slate-500 shrink-0">
+                    Employer
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate text-right">
                     {report.employer_name}
                   </span>
                 </div>
               )}
               {report.country && (
-                <div className="flex justify-between items-center px-5 py-3">
-                  <span className="text-sm text-slate-500">Destination</span>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <div className="flex justify-between items-center gap-3 px-5 py-3">
+                  <span className="text-sm text-slate-500 shrink-0">
+                    Destination
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate text-right">
                     {report.country}
                   </span>
                 </div>

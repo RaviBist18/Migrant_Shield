@@ -430,31 +430,31 @@ export default function FailedContractPage() {
               Contract Details
             </p>
             {contract.worker_name && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400 dark:text-slate-500">
+              <div className="flex justify-between items-center gap-3 text-sm">
+                <span className="text-slate-400 dark:text-slate-500 shrink-0">
                   Worker
                 </span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                <span className="text-slate-700 dark:text-slate-300 font-medium truncate text-right">
                   {contract.worker_name}
                 </span>
               </div>
             )}
             {contract.employer_name && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400 dark:text-slate-500">
+              <div className="flex justify-between items-center gap-3 text-sm">
+                <span className="text-slate-400 dark:text-slate-500 shrink-0">
                   Employer
                 </span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                <span className="text-slate-700 dark:text-slate-300 font-medium truncate text-right">
                   {contract.employer_name}
                 </span>
               </div>
             )}
             {contract.country && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400 dark:text-slate-500">
+              <div className="flex justify-between items-center gap-3 text-sm">
+                <span className="text-slate-400 dark:text-slate-500 shrink-0">
                   Country
                 </span>
-                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                <span className="text-slate-700 dark:text-slate-300 font-medium truncate text-right">
                   {contract.country}
                 </span>
               </div>

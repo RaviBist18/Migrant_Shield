@@ -178,12 +178,12 @@ export default function AdminPage() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1 border-b border-slate-800 pb-0">
+        <div className="flex gap-1 border-b border-slate-800 pb-0 overflow-x-auto scrollbar-hide">
           {(["pending", "reviewed", "rejected", "all"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize ${
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize ${
                 filter === f
                   ? "border-slate-100 text-slate-100"
                   : "border-transparent text-slate-500 hover:text-slate-300"

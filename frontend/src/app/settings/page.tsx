@@ -150,22 +150,22 @@ export default function SettingsPage() {
     disabled?: boolean;
   }) => (
     <div
-      className={`flex items-center justify-between px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm
-        ${onClick && !disabled ? "cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors" : ""}
-        ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+      className={`flex items-center justify-between gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm
+      ${onClick && !disabled ? "cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors" : ""}
+      ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
       onClick={!disabled ? onClick : undefined}
     >
-      <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+      <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300 shrink-0">
         <span className="text-slate-400 dark:text-slate-500">{icon}</span>
         <span>{label}</span>
       </div>
-      <div className="flex items-center gap-2 text-slate-400">
+      <div className="flex items-center gap-2 text-slate-400 min-w-0">
         {value && (
-          <span className="text-slate-500 dark:text-slate-400 text-xs">
+          <span className="text-slate-500 dark:text-slate-400 text-xs truncate">
             {value}
           </span>
         )}
-        {onClick && !disabled && <ChevronRight className="w-4 h-4" />}
+        {onClick && !disabled && <ChevronRight className="w-4 h-4 shrink-0" />}
       </div>
     </div>
   );

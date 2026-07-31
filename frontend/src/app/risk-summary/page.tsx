@@ -530,11 +530,11 @@ export default function RiskSummaryPage() {
                       className="p-4 space-y-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                             {c.worker_name || c.original_filename || "—"}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
                             {c.employer_name || "—"} ·{" "}
                             {c.upload_date?.slice(0, 10)}
                           </p>
@@ -565,43 +565,51 @@ export default function RiskSummaryPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-                  <span>
+                <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs text-slate-500">
+                  <span className="truncate">
                     {(page - 1) * PAGE_SIZE + 1}–
                     {Math.min(page * PAGE_SIZE, filtered.length)} {t.of}{" "}
                     {filtered.length}
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       disabled={page === 1}
                       onClick={() => setPage((p) => p - 1)}
-                      className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
                     >
                       <ChevronLeft size={14} />
                     </button>
-                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                      const pageNum =
-                        totalPages <= 7
-                          ? i + 1
-                          : page <= 4
-                            ? i + 1
-                            : page >= totalPages - 3
-                              ? totalPages - 6 + i
-                              : page - 3 + i;
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setPage(pageNum)}
-                          className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${
-                            page === pageNum
-                              ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
-                              : "border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500"
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
+                    <span className="sm:hidden px-1 font-medium text-slate-600">
+                      {page} / {totalPages}
+                    </span>
+                    <div className="hidden sm:flex items-center gap-1">
+                      {Array.from(
+                        { length: Math.min(totalPages, 7) },
+                        (_, i) => {
+                          const pageNum =
+                            totalPages <= 7
+                              ? i + 1
+                              : page <= 4
+                                ? i + 1
+                                : page >= totalPages - 3
+                                  ? totalPages - 6 + i
+                                  : page - 3 + i;
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setPage(pageNum)}
+                              className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${
+                                page === pageNum
+                                  ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
+                                  : "border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
                     <button
                       disabled={page === totalPages}
                       onClick={() => setPage((p) => p + 1)}
