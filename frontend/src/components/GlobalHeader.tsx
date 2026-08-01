@@ -9,6 +9,7 @@ import {
   HelpCircle,
   LogOut,
   ChevronDown,
+  Users,
   Bell,
   AlertTriangle,
   CheckCircle2,
@@ -17,6 +18,12 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import type { Lang } from "@/lib/i18n/landing";
+import {
+  getAllSessions,
+  getSessionForEmail,
+  saveSessionForEmail,
+  removeSessionForEmail,
+} from "@/lib/supabase/multi-session";
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,6 +54,8 @@ export default function GlobalHeader() {
   const [notifications, setNotifications] = useState<ContractNotif[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [bellSeen, setBellSeen] = useState(false);
+  const [showSwitcher, setShowSwitcher] = useState(false);
+  const [newAccountEmail, setNewAccountEmail] = useState("");
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
@@ -64,8 +73,10 @@ export default function GlobalHeader() {
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(e.target as Node)
-      )
+      ) {
         setOpen(false);
+        setShowSwitcher(false);
+      }
       if (bellRef.current && !bellRef.current.contains(e.target as Node))
         setBellOpen(false);
     };
@@ -133,6 +144,7 @@ export default function GlobalHeader() {
       if (e.key === "Escape") {
         setOpen(false);
         setBellOpen(false);
+        setShowSwitcher(false);
         return;
       }
       const mod = e.ctrlKey || e.metaKey;
@@ -166,8 +178,33 @@ export default function GlobalHeader() {
     return null;
 
   const handleSignOut = async () => {
+    if (user?.email) removeSessionForEmail(user.email);
     await supabase.auth.signOut();
     window.location.replace("/");
+  };
+
+  const switchAccount = async (targetEmail: string) => {
+    const saved = getSessionForEmail(targetEmail);
+    if (saved) {
+      const { data, error } = await supabase.auth.setSession({
+        access_token: saved.access_token,
+        refresh_token: saved.refresh_token,
+      });
+      if (!error && data.session) {
+        saveSessionForEmail(targetEmail, {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        window.location.reload();
+        return;
+      }
+    }
+    await supabase.auth.signInWithOtp({
+      email: targetEmail,
+      options: { shouldCreateUser: true },
+    });
+    localStorage.setItem("otp_email", targetEmail);
+    router.push("/auth/verify");
   };
 
   const toggleLang = (l: Lang) => {
@@ -421,7 +458,10 @@ export default function GlobalHeader() {
           {!loading && user && (
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setOpen((prev) => !prev)}
+                onClick={() => {
+                  setOpen((prev) => !prev);
+                  setShowSwitcher(false);
+                }}
                 className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 {user?.user_metadata?.avatar_url ? (
@@ -441,15 +481,16 @@ export default function GlobalHeader() {
                 />
               </button>
 
-              {open && (
-                <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-1 z-50">
-                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              {/* ── Settings/account dropdown ── */}
+              {open && !showSwitcher && (
+                <div className="fixed right-4 top-16 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-1 z-50">
+                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 rounded-t-2xl">
                     {displayName !== user.email && (
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                         {displayName}
                       </p>
                     )}
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate">
                       {user.email}
                     </p>
                   </div>
@@ -476,6 +517,14 @@ export default function GlobalHeader() {
                     {lang === "ne" ? "सहायता" : "Get help"}
                   </button>
 
+                  <button
+                    onClick={() => setShowSwitcher(true)}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <Users size={15} className="text-slate-400" />
+                    {lang === "ne" ? "खाता बदल्नुहोस्" : "Switch account"}
+                  </button>
+
                   <div className="border-t border-slate-100 dark:border-slate-800 mt-1" />
 
                   <button
@@ -485,6 +534,61 @@ export default function GlobalHeader() {
                     <LogOut size={15} className="text-red-500" />{" "}
                     {lang === "ne" ? "साइन आउट" : "Log out"}
                   </button>
+                </div>
+              )}
+
+              {/* ── Switch account panel (same anchor spot as settings dropdown) ── */}
+              {showSwitcher && (
+                <div className="fixed right-4 top-16 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-2 px-3 z-50 space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      {lang === "ne" ? "खाता बदल्नुहोस्" : "Switch account"}
+                    </p>
+                    <button
+                      onClick={() => setShowSwitcher(false)}
+                      className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {Object.keys(getAllSessions())
+                    .filter((em) => em !== user?.email)
+                    .map((em) => (
+                      <button
+                        key={em}
+                        onClick={() => switchAccount(em)}
+                        className="w-full text-left border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-lg px-3 py-2 text-sm hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors truncate"
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  <div className="pt-1 space-y-1.5">
+                    <input
+                      type="email"
+                      value={newAccountEmail}
+                      onChange={(e) => setNewAccountEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && newAccountEmail.trim()) {
+                          switchAccount(newAccountEmail.trim());
+                        }
+                      }}
+                      placeholder={
+                        lang === "ne" ? "इमेल थप्नुहोस्" : "Add account email"
+                      }
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400"
+                      autoComplete="email"
+                    />
+                    <button
+                      onClick={() => {
+                        if (newAccountEmail.trim())
+                          switchAccount(newAccountEmail.trim());
+                      }}
+                      disabled={!newAccountEmail.trim()}
+                      className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed dark:bg-slate-100 dark:text-slate-900 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                    >
+                      + {lang === "ne" ? "खाता थप्नुहोस्" : "Add account"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

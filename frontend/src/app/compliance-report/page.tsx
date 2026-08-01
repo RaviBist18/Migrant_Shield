@@ -1317,20 +1317,20 @@ export default function ComplianceReportPage() {
             icon={<FileText size={18} className="text-blue-600" />}
             title={t.checklist}
           >
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {report.checklist.map((item, i) => (
-                <label
+                <div
                   key={i}
-                  className="flex items-start gap-3 cursor-pointer group"
+                  className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-950/10 rounded-lg px-3 py-2.5"
                 >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
+                  <ChevronRight
+                    size={16}
+                    className="text-blue-500 shrink-0 mt-0.5"
                   />
-                  <span className="text-sm text-slate-800 dark:text-slate-200 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
+                  <p className="text-sm text-slate-800 dark:text-slate-200 font-medium leading-snug">
                     {item}
-                  </span>
-                </label>
+                  </p>
+                </div>
               ))}
             </div>
           </ReportSection>

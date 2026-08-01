@@ -1,28 +1,29 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import { translations } from '@/lib/i18n/landing';
-import type { Lang } from '@/lib/i18n/landing';
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
+import { translations } from "@/lib/i18n/landing";
+import type { Lang } from "@/lib/i18n/landing";
+import { saveSessionForEmail } from "@/lib/supabase/multi-session";
 
 export default function VerifyPage() {
   const router = useRouter();
-  const [lang, setLang] = useState<Lang>('en');
-  const [otp, setOtp] = useState('');
-  const [email, setEmail] = useState('');
+  const [lang, setLang] = useState<Lang>("en");
+  const [otp, setOtp] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [resendSuccess, setResendSuccess] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('lang');
-    if (stored === 'ne') setLang('ne');
-    const storedEmail = localStorage.getItem('otp_email');
+    const stored = localStorage.getItem("lang");
+    if (stored === "ne") setLang("ne");
+    const storedEmail = localStorage.getItem("otp_email");
     if (!storedEmail) {
-      router.replace('/auth/phone');
+      router.replace("/auth/phone");
       return;
     }
     setEmail(storedEmail);
@@ -30,43 +31,49 @@ export default function VerifyPage() {
   }, []);
   useEffect(() => {
     const sync = () => {
-      const stored = localStorage.getItem('lang');
-      setLang(stored === 'ne' ? 'ne' : 'en');
+      const stored = localStorage.getItem("lang");
+      setLang(stored === "ne" ? "ne" : "en");
     };
-    window.addEventListener('langchange', sync);
-    return () => window.removeEventListener('langchange', sync);
+    window.addEventListener("langchange", sync);
+    return () => window.removeEventListener("langchange", sync);
   }, []);
 
   const t = translations[lang].auth;
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
   async function handleVerify() {
-    setError('');
+    setError("");
     if (otp.length !== 6) {
-      setError('Enter the 6-digit code sent to your email.');
+      setError("Enter the 6-digit code sent to your email.");
       return;
     }
     setLoading(true);
-    const { error: sbError } = await supabase.auth.verifyOtp({
+    const { data, error: sbError } = await supabase.auth.verifyOtp({
       email,
       token: otp,
-      type: 'email',
+      type: "email",
     });
     setLoading(false);
     if (sbError) {
       setError(sbError.message);
       return;
     }
-    localStorage.removeItem('otp_email');
-    router.replace('/dashboard');
+    if (data.session) {
+      saveSessionForEmail(email, {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+    }
+    localStorage.removeItem("otp_email");
+    router.replace("/dashboard");
   }
 
   async function handleResend() {
-    setError('');
+    setError("");
     setResendSuccess(false);
     setResending(true);
     const { error: sbError } = await supabase.auth.signInWithOtp({
@@ -84,7 +91,6 @@ export default function VerifyPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-8 shadow-sm space-y-6">
-
         {/* Brand emblem */}
         <div className="flex flex-col items-center space-y-3">
           <svg
@@ -119,9 +125,7 @@ export default function VerifyPage() {
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               {t.otpHeading}
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {t.otpSub}
-            </p>
+            <p className="text-sm text-slate-500 mt-1">{t.otpSub}</p>
             {email && (
               <p className="text-sm font-medium text-slate-700 mt-1">{email}</p>
             )}
@@ -146,7 +150,7 @@ export default function VerifyPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-            {t.verificationLabel}
+              {t.verificationLabel}
             </label>
             <input
               ref={inputRef}
@@ -155,8 +159,8 @@ export default function VerifyPage() {
               pattern="[0-9]*"
               maxLength={6}
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && handleVerify()}
               placeholder={t.otpPlaceholder}
               className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg px-3 py-2.5 text-base placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all tracking-widest text-center font-mono"
               autoComplete="one-time-code"
@@ -179,7 +183,7 @@ export default function VerifyPage() {
             disabled={resending}
             className="text-sm text-slate-500 hover:text-slate-900 transition-colors disabled:cursor-not-allowed"
           >
-            {resending ? 'Sending...' : t.resend}
+            {resending ? "Sending..." : t.resend}
           </button>
         </div>
 
@@ -191,7 +195,7 @@ export default function VerifyPage() {
 
       {/* Back */}
       <button
-        onClick={() => router.push('/auth/phone')}
+        onClick={() => router.push("/auth/phone")}
         className="mt-6 text-sm text-slate-500 hover:text-slate-900 transition-colors"
       >
         {t.backToHome}

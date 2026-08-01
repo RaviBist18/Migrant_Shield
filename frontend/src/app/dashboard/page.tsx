@@ -838,125 +838,117 @@ export default function DashboardPage() {
             </div>
 
             {/* ── What's Next ── */}
-            {totalContracts > 0 && (
-              <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-                  {t.whatsNext}
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 mb-2">
-                  {[
-                    {
-                      label: t.uploadNewContract,
-                      sub: t.uploadNewContractSub,
-                      icon: <Upload size={22} />,
-                      iconBg: "bg-teal-50 dark:bg-teal-950/40",
-                      iconColor: "text-teal-600 dark:text-teal-400",
-                      accent: "border-l-teal-500",
-                      href: "/upload",
-                      badge: null,
-                      muted: false,
-                    },
-                    {
-                      label: t.riskSummary,
-                      sub: t.riskSummarySub,
-                      icon: <ShieldAlert size={22} />,
-                      iconBg: "bg-orange-50 dark:bg-orange-950/40",
-                      iconColor: "text-orange-600 dark:text-orange-400",
-                      accent: "border-l-orange-500",
-                      href: "/risk-summary",
-                      badge: highCount > 0 ? highCount : null,
-                      muted: false,
-                    },
-                    {
-                      label: t.contractHistory,
-                      sub: t.contractHistorySub,
-                      icon: <History size={22} />,
-                      iconBg: "bg-slate-100 dark:bg-slate-800",
-                      iconColor: "text-slate-500 dark:text-slate-400",
-                      accent: "border-l-slate-400",
-                      href: "/history",
-                      badge: null,
-                      muted: false,
-                    },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
+            <div className="mb-2">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+                {t.whatsNext}
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2 mb-2">
+                {[
+                  {
+                    label: t.uploadNewContract,
+                    sub: t.uploadNewContractSub,
+                    icon: <Upload size={22} />,
+                    iconBg: "bg-teal-50 dark:bg-teal-950/40",
+                    iconColor: "text-teal-600 dark:text-teal-400",
+                    accent: "border-l-teal-500",
+                    href: "/upload",
+                    badge: null,
+                    muted: false,
+                  },
+                  {
+                    label: t.riskSummary,
+                    sub: t.riskSummarySub,
+                    icon: <ShieldAlert size={22} />,
+                    iconBg: "bg-orange-50 dark:bg-orange-950/40",
+                    iconColor: "text-orange-600 dark:text-orange-400",
+                    accent: "border-l-orange-500",
+                    href: "/risk-summary",
+                    badge: highCount > 0 ? highCount : null,
+                    muted: false,
+                  },
+                  {
+                    label: t.contractHistory,
+                    sub: t.contractHistorySub,
+                    icon: <History size={22} />,
+                    iconBg: "bg-slate-100 dark:bg-slate-800",
+                    iconColor: "text-slate-500 dark:text-slate-400",
+                    accent: "border-l-slate-400",
+                    href: "/history",
+                    badge: null,
+                    muted: false,
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => router.push(item.href)}
+                    className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
+                  >
+                    <div
+                      className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
                     >
-                      <div
-                        className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
-                      >
-                        {item.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                          {item.label}
-                          {item.badge !== null && (
-                            <span className="ml-1.5 text-red-600 dark:text-red-400">
-                              ({item.badge})
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          {item.sub}
-                        </p>
-                      </div>
-                      <ArrowRight
-                        size={15}
-                        className="text-slate-400 shrink-0"
-                      />
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-                  {[
-                    {
-                      label: t.askQuestion,
-                      sub: t.askQuestionSub,
-                      icon: <MessageSquare size={22} />,
-                      iconBg: "bg-blue-50 dark:bg-blue-950/40",
-                      iconColor: "text-blue-600 dark:text-blue-400",
-                      accent: "border-l-blue-500",
-                      href: "/chat",
-                    },
-                    {
-                      label: t.complianceReport,
-                      sub: t.complianceReportSub,
-                      icon: <BarChart2 size={22} />,
-                      iconBg: "bg-indigo-50 dark:bg-indigo-950/40",
-                      iconColor: "text-indigo-600 dark:text-indigo-400",
-                      accent: "border-l-indigo-500",
-                      href: "/compliance-report",
-                    },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => router.push(item.href)}
-                      className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
-                    >
-                      <div
-                        className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
-                      >
-                        {item.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                          {item.label}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          {item.sub}
-                        </p>
-                      </div>
-                      <ArrowRight
-                        size={15}
-                        className="text-slate-400 shrink-0"
-                      />
-                    </button>
-                  ))}
-                </div>
+                      {item.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                        {item.label}
+                        {item.badge !== null && (
+                          <span className="ml-1.5 text-red-600 dark:text-red-400">
+                            ({item.badge})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {item.sub}
+                      </p>
+                    </div>
+                    <ArrowRight size={15} className="text-slate-400 shrink-0" />
+                  </button>
+                ))}
               </div>
-            )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+                {[
+                  {
+                    label: t.askQuestion,
+                    sub: t.askQuestionSub,
+                    icon: <MessageSquare size={22} />,
+                    iconBg: "bg-blue-50 dark:bg-blue-950/40",
+                    iconColor: "text-blue-600 dark:text-blue-400",
+                    accent: "border-l-blue-500",
+                    href: "/chat",
+                  },
+                  {
+                    label: t.complianceReport,
+                    sub: t.complianceReportSub,
+                    icon: <BarChart2 size={22} />,
+                    iconBg: "bg-indigo-50 dark:bg-indigo-950/40",
+                    iconColor: "text-indigo-600 dark:text-indigo-400",
+                    accent: "border-l-indigo-500",
+                    href: "/compliance-report",
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => router.push(item.href)}
+                    className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
+                  >
+                    <div
+                      className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
+                    >
+                      {item.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {item.sub}
+                      </p>
+                    </div>
+                    <ArrowRight size={15} className="text-slate-400 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* ── Recent Activity ── */}
             <div className="mb-6 mt-2">
