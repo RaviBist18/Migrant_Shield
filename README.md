@@ -407,10 +407,42 @@ Every ownership-scoped route verifies the caller's Supabase JWT against JWKS and
 
 ---
 
+
+## Current Scope
+
+- Coverage currently includes the listed labour corridors. Other destinations fall back to ILO standards and are clearly marked as partial coverage.
+- OCR for scanned/blurry images isn't in place yet — image uploads work best with a clear photo, not a scan.
+- Image analysis is currently slower than PDF analysis — an active optimization target.
+- MigrantShield provides legal guidance, not legal representation. High-risk or ambiguous cases are escalated for human review.
+
+---
+
+## Disclaimer
+
+MigrantShield provides AI-generated guidance, not legal advice. Always verify critical information with your embassy or a qualified legal professional before signing anything.
+
 _______________________________________________________________________________________________________________________________________________________
+## License
 
-
-
-
+MIT — see [LICENSE](LICENSE) for details.
 
 _______________________________________________________________________________________________________________________________________________________
+## Author
+
+**Ravi Bist**
+
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/RaviBist18)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/ravi-bist-vk1418)
+
+---
+
+<div align="center">
+
+**MigrantShield** — Know your rights before you sign.
+
+*Free for the workers who need it most.*
+
+</div>
+
+
+
