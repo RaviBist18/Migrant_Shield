@@ -1,10 +1,9 @@
-# =============================================================================
 # MigrantShield — Phase 5 Task Queue (No ARQ)
 # File: backend/tasks.py
 # Description: Thin wrapper that triggers the background analysis job.
 #              Uses FastAPI BackgroundTasks — no Redis, no ARQ, no persistent
 #              connections. Works reliably on Windows and all platforms.
-# =============================================================================
+
 
 from __future__ import annotations
 

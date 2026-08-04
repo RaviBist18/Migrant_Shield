@@ -26,9 +26,8 @@ import {
   Check,
 } from "lucide-react";
 
-// =============================================================
 // TYPES
-// =============================================================
+
 interface ContractFlag {
   flag_id: string;
   flag_type: string;
@@ -62,9 +61,8 @@ interface ReportData {
 type Verdict = "SAFE" | "CAUTION" | "CRITICAL";
 type TabKey = "critical" | "warning" | "info" | "all";
 
-// =============================================================
 // HELPERS
-// =============================================================
+
 function resolveVerdict(score: number): Verdict {
   if (score >= 70) return "CRITICAL";
   if (score >= 40) return "CAUTION";
@@ -194,9 +192,8 @@ function getProgressBarColor(score: number) {
   return "bg-emerald-500";
 }
 
-// =============================================================
 // UI STRINGS
-// =============================================================
+
 const UI_STRINGS: Record<
   string,
   {
@@ -658,9 +655,8 @@ const FLAG_TYPE_LABELS: Record<string, Record<string, string>> = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// =============================================================
 // CHAT WIDGET
-// =============================================================
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -1558,9 +1554,8 @@ function ChatWidget({
   );
 }
 
-// =============================================================
 // SHARE MODAL (shared by both views)
-// =============================================================
+
 function ShareModal({
   shareUrl,
   shareCopied,
@@ -1756,9 +1751,8 @@ function ShareModal({
   );
 }
 
-// =============================================================
 // FLAG CARD — COMPACT VIEW
-// =============================================================
+
 function CompactFlagCard({
   flag,
   ui,
@@ -1993,9 +1987,8 @@ function CompactFlagCard({
   );
 }
 
-// =============================================================
 // FLAG CARD — FULL VIEW
-// =============================================================
+
 function FullFlagCard({
   flag,
   ui,
@@ -2189,9 +2182,7 @@ function FullFlagCard({
   );
 }
 
-// =============================================================
 // NEW: SEVERITY-GROUPED FLAG SECTION (img1-style shell)
-// =============================================================
 
 function severitySectionStyle(severity: "critical" | "warning" | "info") {
   switch (severity) {
@@ -2447,9 +2438,8 @@ function FlagBulletItem({
   );
 }
 
-// =============================================================
 // INNER PAGE
-// =============================================================
+
 function ReportPageInner() {
   const params = useParams();
   const router = useRouter();
@@ -2584,9 +2574,8 @@ function ReportPageInner() {
     } catch {}
   };
 
-  // =============================================================
   // LOADING
-  // =============================================================
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
@@ -2624,9 +2613,8 @@ function ReportPageInner() {
 
   const ui = UI_STRINGS[report.language] ?? UI_STRINGS["en"];
 
-  // =============================================================
   // COMPACT VIEW
-  // =============================================================
+
   if (isCompact) {
     const riskStyle = getRiskCircleStyle(report.risk_score, ui);
     const progressColor = getProgressBarColor(report.risk_score);
@@ -2937,9 +2925,8 @@ function ReportPageInner() {
     );
   }
 
-  // =============================================================
   // FULL VIEW
-  // =============================================================
+
   const verdict = resolveVerdict(report.risk_score);
   const vc = verdictConfig(verdict, ui);
 
@@ -3258,9 +3245,8 @@ function ReportPageInner() {
   );
 }
 
-// =============================================================
 // EXPORT
-// =============================================================
+
 export default function ReportPage() {
   return (
     <Suspense

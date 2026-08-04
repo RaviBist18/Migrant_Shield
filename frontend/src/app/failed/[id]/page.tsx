@@ -18,9 +18,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
 
-// =============================================================
 // TYPES
-// =============================================================
+
 interface FailedContract {
   contract_id: string;
   original_filename: string | null;
@@ -36,9 +35,8 @@ interface FailedContract {
   mime_type: string | null;
 }
 
-// =============================================================
 // HELPERS
-// =============================================================
+
 function formatBytes(bytes: number | null): string {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
@@ -124,9 +122,8 @@ function parseErrorType(reason: string | null): {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// =============================================================
 // COMPONENT
-// =============================================================
+
 export default function FailedContractPage() {
   const params = useParams();
   const router = useRouter();
@@ -230,9 +227,8 @@ export default function FailedContractPage() {
     }
   };
 
-  // =============================================================
   // LOADING
-  // =============================================================
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
@@ -287,9 +283,8 @@ export default function FailedContractPage() {
       })
     : "";
 
-  // =============================================================
   // MAIN RENDER
-  // =============================================================
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24">
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">

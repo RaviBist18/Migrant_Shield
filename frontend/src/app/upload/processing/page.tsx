@@ -60,9 +60,8 @@ function ProcessingContent() {
     if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
   };
 
-  // --------------------------------------------------------------------------
   // Elapsed timer — runs continuously across upload + polling phases
-  // --------------------------------------------------------------------------
+
   useEffect(() => {
     elapsedIntervalRef.current = setInterval(
       () => setElapsedSeconds((p) => p + 1),
@@ -73,10 +72,9 @@ function ProcessingContent() {
     };
   }, []);
 
-  // --------------------------------------------------------------------------
   // Upload phase — runs the actual /upload request from here, staged UI plays
   // for the real duration instead of a blank "Uploading..." button.
-  // --------------------------------------------------------------------------
+
   useEffect(() => {
     if (phase !== "uploading" || uploadStartedRef.current) return;
     uploadStartedRef.current = true;
@@ -158,9 +156,8 @@ function ProcessingContent() {
     doUpload();
   }, [phase]);
 
-  // --------------------------------------------------------------------------
   // Polling phase
-  // --------------------------------------------------------------------------
+
   useEffect(() => {
     if (phase !== "polling" || !contractId) return;
     let isMounted = true;
@@ -232,9 +229,8 @@ function ProcessingContent() {
     92,
   );
 
-  // --------------------------------------------------------------------------
   // Timeout state
-  // --------------------------------------------------------------------------
+
   if (phase === "timeout") {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -315,9 +311,8 @@ function ProcessingContent() {
     );
   }
 
-  // --------------------------------------------------------------------------
   // Failed state
-  // --------------------------------------------------------------------------
+
   if (phase === "failed") {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -399,9 +394,8 @@ function ProcessingContent() {
     );
   }
 
-  // --------------------------------------------------------------------------
   // Active state — uploading or polling, same staged UI throughout
-  // --------------------------------------------------------------------------
+
   const steps = [
     {
       id: 1,

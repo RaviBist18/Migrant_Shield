@@ -1,7 +1,7 @@
-﻿# =============================================================
+﻿
 # FILE: backend/main.py
 # MigrantShield Phase 6 + Gap 3 + Gap 4 — FastAPI Main Application
-# =============================================================
+
 
 import os
 import time
@@ -38,15 +38,15 @@ from supabase.lib.client_options import ClientOptions
 
 load_dotenv(override=True)
 
-# =============================================================
+
 # LOGGING
-# =============================================================
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("migrantshield")
 
-# =============================================================
+
 # ENV
-# =============================================================
+
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "migrantshield-contracts")
@@ -58,9 +58,9 @@ CHAT_GROQ_API_KEY = os.environ.get("CHAT_GROQ_API_KEY", GROQ_API_KEY)
 DEMO_CONTRACT_ID = os.environ.get("DEMO_CONTRACT_ID", "")
 
 
-# =============================================================
+
 # SUPABASE CLIENT
-# =============================================================
+
 def _get_supabase() -> Client:
     return create_client(
         SUPABASE_URL,
@@ -72,9 +72,9 @@ def _get_supabase() -> Client:
     )
 
 
-# =============================================================
+
 # FASTAPI APP
-# =============================================================
+
 app = FastAPI(
     title="MigrantShield API",
     version="6.2.0",
@@ -163,9 +163,9 @@ async def recover_stuck_contracts():
         logger.warning(f"[startup] Stuck contract recovery failed: {e}")
 
 
-# =============================================================
+
 # JWKS — ES256 TOKEN VALIDATION
-# =============================================================
+
 _jwks_cache: dict = {}
 _jwks_cached_at: float = 0
 JWKS_CACHE_TTL = 3600  # seconds
@@ -275,9 +275,9 @@ def _get_current_user(request: Request) -> dict:
     return _validate_jwt(token)
 
 
-# =============================================================
+
 # ALLOWED MIME TYPES
-# =============================================================
+
 ALLOWED_MIME_TYPES = {
     "application/pdf",
     "image/png",
@@ -290,9 +290,9 @@ ALLOWED_LANGUAGES = {"en", "ne", "hi", "ar", "tl", "bn"}
 MAX_FILE_SIZE_MB = 10
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
-# =============================================================
+
 # ROUTES
-# =============================================================
+
 
 
 # --------------------------------------------------------------
@@ -847,7 +847,7 @@ async def reanalyze_contract(
 
 
 # ADD this entire block before the line:
-# # =============================================================
+# 
 # # ADMIN — REVIEW QUEUE ENDPOINTS
 
 
@@ -911,11 +911,11 @@ async def download_report_pdf(contract_id: str, request: Request):
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
-    # =============================================================
+    
 
 
 # ADMIN — REVIEW QUEUE ENDPOINTS
-# =============================================================
+
 
 
 def _require_admin(request: Request) -> dict:
@@ -1039,11 +1039,11 @@ async def update_review_status(review_id: str, request: Request):
 
     return {"review_id": review_id, "status": status}
 
-    # =============================================================
+    
 
 
 # LEGAL Q&A CHAT ENDPOINT
-# =============================================================
+
 
 CHAT_SYSTEM_PROMPT = """You are MigrantShield's legal assistant — a trusted, knowledgeable friend who understands migrant worker rights, international labour law, and the fear and confusion workers face in foreign countries.
 
@@ -1204,11 +1204,11 @@ async def chat_with_report(contract_id: str, request: Request):
     logger.info(f"[chat] contract={contract_id} user={user_id} q_len={len(message)}")
     return {"answer": answer, "contract_id": contract_id}
 
-    # =============================================================
+    
 
 
 # COMPLIANCE REPORT GENERATOR
-# =============================================================
+
 from pydantic import BaseModel
 
 
@@ -1359,9 +1359,9 @@ LANGUAGE RULE (MANDATORY):
         raise HTTPException(status_code=502, detail="Report generation failed.")
 
 
-# =============================================================
+
 # SHARE ENDPOINTS
-# =============================================================
+
 
 
 @app.post("/report/{contract_id}/share")
@@ -1546,9 +1546,9 @@ async def revoke_share_token(contract_id: str, request: Request):
     return {"status": "revoked", "contract_id": contract_id}
 
 
-# =============================================================
+
 # CHAT ENDPOINT
-# =============================================================
+
 from pydantic import BaseModel
 from typing import List
 

@@ -27,7 +27,7 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ───────
 type Lang = "en" | "ne" | "hi" | "ar" | "tl" | "bn";
 type Step =
   | "language"
@@ -58,7 +58,7 @@ interface ReportData {
   generatedAt: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ─────────────
 const LANGUAGES: {
   code: Lang;
   label: string;
@@ -231,7 +231,7 @@ const EMBASSY_CONTACTS: Record<
   },
 };
 
-// ─── UI Labels per language ───────────────────────────────────────────────────
+// ─── UI Labels per language ────────
 const UI: Record<Lang, Record<string, string>> = {
   en: {
     title: "Pre-Departure Legal Shield",

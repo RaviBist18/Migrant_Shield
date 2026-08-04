@@ -16,9 +16,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-// =============================================================
 // TYPES
-// =============================================================
+
 interface ContractFlag {
   flag_id: string;
   flag_type: string;
@@ -54,9 +53,8 @@ type TabKey = "critical" | "warning" | "info" | "all";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// =============================================================
 // I18N
-// =============================================================
+
 const SHARE_UI: Record<
   string,
   {
@@ -228,9 +226,8 @@ const SHARE_UI: Record<
   },
 };
 
-// =============================================================
 // HELPERS
-// =============================================================
+
 function getVerdict(score: number): Verdict {
   if (score >= 70) return "CRITICAL";
   if (score >= 40) return "CAUTION";
@@ -248,9 +245,8 @@ function fmtDate(iso: string | null) {
 
 const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
 
-// =============================================================
 // FLAG CARD
-// =============================================================
+
 function FlagCard({
   flag,
   expanded,
@@ -384,9 +380,8 @@ function FlagCard({
   );
 }
 
-// =============================================================
 // MAIN PAGE
-// =============================================================
+
 export default function SharedReportPage() {
   const params = useParams();
   const token = params?.token as string;

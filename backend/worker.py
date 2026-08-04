@@ -1,7 +1,6 @@
-# =============================================================
 # FILE: backend/worker.py
 # MigrantShield Phase 5 — ARQ Async Worker + Groq + RAG
-# =============================================================
+
 
 import io
 import json
@@ -30,9 +29,9 @@ from supabase import Client, create_client
 
 load_dotenv(override=True)
 
-# =============================================================
+
 # LOGGING
-# =============================================================
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("migrantshield.worker")
 
@@ -44,9 +43,8 @@ def _log_memory(tag: str):
     logger.info(f"[mem] {tag}: {usage_kb / 1024:.1f} MB")
 
 
-# =============================================================
 # ENV
-# =============================================================
+
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "migrantshield-contracts")
@@ -89,9 +87,9 @@ def _get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
-# =============================================================
 # REDIS SETTINGS
-# =============================================================
+
+
 def _parse_redis_settings(url: str) -> RedisSettings:
     url = url.strip()
     ssl = url.startswith("rediss://")
@@ -114,9 +112,8 @@ def _parse_redis_settings(url: str) -> RedisSettings:
 REDIS_SETTINGS = _parse_redis_settings(REDIS_URL)
 
 
-# =============================================================
 # COUNTRY DETECTION (fast keyword scan — no Groq call)
-# =============================================================
+
 COUNTRY_KEYWORDS = {
     "UAE": ["united arab emirates", "uae", "dubai", "abu dhabi", "sharjah"],
     "Qatar": ["qatar", "doha"],
@@ -137,9 +134,8 @@ def _detect_country(text: str) -> str | None:
     return None
 
 
-# =============================================================
 # ANALYSIS PROMPT
-# =============================================================
+
 ANALYSIS_PROMPT = """You are a senior legal expert specialising in migrant worker employment contracts and international labour law.
 
 Analyse the provided contract and respond ONLY with a valid JSON object.
@@ -225,9 +221,9 @@ If no flags found, return empty array for flags.
 Be thorough. Migrant workers depend on accurate detection."""
 
 
-# =============================================================
 # RISK SCORE CALCULATION
-# =============================================================
+
+
 def _calculate_risk_score(flags: list[dict]) -> int:
     if not flags:
         return 5
@@ -276,9 +272,7 @@ def _validate_flag(flag: dict, sim_threshold: float = 0.90) -> list[str]:
     return problems
 
 
-# =============================================================
 # TEXT EXTRACTION ROUTER
-# =============================================================
 
 
 def extract_text(file_bytes: bytes, mime_type: str) -> str:
@@ -348,9 +342,9 @@ def _extract_from_image_groq_vision(file_bytes: bytes, mime_type: str) -> str:
         raise ValueError(f"Groq vision extraction failed: {e}")
 
 
-# =============================================================
 # GROQ ANALYSIS (single pass with RAG)
-# =============================================================
+
+
 async def _analyse_with_groq(
     file_bytes: bytes, mime_type: str, language: str = "en"
 ) -> dict:
@@ -511,9 +505,9 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
     return parsed
 
 
-# =============================================================
 # MAIN JOB: process_contract
-# =============================================================
+
+
 async def process_contract(ctx, contract_id: str):
     logger.info(f"[worker] Starting analysis: contract_id={contract_id}")
     _log_memory("process_contract start")
@@ -676,11 +670,11 @@ async def process_contract(ctx, contract_id: str):
             ping_task.cancel()
 
 
-# =============================================================
 # UPLOAD JOB: process_upload
 # Extracts text + computes embedding, stores in contracts row
 # Then enqueues process_contract
-# =============================================================
+
+
 async def process_upload(ctx, contract_id: str):
     logger.info(f"[worker] process_upload start: {contract_id}")
     supabase = _get_supabase()
@@ -763,9 +757,9 @@ async def _keepalive_during_job(ctx, interval: int = 10):
             logger.warning(f"[worker] in-job keepalive ping failed: {e}")
 
 
-# =============================================================
 # ARQ WORKER SETTINGS
-# =============================================================
+
+
 class WorkerSettings:
     functions = [process_contract, process_upload]
     cron_jobs = [cron(keep_redis_alive, second=set(range(0, 60, 30)))]
@@ -775,9 +769,9 @@ class WorkerSettings:
     keep_result = 3600
 
 
-# =============================================================
 # ENQUEUE HELPERS
-# =============================================================
+
+
 async def enqueue_contract(contract_id: str):
     pool = await create_pool(REDIS_SETTINGS)
     await pool.enqueue_job("process_contract", contract_id)
