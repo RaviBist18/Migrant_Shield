@@ -356,9 +356,6 @@ Set up `frontend/.env.local` — see [Environment Variables](#environment-variab
 npm run dev
 ```
 
----
-
-
 _______________________________________________________________________________________________________________________________________________________
 
 ## API Endpoints
