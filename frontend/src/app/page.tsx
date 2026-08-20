@@ -8,7 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
-  Globe,
+  AlertTriangle,
 } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
 import { translations, type Lang } from "@/lib/i18n/landing";
@@ -49,13 +49,19 @@ export default function LandingPage() {
     }
   };
 
+  const toggleLang = () => {
+    const next = lang === "en" ? "ne" : "en";
+    setLang(next);
+    localStorage.setItem("lang", next);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       {/* NAVBAR */}
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           {/* Brand */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             <svg
               width="28"
               height="28"
@@ -71,8 +77,8 @@ export default function LandingPage() {
               <path d="M13 14h4M13 18h6" />
               <path d="M19 10l-2-2-4 4" />
             </svg>
-            <div className="flex flex-col leading-none">
-              <span className="font-semibold tracking-tight text-base sm:text-lg text-slate-900">
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="font-semibold tracking-tight text-base sm:text-lg text-slate-900 truncate">
                 {t.nav.brand}
               </span>
               <span className="hidden sm:inline text-xs text-slate-400 font-normal tracking-wide">
@@ -85,35 +91,12 @@ export default function LandingPage() {
 
           {/* Right actions — desktop */}
           <div className="hidden sm:flex items-center gap-3">
-            <div className="bg-slate-100/80 border border-slate-200/60 rounded-full p-1 flex items-center gap-1">
-              <Globe className="text-slate-400 w-4 h-4 ml-1 shrink-0" />
-              <button
-                onClick={() => {
-                  setLang("en");
-                  localStorage.setItem("lang", "en");
-                }}
-                className={
-                  lang === "en"
-                    ? "bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all"
-                    : "text-slate-500 hover:text-slate-900 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                }
-              >
-                EN
-              </button>
-              <button
-                onClick={() => {
-                  setLang("ne");
-                  localStorage.setItem("lang", "ne");
-                }}
-                className={
-                  lang === "ne"
-                    ? "bg-white text-slate-900 font-medium px-2.5 py-1 rounded-full text-xs shadow-sm transition-all"
-                    : "text-slate-500 hover:text-slate-900 px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                }
-              >
-                नेपाली
-              </button>
-            </div>
+            <button
+              onClick={toggleLang}
+              className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+            >
+              {lang === "en" ? "नेपाली" : "EN"}
+            </button>
             <button
               onClick={handleQuickExit}
               className="text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded px-2.5 py-1 transition-colors"
@@ -129,44 +112,22 @@ export default function LandingPage() {
           </div>
 
           {/* Right actions — mobile */}
-          <div className="flex sm:hidden items-center gap-1.5">
-            <div className="bg-slate-100/80 border border-slate-200/60 rounded-full p-0.5 flex items-center">
-              <button
-                onClick={() => {
-                  setLang("en");
-                  localStorage.setItem("lang", "en");
-                }}
-                className={
-                  lang === "en"
-                    ? "bg-white text-slate-900 font-medium px-2 py-0.5 rounded-full text-xs shadow-sm transition-all"
-                    : "text-slate-500 px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
-                }
-              >
-                EN
-              </button>
-              <button
-                onClick={() => {
-                  setLang("ne");
-                  localStorage.setItem("lang", "ne");
-                }}
-                className={
-                  lang === "ne"
-                    ? "bg-white text-slate-900 font-medium px-2 py-0.5 rounded-full text-xs shadow-sm transition-all"
-                    : "text-slate-500 px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
-                }
-              >
-                नेपाली
-              </button>
-            </div>
+          <div className="flex sm:hidden items-center gap-1">
+            <button
+              onClick={toggleLang}
+              className="px-2 py-1 bg-slate-100 border border-slate-200 rounded-full text-[11px] font-semibold text-slate-700 whitespace-nowrap"
+            >
+              {lang === "en" ? "नेपाली" : "EN"}
+            </button>
             <button
               onClick={handleQuickExit}
-              className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1"
+              className="w-7 h-7 flex items-center justify-center text-amber-700 bg-amber-50 border border-amber-200 rounded"
             >
-              ⚠
+              <AlertTriangle size={13} />
             </button>
             <button
               onClick={handleCTA}
-              className="text-xs font-semibold bg-slate-900 text-white rounded px-3 py-1"
+              className="text-[11px] font-semibold bg-slate-900 text-white rounded px-2.5 py-1.5 whitespace-nowrap"
             >
               {lang === "en" ? "Check" : "जाँच"}
             </button>
