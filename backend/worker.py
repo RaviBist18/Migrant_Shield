@@ -397,10 +397,11 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
     logger.info(f"[worker] Prompt size: {len(full_prompt)} chars")
 
     response = _groq_create_with_rotation(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-20b",
         messages=[{"role": "user", "content": full_prompt}],
         temperature=0.4,
-        max_tokens=2000,
+        max_tokens=6000,
+        reasoning_effort="low",
     )
 
     logger.info(
@@ -468,10 +469,11 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
         )
 
         retry_response = _groq_create_with_rotation(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": full_prompt + correction_note}],
             temperature=0.4,
-            max_tokens=2000,
+            max_tokens=6000,
+            reasoning_effort="low",
         )
         retry_raw = retry_response.choices[0].message.content.strip()
         retry_raw = re.sub(r"^```json\s*", "", retry_raw)
@@ -503,6 +505,83 @@ async def _analyse_with_groq_text(text: str, language: str = "en") -> dict:
         )
 
     return parsed
+
+
+# TRANSLATION (post-analysis) — keeps risk_score/severity locked to the
+# English baseline pass; only display text gets translated per report language.
+
+
+async def _translate_flags(flags: list[dict], target_language: str) -> list[dict]:
+    """Translate only display text fields (title/description/recommendation/
+    mitigation_steps). severity/flag_type/legal_references/clause_text are left
+    untouched — risk_score stays locked from the English analysis pass.
+    Falls back to English text on any failure (never blocks report generation)."""
+    if not flags:
+        return flags
+
+    LANGUAGE_NAMES = {
+        "ne": "Nepali (Devanagari script)",
+        "hi": "Hindi (Devanagari script)",
+        "ar": "Arabic",
+        "fil": "Filipino (Tagalog)",
+        "tl": "Filipino (Tagalog)",
+        "bn": "Bengali (Bangla script)",
+    }
+    lang_name = LANGUAGE_NAMES.get(target_language, target_language)
+
+    translate_payload = [
+        {
+            "i": i,
+            "title": f.get("title", ""),
+            "description": f.get("description", ""),
+            "recommendation": f.get("recommendation", ""),
+            "mitigation_steps": f.get("mitigation_steps", []),
+        }
+        for i, f in enumerate(flags)
+    ]
+
+    prompt = (
+        f"Translate the 'title', 'description', 'recommendation', and each "
+        f"'mitigation_steps' item into {lang_name}. Keep the same JSON structure "
+        f"and 'i' index. Do not translate legal citations or numbers. "
+        f"Respond ONLY with a JSON array, no markdown, no explanation.\n\n"
+        f"{json.dumps(translate_payload, ensure_ascii=False)}"
+    )
+
+    try:
+        response = _groq_create_with_rotation(
+            model="openai/gpt-oss-20b",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=4000,
+            reasoning_effort="low",
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"^```json\s*", "", raw)
+        raw = re.sub(r"^```\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+        translated = json.loads(raw)
+
+        for t in translated:
+            idx = t.get("i")
+            if idx is not None and 0 <= idx < len(flags):
+                flags[idx]["title"] = t.get("title", flags[idx]["title"])
+                flags[idx]["description"] = t.get(
+                    "description", flags[idx]["description"]
+                )
+                flags[idx]["recommendation"] = t.get(
+                    "recommendation", flags[idx]["recommendation"]
+                )
+                flags[idx]["mitigation_steps"] = t.get(
+                    "mitigation_steps", flags[idx]["mitigation_steps"]
+                )
+        logger.info(
+            f"[worker] Translated {len(translated)} flag(s) to {target_language}"
+        )
+        return flags
+    except Exception as e:
+        logger.error(f"[worker] Translation failed: {e} — returning English flags")
+        return flags
 
 
 # MAIN JOB: process_contract
@@ -549,11 +628,16 @@ async def process_contract(ctx, contract_id: str):
 
         extracted_text = contract.get("extracted_text")
 
+        # Analysis ALWAYS runs in English — this is the single judgment pass
+        # that determines flags/severity/risk_score. Keeps the score identical
+        # no matter which report language the user picked; the LLM would
+        # otherwise re-judge the contract independently per language and
+        # produce a different risk_score each time.
         if extracted_text:
             logger.info(f"[worker] Using cached extracted_text for {contract_id}")
             analysis = await _analyse_with_groq_text(
                 text=extracted_text,
-                language=report_language,
+                language="en",
             )
         else:
             logger.info(f"[worker] Downloading file: {file_path}")
@@ -567,7 +651,15 @@ async def process_contract(ctx, contract_id: str):
             analysis = await _analyse_with_groq(
                 file_bytes=file_bytes,
                 mime_type=mime_type,
-                language=report_language,
+                language="en",
+            )
+
+        # Translate only the display text if the report needs a non-English
+        # language. severity/flag_type/legal_references/risk_score stay locked
+        # from the English pass above.
+        if report_language != "en" and analysis.get("flags"):
+            analysis["flags"] = await _translate_flags(
+                analysis["flags"], report_language
             )
 
         _log_memory("after analysis")

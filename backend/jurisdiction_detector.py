@@ -9,45 +9,45 @@ from groq import Groq
 
 # Map detected country → legal_chunks source labels relevant to that jurisdiction
 JURISDICTION_SOURCES = {
-    "UAE":          [
-                        "UAE Labour Law 2021",
-                        "ILO Convention 29 — Forced Labour",
-                        "ILO Convention 105 — Abolition of Forced Labour",
-                        "ILO Convention 143 — Migrant Workers",
-                        "ILO Convention 189 — Domestic Workers",
-                    ],
+    "UAE": [
+        "UAE Labour Law 2021",
+        "ILO Convention 29 — Forced Labour",
+        "ILO Convention 105 — Abolition of Forced Labour",
+        "ILO Convention 143 — Migrant Workers",
+        "ILO Convention 189 — Domestic Workers",
+    ],
     "Saudi Arabia": [
-                        "Saudi Labour Law",
-                        "ILO Convention 29 — Forced Labour",
-                        "ILO Convention 105 — Abolition of Forced Labour",
-                        "ILO Convention 143 — Migrant Workers",
-                        "ILO Convention 189 — Domestic Workers",
-                    ],
-    "Qatar":        [
-                        "Qatar Labour Law 2004",
-                        "Qatar Labour Law 2017 Amendment",
-                        "ILO Convention 29 — Forced Labour",
-                        "ILO Convention 105 — Abolition of Forced Labour",
-                        "ILO Convention 143 — Migrant Workers",
-                        "ILO Convention 189 — Domestic Workers",
-                    ],
-    "Philippines":  [
-                        "POEA Standard Employment Contract",
-                        "POEA Rules and Regulations",
-                        "ILO Convention 29 — Forced Labour",
-                        "ILO Convention 143 — Migrant Workers",
-                        "ILO Convention 189 — Domestic Workers",
-                    ],
-    "Unknown":      [
-                        "ILO Convention 29 — Forced Labour",
-                        "ILO Convention 105 — Abolition of Forced Labour",
-                        "ILO Convention 143 — Migrant Workers",
-                        "ILO Convention 189 — Domestic Workers",
-                        "POEA Standard Employment Contract",
-                        "UAE Labour Law 2021",
-                        "Saudi Labour Law",
-                        "Qatar Labour Law 2004",
-                    ],
+        "Saudi Labour Law",
+        "ILO Convention 29 — Forced Labour",
+        "ILO Convention 105 — Abolition of Forced Labour",
+        "ILO Convention 143 — Migrant Workers",
+        "ILO Convention 189 — Domestic Workers",
+    ],
+    "Qatar": [
+        "Qatar Labour Law 2004",
+        "Qatar Labour Law 2017 Amendment",
+        "ILO Convention 29 — Forced Labour",
+        "ILO Convention 105 — Abolition of Forced Labour",
+        "ILO Convention 143 — Migrant Workers",
+        "ILO Convention 189 — Domestic Workers",
+    ],
+    "Philippines": [
+        "POEA Standard Employment Contract",
+        "POEA Rules and Regulations",
+        "ILO Convention 29 — Forced Labour",
+        "ILO Convention 143 — Migrant Workers",
+        "ILO Convention 189 — Domestic Workers",
+    ],
+    "Unknown": [
+        "ILO Convention 29 — Forced Labour",
+        "ILO Convention 105 — Abolition of Forced Labour",
+        "ILO Convention 143 — Migrant Workers",
+        "ILO Convention 189 — Domestic Workers",
+        "POEA Standard Employment Contract",
+        "UAE Labour Law 2021",
+        "Saudi Labour Law",
+        "Qatar Labour Law 2004",
+    ],
 }
 
 DETECTION_PROMPT = """
@@ -66,7 +66,7 @@ Rules:
 - Never return anything other than the exact strings above.
 """.strip()
 
-TEXT_MODEL = "llama-3.3-70b-versatile"
+TEXT_MODEL = "openai/gpt-oss-20b"
 
 
 def detect_jurisdiction(groq: Groq, contract_text: str) -> str:
@@ -79,14 +79,17 @@ def detect_jurisdiction(groq: Groq, contract_text: str) -> str:
             model=TEXT_MODEL,
             messages=[
                 {"role": "system", "content": DETECTION_PROMPT},
-                {"role": "user",   "content": contract_text[:4000]},
+                {"role": "user", "content": contract_text[:4000]},
             ],
             temperature=0.0,
-            max_tokens=10,
+            max_tokens=50,
+            reasoning_effort="low",
         )
         result = response.choices[0].message.content.strip()
         if result not in JURISDICTION_SOURCES:
-            print(f"[jurisdiction] Unexpected response '{result}' — defaulting to Unknown")
+            print(
+                f"[jurisdiction] Unexpected response '{result}' — defaulting to Unknown"
+            )
             return "Unknown"
         print(f"[jurisdiction] Detected: {result}")
         return result

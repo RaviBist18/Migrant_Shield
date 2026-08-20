@@ -1,5 +1,4 @@
-﻿
-# FILE: backend/main.py
+﻿# FILE: backend/main.py
 # MigrantShield Phase 6 + Gap 3 + Gap 4 — FastAPI Main Application
 
 
@@ -58,8 +57,8 @@ CHAT_GROQ_API_KEY = os.environ.get("CHAT_GROQ_API_KEY", GROQ_API_KEY)
 DEMO_CONTRACT_ID = os.environ.get("DEMO_CONTRACT_ID", "")
 
 
-
 # SUPABASE CLIENT
+
 
 def _get_supabase() -> Client:
     return create_client(
@@ -70,7 +69,6 @@ def _get_supabase() -> Client:
             storage_client_timeout=30,
         ),
     )
-
 
 
 # FASTAPI APP
@@ -161,7 +159,6 @@ async def recover_stuck_contracts():
             logger.info("[startup] No stuck contracts found.")
     except Exception as e:
         logger.warning(f"[startup] Stuck contract recovery failed: {e}")
-
 
 
 # JWKS — ES256 TOKEN VALIDATION
@@ -275,7 +272,6 @@ def _get_current_user(request: Request) -> dict:
     return _validate_jwt(token)
 
 
-
 # ALLOWED MIME TYPES
 
 ALLOWED_MIME_TYPES = {
@@ -292,7 +288,6 @@ MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 
 # ROUTES
-
 
 
 # --------------------------------------------------------------
@@ -847,7 +842,7 @@ async def reanalyze_contract(
 
 
 # ADD this entire block before the line:
-# 
+#
 # # ADMIN — REVIEW QUEUE ENDPOINTS
 
 
@@ -911,11 +906,8 @@ async def download_report_pdf(contract_id: str, request: Request):
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
-    
-
 
 # ADMIN — REVIEW QUEUE ENDPOINTS
-
 
 
 def _require_admin(request: Request) -> dict:
@@ -1038,8 +1030,6 @@ async def update_review_status(review_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Review not found.")
 
     return {"review_id": review_id, "status": status}
-
-    
 
 
 # LEGAL Q&A CHAT ENDPOINT
@@ -1186,10 +1176,11 @@ async def chat_with_report(contract_id: str, request: Request):
 
         groq = GroqClient(api_key=CHAT_GROQ_API_KEY)
         response = groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=messages,
             temperature=0.2,
             max_tokens=400,
+            reasoning_effort="low",
         )
         answer = response.choices[0].message.content.strip()
     except Exception as e:
@@ -1203,8 +1194,6 @@ async def chat_with_report(contract_id: str, request: Request):
 
     logger.info(f"[chat] contract={contract_id} user={user_id} q_len={len(message)}")
     return {"answer": answer, "contract_id": contract_id}
-
-    
 
 
 # COMPLIANCE REPORT GENERATOR
@@ -1344,10 +1333,11 @@ LANGUAGE RULE (MANDATORY):
     try:
         result = groq_chat_with_retry(
             groq=groq,
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": system_prompt}],
             temperature=0.1,
-            max_tokens=2000,
+            max_tokens=6000,
+            reasoning_effort="low",
         )
         import json
 
@@ -1359,9 +1349,7 @@ LANGUAGE RULE (MANDATORY):
         raise HTTPException(status_code=502, detail="Report generation failed.")
 
 
-
 # SHARE ENDPOINTS
-
 
 
 @app.post("/report/{contract_id}/share")
@@ -1546,7 +1534,6 @@ async def revoke_share_token(contract_id: str, request: Request):
     return {"status": "revoked", "contract_id": contract_id}
 
 
-
 # CHAT ENDPOINT
 
 from pydantic import BaseModel
@@ -1615,9 +1602,10 @@ async def chat_endpoint(req: ChatRequest):
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": "openai/gpt-oss-20b",
                     "max_tokens": 1024,
                     "temperature": 0.7,
+                    "reasoning_effort": "low",
                     "messages": messages,
                 },
             )
