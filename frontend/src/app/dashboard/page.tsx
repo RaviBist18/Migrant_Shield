@@ -580,7 +580,10 @@ export default function DashboardPage() {
       icon: <FileText size={20} />,
       label: t.totalContracts,
       value: totalContracts,
-      trend: thisWeekContracts > 0 ? `+${thisWeekContracts} this week` : null,
+      trend:
+        thisWeekContracts > 0
+          ? `+${thisWeekContracts} ${lang === "ne" ? "यो हप्ता" : "this week"}`
+          : null,
       trendUp: true,
     },
     {
@@ -588,7 +591,10 @@ export default function DashboardPage() {
       icon: <CheckCircle size={20} />,
       label: t.analysed,
       value: analysed,
-      trend: thisWeekCompleted > 0 ? `+${thisWeekCompleted} this week` : null,
+      trend:
+        thisWeekCompleted > 0
+          ? `+${thisWeekCompleted} ${lang === "ne" ? "यो हप्ता" : "this week"}`
+          : null,
       trendUp: true,
     },
     {
@@ -596,7 +602,12 @@ export default function DashboardPage() {
       icon: <AlertTriangle size={20} />,
       label: t.criticalFlags,
       value: criticalFlags,
-      trend: criticalFlags > 0 ? "Needs attention" : null,
+      trend:
+        criticalFlags > 0
+          ? lang === "ne"
+            ? "ध्यान आवश्यक"
+            : "Needs attention"
+          : null,
       trendUp: criticalFlags > 0,
     },
     {
@@ -606,8 +617,10 @@ export default function DashboardPage() {
       value: processingCount,
       trend:
         stuckContracts.length > 0
-          ? `${stuckContracts.length} stuck >10min`
-          : null,
+          ? `${stuckContracts.length} ${lang === "ne" ? "अड्किएको >१० मिनेट" : "stuck >10min"}`
+          : lang === "ne"
+            ? "कुनै ढिलाइ छैन"
+            : "No delays",
       trendUp: stuckContracts.length > 0,
     },
     {
@@ -615,7 +628,12 @@ export default function DashboardPage() {
       icon: <XCircle size={20} />,
       label: t.statusFailed,
       value: failedCount,
-      trend: thisWeekFailed > 0 ? `${thisWeekFailed} this week` : null,
+      trend:
+        thisWeekFailed > 0
+          ? `${thisWeekFailed} ${lang === "ne" ? "यो हप्ता" : "this week"}`
+          : lang === "ne"
+            ? "यो हप्ता कुनै छैन"
+            : "None this week",
       trendUp: thisWeekFailed > 0,
     },
   ];
@@ -634,7 +652,7 @@ export default function DashboardPage() {
       )}
 
       <main
-        className="flex-1 max-w-6xl mx-auto w-full px-4 pt-2 pb-24 md:pb-6"
+        className="flex-1 max-w-6xl mx-auto w-full px-4 pt-6 pb-24 md:pb-6"
         onClick={() => {
           if (hasSelection) {
             setActiveFilter("all");
@@ -649,7 +667,7 @@ export default function DashboardPage() {
         ) : (
           <>
             {/* ── Greeting ── */}
-            <div className="mb-6">
+            <div className="mb-8">
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
                 {totalContracts === 0
                   ? `${t.welcomeMsg}${userName ? `, ${userName}` : ""}.`
@@ -688,38 +706,15 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {failedCount > 0 &&
-              !stuckDismissed &&
-              stuckContracts.length === 0 && (
-                <div className="mb-4 flex items-start gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
-                  <XCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-red-800 dark:text-red-300 text-sm font-semibold">
-                      {failedCount} contract{failedCount !== 1 ? "s" : ""}{" "}
-                      failed
-                    </p>
-                    <p className="text-red-700 dark:text-red-400 text-xs mt-0.5">
-                      Review and retry failed contracts below.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleFilterCard("failed")}
-                    className="text-xs text-red-700 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-100 transition-colors shrink-0"
-                  >
-                    View failed
-                  </button>
-                </div>
-              )}
-
             {/* ── Sample Report (always visible) ── */}
-            <div className="mb-6">
+            <div className="mb-8">
               <button
                 onClick={() =>
                   router.push(
                     "/report/0c74c253-4326-4d3c-bb1e-c92955ae2994?view=compact",
                   )
                 }
-                className="w-full flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 border-l-purple-500 rounded-lg px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left"
+                className="w-full flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 border-l-slate-400 rounded-lg px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left"
               >
                 <div className="bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 p-2.5 rounded-lg shrink-0">
                   <FileText size={22} />
@@ -737,7 +732,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ── Stat cards ── */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-4 mb-4">
               {statCards.map((card) => {
                 const isActive = hasSelection && activeFilter === card.key;
                 const isFailed = card.key === "failed";
@@ -773,7 +768,7 @@ export default function DashboardPage() {
                   >
                     <div
                       className={`p-1.5 rounded-lg w-fit border shrink-0 ${
-                        card.key === "failed" && failedCount > 0
+                        card.key === "failed"
                           ? "bg-red-50 border-red-100 text-red-500"
                           : card.key === "critical"
                             ? "bg-orange-50 border-orange-100 text-orange-500"
@@ -787,32 +782,14 @@ export default function DashboardPage() {
                       {card.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p
-                        className={`text-xl font-bold ${
-                          isFailed && failedCount > 0
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-slate-900 dark:text-slate-100"
-                        }`}
-                      >
+                      <p className="text-xl font-bold text-slate-800 dark:text-slate-200">
                         {card.value}
                       </p>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-tight truncate">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-tight break-words">
                         {card.label}
                       </p>
                       {card.trend && (
-                        <p
-                          className={`text-[10px] mt-1 font-medium flex items-center gap-0.5 truncate ${
-                            card.key === "failed"
-                              ? "text-red-500 dark:text-red-400"
-                              : card.key === "critical"
-                                ? "text-orange-500 dark:text-orange-400"
-                                : card.key === "processing"
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : card.key === "completed"
-                                    ? "text-emerald-600 dark:text-emerald-400"
-                                    : "text-blue-500 dark:text-blue-400"
-                          }`}
-                        >
+                        <p className="text-[10px] mt-1 font-medium flex items-center gap-0.5 truncate text-slate-500 dark:text-slate-400">
                           <svg
                             width="10"
                             height="10"
@@ -838,7 +815,7 @@ export default function DashboardPage() {
             </div>
 
             {/* ── What's Next ── */}
-            <div className="mb-2">
+            <div className="mt-6 mb-2">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
                 {t.whatsNext}
               </h2>
@@ -850,7 +827,7 @@ export default function DashboardPage() {
                     icon: <Upload size={22} />,
                     iconBg: "bg-teal-50 dark:bg-teal-950/40",
                     iconColor: "text-teal-600 dark:text-teal-400",
-                    accent: "border-l-teal-500",
+                    accent: "border-l-slate-400",
                     href: "/upload",
                     badge: null,
                     muted: false,
@@ -861,7 +838,7 @@ export default function DashboardPage() {
                     icon: <ShieldAlert size={22} />,
                     iconBg: "bg-orange-50 dark:bg-orange-950/40",
                     iconColor: "text-orange-600 dark:text-orange-400",
-                    accent: "border-l-orange-500",
+                    accent: "border-l-slate-400",
                     href: "/risk-summary",
                     badge: highCount > 0 ? highCount : null,
                     muted: false,
@@ -870,8 +847,8 @@ export default function DashboardPage() {
                     label: t.contractHistory,
                     sub: t.contractHistorySub,
                     icon: <History size={22} />,
-                    iconBg: "bg-slate-100 dark:bg-slate-800",
-                    iconColor: "text-slate-500 dark:text-slate-400",
+                    iconBg: "bg-cyan-50 dark:bg-cyan-950/40",
+                    iconColor: "text-cyan-600 dark:text-cyan-400",
                     accent: "border-l-slate-400",
                     href: "/history",
                     badge: null,
@@ -913,7 +890,7 @@ export default function DashboardPage() {
                     icon: <MessageSquare size={22} />,
                     iconBg: "bg-blue-50 dark:bg-blue-950/40",
                     iconColor: "text-blue-600 dark:text-blue-400",
-                    accent: "border-l-blue-500",
+                    accent: "border-l-slate-400",
                     href: "/chat",
                   },
                   {
@@ -922,7 +899,7 @@ export default function DashboardPage() {
                     icon: <BarChart2 size={22} />,
                     iconBg: "bg-indigo-50 dark:bg-indigo-950/40",
                     iconColor: "text-indigo-600 dark:text-indigo-400",
-                    accent: "border-l-indigo-500",
+                    accent: "border-l-slate-400",
                     href: "/compliance-report",
                   },
                 ].map((item) => (
@@ -1051,14 +1028,10 @@ export default function DashboardPage() {
       {/* ── Footer nav (mobile only) ── */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around p-3 md:hidden">
         {[
-          { href: "/", icon: <Home size={20} />, label: "Home" },
-          {
-            href: "/dashboard",
-            icon: <LayoutDashboard size={20} />,
-            label: "Dashboard",
-          },
+          { href: "/dashboard", icon: <Home size={20} />, label: "Home" },
           { href: "/upload", icon: <Upload size={20} />, label: "Upload" },
           { href: "/history", icon: <History size={20} />, label: "History" },
+          { href: "/chat", icon: <MessageSquare size={20} />, label: "Chat" },
         ].map((item) => {
           const isActive = pathname === item.href;
           return (

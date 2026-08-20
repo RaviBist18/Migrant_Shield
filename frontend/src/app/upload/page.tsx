@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { Lock, Zap, ShieldCheck } from "lucide-react";
 import { translations } from "@/lib/i18n/landing";
 import type { Lang } from "@/lib/i18n/landing";
 
@@ -226,21 +227,34 @@ export default function UploadPage() {
         {/* Trust signals */}
         <div className="mt-5 grid grid-cols-3 gap-2.5">
           {[
-            { icon: "🔒", text: lang === "ne" ? "एन्क्रिप्टेड" : "Encrypted" },
             {
-              icon: "⚡",
-              text: lang === "ne" ? "६० सेकेन्ड" : "~60s analysis",
+              icon: (
+                <Lock size={20} className="text-teal-500" strokeWidth={1.5} />
+              ),
+              text: lang === "ne" ? "एन्क्रिप्टेड" : "Encrypted",
             },
             {
-              icon: "🛡",
-              text: lang === "ne" ? "१४ कानून" : "14 laws checked",
+              icon: (
+                <Zap size={20} className="text-teal-500" strokeWidth={1.5} />
+              ),
+              text: lang === "ne" ? "~२० सेकेन्डमा विश्लेषण" : "~20s analysis",
+            },
+            {
+              icon: (
+                <ShieldCheck
+                  size={20}
+                  className="text-teal-500"
+                  strokeWidth={1.5}
+                />
+              ),
+              text: lang === "ne" ? "१४ कानून जाँचिए" : "14 laws checked",
             },
           ].map((item) => (
             <div
               key={item.text}
               className="flex flex-col items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-3 px-2"
             >
-              <span className="text-lg">{item.icon}</span>
+              {item.icon}
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 text-center leading-tight">
                 {item.text}
               </span>

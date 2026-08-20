@@ -265,7 +265,7 @@ export default function GlobalHeader() {
             <path d="M13 14h4M13 18h6" />
             <path d="M19 10l-2-2-4 4" />
           </svg>
-          <span className="hidden sm:inline text-slate-900 dark:text-slate-100 font-bold text-lg sm:text-xl tracking-tight">
+          <span className="inline text-slate-900 dark:text-slate-100 font-bold text-base sm:text-xl tracking-tight">
             MigrantShield
           </span>
         </Link>
@@ -275,37 +275,21 @@ export default function GlobalHeader() {
           {/* Upload CTA */}
           <button
             onClick={() => router.push("/upload")}
-            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-700 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-medium px-2.5 sm:px-4 py-1 rounded-lg text-sm transition-colors mr-1 sm:mr-2"
+            className="hidden md:flex items-center gap-1.5 bg-slate-900 hover:bg-slate-700 dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900 text-white font-medium px-4 py-1 rounded-lg text-sm transition-colors"
           >
             <Upload size={16} className="shrink-0" />
-            <span suppressHydrationWarning className="hidden sm:inline">
+            <span suppressHydrationWarning>
               {lang === "ne" ? "अपलोड" : "Upload"}
             </span>
           </button>
 
           {/* ── Lang toggle ── */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full p-0.5 gap-0.5">
-            <button
-              onClick={() => toggleLang("en")}
-              className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                lang === "en"
-                  ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700"
-              }`}
-            >
-              EN
-            </button>
-            <button
-              onClick={() => toggleLang("ne")}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                lang === "ne"
-                  ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700"
-              }`}
-            >
-              नेपाली
-            </button>
-          </div>
+          <button
+            onClick={() => toggleLang(lang === "en" ? "ne" : "en")}
+            className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          >
+            {lang === "en" ? "नेपाली" : "EN"}
+          </button>
 
           {/* ── Notification bell ── */}
           {!loading && user && (
@@ -462,7 +446,7 @@ export default function GlobalHeader() {
                   setOpen((prev) => !prev);
                   setShowSwitcher(false);
                 }}
-                className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="flex items-center p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 {user?.user_metadata?.avatar_url ? (
                   <img
@@ -475,10 +459,6 @@ export default function GlobalHeader() {
                     {initials}
                   </div>
                 )}
-                <ChevronDown
-                  size={13}
-                  className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
-                />
               </button>
 
               {/* ── Settings/account dropdown ── */}

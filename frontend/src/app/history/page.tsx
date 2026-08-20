@@ -925,7 +925,7 @@ function HistoryContent() {
         )}
 
         {/* ── Filter tabs ── */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 mb-4 scrollbar-hide">
+        <div className="flex gap-1.5 overflow-x-auto overflow-y-visible py-2 mb-4 scrollbar-hide">
           {FILTERS.map(({ key, label, count }) => (
             <button
               key={key}
@@ -934,7 +934,7 @@ function HistoryContent() {
                 setPage(1);
                 setSelectedIds(new Set());
               }}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`shrink-0 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs rounded-full font-medium transition-colors ${
                 filter === key
                   ? key === "failed"
                     ? "bg-red-600 text-white"

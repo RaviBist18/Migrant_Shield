@@ -143,7 +143,7 @@ function severityConfig(severity: string) {
     default:
       return {
         topBorder: "border-t-slate-300",
-        leftBorder: "border-l-slate-300",
+        leftBorder: "border-l-slate-400",
         clauseBorder: "border-l-slate-200",
         badgeBg: "bg-slate-50",
         badgeBorder: "border-slate-200",
