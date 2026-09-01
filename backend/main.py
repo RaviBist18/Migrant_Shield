@@ -1536,6 +1536,80 @@ async def revoke_share_token(contract_id: str, request: Request):
 
 # CHAT ENDPOINT
 
+
+# --------------------------------------------------------------
+# DELETE /account
+# Permanently deletes user's contracts, flags, reports, shares,
+# storage files, and the Supabase Auth user itself.
+# JWT-gated.
+# --------------------------------------------------------------
+@app.delete("/account")
+async def delete_account(request: Request):
+    user = _get_current_user(request)
+    user_id = user.get("sub")
+
+    supabase = _get_supabase()
+
+    # Fetch contract file paths first (for storage cleanup)
+    try:
+        contracts_result = (
+            supabase.table("contracts")
+            .select("contract_id, file_path")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        contracts = contracts_result.data or []
+    except Exception as e:
+        logger.error(f"[delete_account] fetch contracts failed: {e}")
+        contracts = []
+
+    contract_ids = [c["contract_id"] for c in contracts]
+    file_paths = [c["file_path"] for c in contracts if c.get("file_path")]
+
+    # Delete storage files
+    if file_paths:
+        try:
+            supabase.storage.from_(SUPABASE_BUCKET).remove(file_paths)
+        except Exception as e:
+            logger.warning(f"[delete_account] storage cleanup failed: {e}")
+
+    # Delete dependent rows
+    try:
+        if contract_ids:
+            supabase.table("contract_flags").delete().in_(
+                "contract_id", contract_ids
+            ).execute()
+            supabase.table("reports").delete().in_(
+                "contract_id", contract_ids
+            ).execute()
+            supabase.table("contract_shares").delete().in_(
+                "contract_id", contract_ids
+            ).execute()
+            supabase.table("human_review_queue").delete().in_(
+                "contract_id", contract_ids
+            ).execute()
+    except Exception as e:
+        logger.error(f"[delete_account] dependent row cleanup failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear contract data.")
+
+    # Delete contracts
+    try:
+        supabase.table("contracts").delete().eq("user_id", user_id).execute()
+    except Exception as e:
+        logger.error(f"[delete_account] contracts delete failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete contracts.")
+
+    # Delete Supabase Auth user (service role required — already have it)
+    try:
+        supabase.auth.admin.delete_user(user_id)
+    except Exception as e:
+        logger.error(f"[delete_account] auth user delete failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete account.")
+
+    logger.info(f"[delete_account] account deleted: user={user_id}")
+    return {"status": "deleted"}
+
+
 from pydantic import BaseModel
 from typing import List
 

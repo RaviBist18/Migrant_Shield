@@ -18,6 +18,7 @@ import BottomNav from "@/components/BottomNav";
 import { translations } from "@/lib/i18n/landing";
 import { useToast } from "@/context/ToastContext";
 import { useTheme } from "@/context/ThemeContext";
+import DeleteAccountModal from "@/components/DeleteAccountModal";
 
 type Lang = "en" | "ne";
 type Theme = "light" | "dark" | "system";
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const THEME_OPTIONS: {
     value: Theme;
@@ -172,7 +174,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col pb-24">
-      <main className="flex-1 px-4 pt-6 max-w-lg mx-auto w-full">
+      <main className="flex-1 px-4 pt-6 max-w-6xl mx-auto w-full">
         <button
           onClick={() => router.push("/dashboard")}
           className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 text-sm font-medium mb-4 transition-colors"
@@ -321,17 +323,25 @@ export default function SettingsPage() {
               {t?.settings?.dangerZone ?? "Danger Zone"}
             </span>
           </div>
-          <div className="flex items-center justify-between px-4 py-3.5 text-sm opacity-40 cursor-not-allowed">
+          <div
+            onClick={() => setShowDeleteModal(true)}
+            className="flex items-center justify-between px-4 py-3.5 text-sm cursor-pointer hover:bg-red-50/60 dark:hover:bg-red-950/20 transition-colors"
+          >
             <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-              <Trash2 className="w-4 h-4 text-red-400" />
+              <Trash2 className="w-4 h-4 text-red-500" />
               <span>{t?.settings?.deleteAccount ?? "Delete Account"}</span>
             </div>
-            <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-              Phase 4
-            </span>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
         </div>
       </main>
+
+      {showDeleteModal && email && (
+        <DeleteAccountModal
+          userEmail={email}
+          onClose={() => setShowDeleteModal(false)}
+        />
+      )}
 
       <BottomNav />
     </div>

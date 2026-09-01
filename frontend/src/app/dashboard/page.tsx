@@ -40,6 +40,22 @@ const supabase = createBrowserClient(
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10;
 const STUCK_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+type TimePhase =
+  | "lateNight"
+  | "earlyMorning"
+  | "morning"
+  | "afternoon"
+  | "evening"
+  | "night";
+
+function getTimePhase(hour: number): TimePhase {
+  if (hour >= 23 || hour < 5) return "lateNight";
+  if (hour < 8) return "earlyMorning";
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  if (hour < 21) return "evening";
+  return "night";
+}
 
 type SortField = "upload_date" | "employer_name" | "risk_score";
 type SortDir = "asc" | "desc";
@@ -273,6 +289,68 @@ export default function DashboardPage() {
   }, []);
 
   const t = translations[lang].dashboard;
+
+  const firstTimeGreetings = [
+    `Welcome , ${userName}. Let's protect your first contract.`,
+    `Hi ${userName}, ready to upload your first contract?`,
+    `Great to have you, ${userName}. Let's get your first analysis done.`,
+  ];
+
+  const greetingsByPhase: Record<TimePhase, string[]> = {
+    lateNight: [
+      `Still up, ${userName}?`,
+      `Late night grind, ${userName}.`,
+      `Welcome back, ${userName}. Late one tonight.`,
+    ],
+    earlyMorning: [
+      `Early start, ${userName}.`,
+      `Good morning, ${userName}. Up before the rush.`,
+      `Rise and grind, ${userName}.`,
+    ],
+    morning: [
+      `Good morning, ${userName}.`,
+      `Welcome back, ${userName}. Ready to start the day?`,
+      `Hello, ${userName}. Let's see what's next.`,
+    ],
+    afternoon: [
+      `Good afternoon, ${userName}.`,
+      `Welcome back, ${userName}. Hope your day is going well.`,
+      `Hello, ${userName}. Let's continue where you left off.`,
+    ],
+    evening: [
+      `Good evening, ${userName}.`,
+      `Welcome back, ${userName}. Wrapping up for the day?`,
+      `Hello, ${userName}. Good to see you this evening.`,
+    ],
+    night: [
+      `Good to see you, ${userName}.`,
+      `Working late tonight, ${userName}?`,
+      `Welcome back, ${userName}, let's finish it well.`,
+    ],
+  };
+
+  const [mounted, setMounted] = useState(false);
+  const [greetingSeed, setGreetingSeed] = useState(0);
+  const [phase, setPhase] = useState<TimePhase>("morning");
+
+  useEffect(() => {
+    setGreetingSeed(Math.random());
+    setPhase(getTimePhase(new Date().getHours()));
+    setMounted(true);
+  }, []);
+
+  function getGreeting() {
+    if (totalContracts === 0) {
+      if (!mounted) return `Welcome, ${userName}. Let's get started.`;
+      return firstTimeGreetings[
+        Math.floor(greetingSeed * firstTimeGreetings.length)
+      ];
+    }
+    if (!userName) return "Welcome back.";
+    if (!mounted) return `Welcome back, ${userName}.`;
+    const pool = greetingsByPhase[phase];
+    return pool[Math.floor(greetingSeed * pool.length)];
+  }
 
   // ── Auth + fetch ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -669,9 +747,7 @@ export default function DashboardPage() {
             {/* ── Greeting ── */}
             <div className="mb-8">
               <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
-                {totalContracts === 0
-                  ? `${t.welcomeMsg}${userName ? `, ${userName}` : ""}.`
-                  : `${t.onDuty}${userName ? `, ${userName}` : ""}.`}
+                {getGreeting()}
               </h1>
               <p className="mt-1.5 text-base text-slate-500 dark:text-slate-400">
                 {totalContracts === 0
@@ -714,7 +790,7 @@ export default function DashboardPage() {
                     "/report/0c74c253-4326-4d3c-bb1e-c92955ae2994?view=compact",
                   )
                 }
-                className="w-full flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 border-l-slate-400 rounded-lg px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left"
+                className="w-full flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left"
               >
                 <div className="bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 p-2.5 rounded-lg shrink-0">
                   <FileText size={22} />
@@ -825,8 +901,8 @@ export default function DashboardPage() {
                     label: t.uploadNewContract,
                     sub: t.uploadNewContractSub,
                     icon: <Upload size={22} />,
-                    iconBg: "bg-teal-50 dark:bg-teal-950/40",
-                    iconColor: "text-teal-600 dark:text-teal-400",
+                    iconBg: "bg-slate-100 dark:bg-slate-800",
+                    iconColor: "text-slate-900 dark:text-slate-100",
                     accent: "border-l-slate-400",
                     href: "/upload",
                     badge: null,
@@ -836,8 +912,8 @@ export default function DashboardPage() {
                     label: t.riskSummary,
                     sub: t.riskSummarySub,
                     icon: <ShieldAlert size={22} />,
-                    iconBg: "bg-orange-50 dark:bg-orange-950/40",
-                    iconColor: "text-orange-600 dark:text-orange-400",
+                    iconBg: "bg-slate-100 dark:bg-slate-800",
+                    iconColor: "text-slate-900 dark:text-slate-100",
                     accent: "border-l-slate-400",
                     href: "/risk-summary",
                     badge: highCount > 0 ? highCount : null,
@@ -847,8 +923,8 @@ export default function DashboardPage() {
                     label: t.contractHistory,
                     sub: t.contractHistorySub,
                     icon: <History size={22} />,
-                    iconBg: "bg-cyan-50 dark:bg-cyan-950/40",
-                    iconColor: "text-cyan-600 dark:text-cyan-400",
+                    iconBg: "bg-slate-100 dark:bg-slate-800",
+                    iconColor: "text-slate-900 dark:text-slate-100",
                     accent: "border-l-slate-400",
                     href: "/history",
                     badge: null,
@@ -858,7 +934,7 @@ export default function DashboardPage() {
                   <button
                     key={item.label}
                     onClick={() => router.push(item.href)}
-                    className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-5 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
+                    className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-5 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left ${item.muted ? "opacity-50" : ""}`}
                   >
                     <div
                       className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
@@ -888,8 +964,8 @@ export default function DashboardPage() {
                     label: t.askQuestion,
                     sub: t.askQuestionSub,
                     icon: <MessageSquare size={22} />,
-                    iconBg: "bg-blue-50 dark:bg-blue-950/40",
-                    iconColor: "text-blue-600 dark:text-blue-400",
+                    iconBg: "bg-slate-100 dark:bg-slate-800",
+                    iconColor: "text-slate-900 dark:text-slate-100",
                     accent: "border-l-slate-400",
                     href: "/chat",
                   },
@@ -897,8 +973,8 @@ export default function DashboardPage() {
                     label: t.complianceReport,
                     sub: t.complianceReportSub,
                     icon: <BarChart2 size={22} />,
-                    iconBg: "bg-indigo-50 dark:bg-indigo-950/40",
-                    iconColor: "text-indigo-600 dark:text-indigo-400",
+                    iconBg: "bg-slate-100 dark:bg-slate-800",
+                    iconColor: "text-slate-900 dark:text-slate-100",
                     accent: "border-l-slate-400",
                     href: "/compliance-report",
                   },
@@ -906,7 +982,7 @@ export default function DashboardPage() {
                   <button
                     key={item.label}
                     onClick={() => router.push(item.href)}
-                    className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${item.accent} rounded-lg px-4 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
+                    className={`flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-8 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left`}
                   >
                     <div
                       className={`${item.iconBg} ${item.iconColor} p-2.5 rounded-lg shrink-0`}
