@@ -822,10 +822,10 @@ async def process_upload(ctx, contract_id: str):
     finally:
         ping_task.cancel()
 
-    # Enqueue analysis — reuse arq's own pool, don't spin up a second one
-    await ctx["redis"].enqueue_job("process_contract", contract_id)
+    # Run analysis directly — no queue, no arq
+    await process_contract({}, contract_id)
     logger.info(
-        f"[worker] process_contract enqueued from process_upload: {contract_id}"
+        f"[worker] process_contract run directly from process_upload: {contract_id}"
     )
 
 
@@ -837,7 +837,7 @@ async def keep_redis_alive(ctx):
         logger.warning(f"[worker] Redis keepalive ping failed: {e}")
 
 
-async def _keepalive_during_job(ctx, interval: int = 10):
+async def _keepalive_during_job(ctx, interval: int = 60):
     """Ping redis every `interval` seconds while a long job (OCR/Groq) runs."""
     import asyncio
 
@@ -854,11 +854,11 @@ async def _keepalive_during_job(ctx, interval: int = 10):
 
 class WorkerSettings:
     functions = [process_contract, process_upload]
-    cron_jobs = [cron(keep_redis_alive, second=set(range(0, 60, 30)))]
     redis_settings = REDIS_SETTINGS
     max_jobs = 2
     job_timeout = 180
     keep_result = 3600
+    poll_delay = 1
 
 
 # ENQUEUE HELPERS

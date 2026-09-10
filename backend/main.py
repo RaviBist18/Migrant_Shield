@@ -99,41 +99,6 @@ async def preflight_handler(rest_of_path: str):
     return JSONResponse(status_code=200, content={})
 
 
-async def _run_worker_forever():
-    from worker import WorkerSettings
-
-    while True:
-        worker = create_worker(WorkerSettings, handle_signals=False)
-        try:
-            await worker.async_run()
-        except Exception as e:
-            logger.error(f"[main] ARQ worker crashed: {e} — restarting in 3s")
-        await asyncio.sleep(3)
-
-
-@app.on_event("startup")
-async def start_arq_worker():
-    asyncio.create_task(_run_worker_forever())
-    logger.info("[main] ARQ worker watchdog started")
-
-
-@app.on_event("startup")
-async def start_persistent_redis_pool():
-    from worker import REDIS_SETTINGS
-    from arq import create_pool
-
-    app.state.arq_pool = await create_pool(REDIS_SETTINGS)
-    logger.info("[main] Persistent ARQ enqueue pool started")
-
-
-@app.on_event("shutdown")
-async def close_persistent_redis_pool():
-    pool = getattr(app.state, "arq_pool", None)
-    if pool:
-        await pool.close()
-        logger.info("[main] Persistent ARQ enqueue pool closed")
-
-
 @app.on_event("startup")
 async def recover_stuck_contracts():
     """Reset contracts stuck in 'processing' for >10 minutes on startup."""
@@ -383,7 +348,9 @@ async def upload_contract(
 
     # PDFs keep the 2-job async flow (tesseract fallback still needed for scanned PDFs).
     if file.content_type == "application/pdf":
-        await app.state.arq_pool.enqueue_job("process_upload", contract_id)
+        from worker import process_upload
+
+        background_tasks.add_task(process_upload, {}, contract_id)
         logger.info(
             f"Contract queued: {contract_id} user={user_id} language={language}"
         )
@@ -411,9 +378,9 @@ async def upload_contract(
         }
     except asyncio.TimeoutError:
         logger.info(
-            f"Contract fast-path timed out, falling back to queue: {contract_id}"
+            f"Contract fast-path timed out, falling back to background task: {contract_id}"
         )
-        await app.state.arq_pool.enqueue_job("process_contract", contract_id)
+        background_tasks.add_task(process_contract, None, contract_id)
         return {"contract_id": contract_id, "status": "queued", "language": language}
 
 
@@ -830,8 +797,8 @@ async def reanalyze_contract(
         logger.error(f"Contract reset failed for {contract_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to reset contract.")
 
-    # Re-enqueue — reuse persistent pool
-    await app.state.arq_pool.enqueue_job("process_contract", contract_id)
+    # Re-run directly — no queue
+    background_tasks.add_task(process_contract, None, contract_id)
 
     logger.info(f"Reanalysis queued: contract_id={contract_id} user={user_id}")
     return {
