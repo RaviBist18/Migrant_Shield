@@ -28,7 +28,8 @@ from supabase import Client, create_client
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from groq_utils import groq_chat_with_retry
-from arq.worker import create_worker
+
+# from arq.worker import create_worker
 import asyncio
 from supabase.lib.client_options import ClientOptions
 
