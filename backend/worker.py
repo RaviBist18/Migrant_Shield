@@ -333,6 +333,7 @@ def _extract_from_image_groq_vision(file_bytes: bytes, mime_type: str) -> str:
                 }
             ],
             temperature=0,
+            max_tokens=1000,
         )
         text = response.choices[0].message.content
         logger.info(f"[extract] Groq vision OCR: {len(text)} chars")
