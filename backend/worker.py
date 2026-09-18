@@ -314,7 +314,7 @@ def _extract_from_image_groq_vision(file_bytes: bytes, mime_type: str) -> str:
     try:
         b64_image = base64.b64encode(file_bytes).decode("utf-8")
         response = _groq_create_with_rotation(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            model="qwen/qwen3.8-27b",
             messages=[
                 {
                     "role": "user",
